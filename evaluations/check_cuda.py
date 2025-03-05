@@ -1,40 +1,56 @@
-import torch
 import subprocess
 import os
 import re
 
-def check_cuda(min_memory_gb=2):
+# Supported CUDA versions for Automoy
+SUPPORTED_CUDA_VERSIONS = ["11.8", "12.1", "12.4"]
+
+def get_installed_cuda_version():
     """
-    Checks if CUDA is available, the GPU has enough memory, and if OmniParser can leverage GPU acceleration.
-    
-    Args:
-        min_memory_gb (int): Minimum required GPU memory in GB.
+    Detects installed CUDA versions using `nvcc --version`.
+    Returns:
+        str: Detected CUDA version or None if no supported CUDA is found.
+    """
+    try:
+        # Run `nvcc --version` and extract the actual installed CUDA version
+        result = subprocess.run(["nvcc", "--version"], capture_output=True, text=True)
+        match = re.search(r"release (\d+\.\d+)", result.stdout)
+
+        if match:
+            detected_version = match.group(1)
+            print(f"🔍 Detected installed CUDA version via NVCC: {detected_version}")
+
+            # Check if the detected version is in the supported range
+            if detected_version in SUPPORTED_CUDA_VERSIONS:
+                print("✅ Installed CUDA version is supported.")
+                return detected_version
+            else:
+                print("⚠️ Installed CUDA version is outside the supported range.")
+                return None
+    except FileNotFoundError:
+        print("⚠️ `nvcc` is not installed or not found. Falling back to NVIDIA-SMI.")
+
+
+def check_cuda():
+    """
+    Checks if a supported CUDA version is installed.
     
     Returns:
-        bool: True if CUDA is available and meets the minimum memory requirement.
+        bool: True if a supported CUDA version is detected.
     """
-    print("🔍 Checking CUDA and GPU availability...")
+    print("🔍 Checking CUDA installation...")
 
-    # Check if PyTorch detects CUDA
-    if not torch.cuda.is_available():
-        print("❌ CUDA is not available. Please check your GPU setup.")
-        return False
-
-    # Get CUDA device info
-    device_name = torch.cuda.get_device_name(0)
-    total_memory = torch.cuda.get_device_properties(0).total_memory / 1e9  # Convert bytes to GB
-    print(f"✅ Using device: {device_name}")
-    print(f"✅ Total GPU memory: {total_memory:.2f} GB")
-
-    if total_memory < min_memory_gb:
-        print(f"⚠️ Insufficient GPU memory. Required: {min_memory_gb} GB, Available: {total_memory:.2f} GB")
+    # Check system CUDA version using NVCC
+    installed_cuda = get_installed_cuda_version()
+    if not installed_cuda:
+        print("❌ No compatible CUDA installation found.")
         return False
 
     return True
 
 def run_nvidia_smi():
     """
-    Runs the 'nvidia-smi' command to get GPU details and driver information.
+    Runs the 'nvidia-smi' command to display GPU details.
     """
     try:
         print("🔍 Running 'nvidia-smi' for additional diagnostics...")
@@ -44,13 +60,12 @@ def run_nvidia_smi():
     except FileNotFoundError:
         print("⚠️ 'nvidia-smi' is not installed or not found. Ensure you have NVIDIA drivers installed.")
 
-# Main test
-if __name__ == "__main__":
-    print("🚀 Starting CUDA Evaluation for Automoy-V2...")
-    
-    if check_cuda():
-        print("✅ CUDA and PyTorch GPU configuration verified successfully.")
-    else:
-        print("❌ CUDA and/or PyTorch GPU configuration failed. Please check your setup.")
+    return result
 
-    run_nvidia_smi()
+if __name__ == "__main__":
+    print("🚀 Checking System CUDA Version...")
+
+    if check_cuda():
+        print("✅ CUDA installation verified successfully.")
+    else:
+        print("❌ No supported CUDA version found. Please install a supported version (11.8, 12.1, 12.4).")
