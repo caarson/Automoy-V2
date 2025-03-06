@@ -84,28 +84,35 @@ def create_conda_env(env_name="automoy_env"):
     subprocess.run([conda_exe, "create", "--name", env_name, "python=3.12", "-y"], check=True)
     print(f"✅ Conda environment {env_name} created successfully!")
 
-
 def install_pytorch(env_name="automoy_env"):
-    """Install PyTorch with the correct CUDA version in the Conda environment."""
+    """Install PyTorch with the correct CUDA version in the Conda environment using pip."""
     conda_exe = find_conda()
     if not conda_exe:
         print("❌ Conda executable not found. Aborting.")
         return
-    
+
     print("🔍 Checking CUDA installation...")
     cuda_version = check_cuda.get_installed_cuda_version()
     
     print(f"📦 Installing PyTorch in Conda environment {env_name}...")
+
     if cuda_version:
+        # Convert CUDA version to the expected format for PyTorch's pip index (e.g., 11.8 -> cu118)
+        cuda_pip_version = f"cu{cuda_version.replace('.', '')}"
+
         pytorch_command = [
-            conda_exe, "install", "-n", env_name, "-c", "nvidia", "-c", "pytorch", "pytorch", "torchvision", "torchaudio",
-            f"pytorch-cuda={cuda_version}", "-y"
+            conda_exe, "run", "-n", env_name, "pip", "install",
+            "torch", "torchvision", "torchaudio",
+            "--index-url", f"https://download.pytorch.org/whl/{cuda_pip_version}"
         ]
     else:
         print("⚠️ No supported CUDA detected, installing PyTorch CPU version...")
-        pytorch_command = [conda_exe, "install", "-n", env_name, "-c", "pytorch", "torch", "torchvision", "torchaudio", "cpuonly", "-y"]
+        pytorch_command = [
+            conda_exe, "run", "-n", env_name, "pip", "install",
+            "torch", "torchvision", "torchaudio", "--index-url", "https://download.pytorch.org/whl/cpu"
+        ]
+    
     subprocess.run(pytorch_command, check=True)
-
 
 def install_requirements(env_name="automoy_env"):
     """Install all dependencies in requirements.txt using Conda."""

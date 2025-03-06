@@ -1,0 +1,5 @@
+OPENAI_API_KEY: 
+LMSTUDIO_API_URL: http://llm.technologies-ai.com/
+MODEL: deepseek-r1-distill-qwen-7b
+DEFINE_REGION: False
+DEBUG: True
