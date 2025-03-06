@@ -28,7 +28,7 @@ def get_installed_cuda_version():
                 print("⚠️ Installed CUDA version is outside the supported range.")
                 return None
     except FileNotFoundError:
-        print("⚠️ `nvcc` is not installed or not found. Falling back to NVIDIA-SMI.")
+        print("⚠️ `nvcc` is not installed or not found.")
 
 
 def check_cuda():

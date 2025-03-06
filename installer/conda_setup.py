@@ -14,6 +14,9 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 installer_dir = os.path.join(project_root, "installer", "downloads")
 os.makedirs(installer_dir, exist_ok=True)
 
+# Path to aria2c executable (assumed to be in the same directory as this script)
+aria2c_path = os.path.join(os.path.dirname(__file__), "aria2c.exe")
+
 # Possible locations for Conda
 CONDA_PATHS = [
     os.path.join(os.environ.get("PROGRAMFILES", ""), "Anaconda3", "condabin", "conda.bat"),
@@ -23,7 +26,7 @@ CONDA_PATHS = [
     os.path.join(os.environ.get("USERPROFILE", ""), "miniconda3", "condabin", "conda.bat")
 ]
 
-ANACONDA_URL = "https://repo.anaconda.com/archive/Anaconda3-2024.02-1-Windows-x86_64.exe"
+ANACONDA_URL = "https://repo.anaconda.com/archive/Anaconda3-2024.06-1-Windows-x86_64.exe"
 
 def find_conda():
     """Find the Conda executable."""
@@ -37,19 +40,22 @@ def is_conda_installed():
     return find_conda() is not None
 
 def install_anaconda():
-    """Install full Anaconda distribution if not installed."""
+    """Download and launch the Anaconda installer for the user to install manually."""
     if is_conda_installed():
         print("✅ Anaconda is already installed.")
         return
-    
+
     print("🔍 Anaconda not found. Installing full Anaconda...")
     installer_path = os.path.join(installer_dir, "Anaconda3-2024.02-1-Windows-x86_64.exe")
+
+    if not os.path.exists(installer_path):
+        print("🌍 Downloading Anaconda installer using aria2c...")
+        subprocess.run([aria2c_path, "-x", "16", "-s", "16", "-j", "16", "-d", installer_dir, "-o", "Anaconda3-2024.02-1-Windows-x86_64.exe", ANACONDA_URL], check=True)
     
-    print("🌍 Downloading Anaconda installer...")
-    subprocess.run(["powershell", "-Command", "Invoke-WebRequest", "-Uri", ANACONDA_URL, "-OutFile", installer_path], check=True)
-    print("🛠️ Running Anaconda installer...")
-    subprocess.run([installer_path, "/InstallationType=JustMe", "/AddToPath=1", "/RegisterPython=1", "/S"], check=True)
-    print("✅ Anaconda installation complete!")
+    print("🛠️ Launching Anaconda installer... Follow the setup instructions.")
+    subprocess.run([installer_path], check=True)
+
+    print("✅ Anaconda installation complete! Please restart your terminal if needed.")
 
 def create_conda_env(env_name="automoy_env"):
     """Create a new Conda environment for Automoy-V2."""

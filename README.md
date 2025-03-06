@@ -24,7 +24,6 @@ automoy-v2/
 │
 │── robotics/                # 🤖 (Future) Robotics programming integration (enables hardware interaction and validation)
 │
-│── web_scraping/            # 🌍 (Future) Web data extraction module (automates online data retrieval using Selenium/Playwright)
 │
 │── gui/                     # 🖥️ Web UI for user interaction (provides a frontend interface for controlling Automoy)
 │
@@ -62,9 +61,9 @@ Automoy relies on **CUDA for GPU acceleration**. Before use, the application wil
 1. **CUDA is properly configured**.
 2. **The corresponding PyTorch package is installed**.
 
-If CUDA is missing or misconfigured, **the program will not start**.
+If CUDA is unable to be used or misconfigured, **the program will not start**.
 
-🚀 **Tested on:** CUDA **12.4**  
+🚀 **Tested on:** CUDA **11.8**  
 ❓ **Older CUDA versions:** May be compatible but remain untested. Feedback is appreciated!
 
 🔹 **Supported Operating Systems:**  
