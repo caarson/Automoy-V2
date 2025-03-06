@@ -61,6 +61,16 @@ def run_conda_setup():
         print("Conda setup failed. Please check logs.")
         sys.exit(1)
 
+def run_omnispaper_setup():
+    """Runs the OmniParser setup script to ensure it's running."""
+    print("Starting OmniParser setup...")
+    try:
+        subprocess.run([sys.executable, "installer/omniparser_setup.py"], check=True)
+        print("OmniParser setup complete!")
+    except subprocess.CalledProcessError:
+        print("OmniParser setup failed. Please check logs.")
+        sys.exit(1)
+
 if __name__ == "__main__":
     print("Automoy-V2 Full Installer Starting...")
 
@@ -69,5 +79,8 @@ if __name__ == "__main__":
 
     # Step 2: Install Conda and setup environment
     run_conda_setup()
+
+    # Step 3: Install and Start OmniParser Server
+    run_omnispaper_setup()
 
     print("All installations complete! Automoy-V2 is now ready to use.")
