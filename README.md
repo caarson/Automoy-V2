@@ -87,3 +87,8 @@ While Automoy natively supports **NVIDIA CUDA**, there are **alternative toolcha
 🚀 **Automated installation & configuration** (including AMD GPU support) is planned, but Automoy remains **human-developed**, so expect slower iterations. 
 
 For now, **users must manually install prerequisites**. Thank you for your patience!
+
+---
+
+## Installation:
+Run setup.py from /installer.
