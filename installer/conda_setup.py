@@ -118,18 +118,6 @@ def install_requirements(env_name="automoy_env"):
     subprocess.run([conda_exe, "run", "-n", env_name, "pip", "install", "-r", "installer/requirements.txt"], check=True)
 
 
-def install_anaconda_navigator():
-    """Ensure Anaconda Navigator is installed."""
-    conda_exe = find_conda()
-    if not conda_exe:
-        print("❌ Conda executable not found. Aborting.")
-        return
-    
-    print("📦 Installing Anaconda Navigator...")
-    subprocess.run([conda_exe, "install", "-y", "anaconda-navigator"], check=True)
-    print("✅ Anaconda Navigator installation complete!")
-
-
 def main():
     print("🚀 Automoy-V2 Conda Installer Starting...")
     
@@ -139,7 +127,6 @@ def main():
     create_conda_env(env_name)
     install_pytorch(env_name)
     install_requirements(env_name)
-    install_anaconda_navigator()
     
     print(f"✅ Installation Complete! Activate your environment with: conda activate {env_name}")
 
