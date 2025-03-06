@@ -28,6 +28,7 @@ CONDA_PATHS = [
 
 ANACONDA_URL = "https://repo.anaconda.com/archive/Anaconda3-2024.06-1-Windows-x86_64.exe"
 
+
 def find_conda():
     """Find the Conda executable."""
     for path in CONDA_PATHS:
@@ -35,9 +36,20 @@ def find_conda():
             return path
     return None
 
+
 def is_conda_installed():
     """Check if Conda is installed by looking for the executable."""
     return find_conda() is not None
+
+
+def is_env_created(env_name):
+    """Check if the Conda environment exists."""
+    conda_exe = find_conda()
+    if not conda_exe:
+        return False
+    result = subprocess.run([conda_exe, "env", "list"], capture_output=True, text=True)
+    return env_name in result.stdout
+
 
 def install_anaconda():
     """Download and launch the Anaconda installer for the user to install manually."""
@@ -54,19 +66,24 @@ def install_anaconda():
     
     print("🛠️ Launching Anaconda installer... Follow the setup instructions.")
     subprocess.run([installer_path], check=True)
-
     print("✅ Anaconda installation complete! Please restart your terminal if needed.")
 
+
 def create_conda_env(env_name="automoy_env"):
-    """Create a new Conda environment for Automoy-V2."""
+    """Create a new Conda environment if it does not already exist."""
     conda_exe = find_conda()
     if not conda_exe:
         print("❌ Conda executable not found. Aborting.")
         return
     
+    if is_env_created(env_name):
+        print(f"✅ Conda environment {env_name} already exists.")
+        return
+
     print(f"🔧 Creating Conda environment: {env_name}...")
     subprocess.run([conda_exe, "create", "--name", env_name, "python=3.12", "-y"], check=True)
     print(f"✅ Conda environment {env_name} created successfully!")
+
 
 def install_pytorch(env_name="automoy_env"):
     """Install PyTorch with the correct CUDA version in the Conda environment."""
@@ -81,13 +98,14 @@ def install_pytorch(env_name="automoy_env"):
     print(f"📦 Installing PyTorch in Conda environment {env_name}...")
     if cuda_version:
         pytorch_command = [
-            conda_exe, "install", "-n", env_name, "-c", "pytorch", "torch", "torchvision", "torchaudio",
+            conda_exe, "install", "-n", env_name, "-c", "nvidia", "-c", "pytorch", "pytorch", "torchvision", "torchaudio",
             f"pytorch-cuda={cuda_version}", "-y"
         ]
     else:
         print("⚠️ No supported CUDA detected, installing PyTorch CPU version...")
         pytorch_command = [conda_exe, "install", "-n", env_name, "-c", "pytorch", "torch", "torchvision", "torchaudio", "cpuonly", "-y"]
     subprocess.run(pytorch_command, check=True)
+
 
 def install_requirements(env_name="automoy_env"):
     """Install all dependencies in requirements.txt using Conda."""
@@ -99,6 +117,7 @@ def install_requirements(env_name="automoy_env"):
     print(f"📄 Installing dependencies from requirements.txt in Conda environment {env_name}...")
     subprocess.run([conda_exe, "run", "-n", env_name, "pip", "install", "-r", "installer/requirements.txt"], check=True)
 
+
 def install_anaconda_navigator():
     """Ensure Anaconda Navigator is installed."""
     conda_exe = find_conda()
@@ -109,6 +128,7 @@ def install_anaconda_navigator():
     print("📦 Installing Anaconda Navigator...")
     subprocess.run([conda_exe, "install", "-y", "anaconda-navigator"], check=True)
     print("✅ Anaconda Navigator installation complete!")
+
 
 def main():
     print("🚀 Automoy-V2 Conda Installer Starting...")
@@ -122,6 +142,7 @@ def main():
     install_anaconda_navigator()
     
     print(f"✅ Installation Complete! Activate your environment with: conda activate {env_name}")
+
 
 if __name__ == "__main__":
     main()
