@@ -14,16 +14,31 @@ Version two integrates **Microsoft's OmniParser** for enhanced UI analysis and a
 ## Project Structure
 ```
 automoy-v2/
-│── omniparser/              # 🖼️ UI analysis using OmniParser (extracts structured elements from screenshots)
 │
 │── lmstudio/                # 🧠 LLM reasoning module using LM Studio (interprets UI data and makes automation decisions)
 │
-│── core/                    # 🤖 Autonomous agent logic (processes LLM output and executes automation actions)
+core/
+│
+├── main.py               # Primary entry point or CLI for "core" logic
+├── operate.py            # High-level logic or “operation” routines
+├── prompts.py            # Prompt definitions, templates, or generation logic
+│
+├── interfaces/           # (formerly lm_interfaces)
+│   ├── __init__.py
+│   ├── base_interface.py # If you have a base class or abstract class
+│   ├── openai_interface.py
+│   ├── huggingface_interface.py
+│   └── ...               # Additional LLM-specific interfaces
+│
+├── utils/
+│   ├── __init__.py
+│   ├── helper_functions.py  # Utility functions, e.g. for logging, I/O
+│   ├── config_loader.py     # If you have config load/parse logic
+│   └── ...
 │
 │── evaluations/             # 🛠️ Testing and benchmarking (verifies system performance and accuracy)
 │
 │── robotics/                # 🤖 (Future) Robotics programming integration (enables hardware interaction and validation)
-│
 │
 │── gui/                     # 🖥️ Web UI for user interaction (provides a frontend interface for controlling Automoy)
 │
@@ -31,12 +46,10 @@ automoy-v2/
 │
 │── utils/                   # 🔧 Helper functions (logging, debugging, and utility scripts for common tasks)
 │
-│── scripts/                 # 📜 Custom Python scripts (extensions, API integrations, and standalone automation tools)
+│── scripts/                 # 📝 Custom Python scripts (extensions, API integrations, and standalone automation tools)
 │
 │── installer/               # 📦 Installation scripts (handles setup, dependencies, and environment configuration)
 │
-│── main.py                  # 🚀 Main entry point (initializes and runs the AI agent)
-│── requirements.txt         # 📌 Python dependencies (lists required libraries for installation)
 │── README.md                # 📖 Documentation (project overview, setup instructions, and usage guide)
 ```
 

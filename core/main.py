@@ -7,7 +7,6 @@ import pathlib
 from operate import operate_loop
 
 sys.path.append(str(pathlib.Path(__file__).parent.parent / "evaluations"))
-import check_cuda
 import check_pytorch
 
 sys.path.append(str(pathlib.Path(__file__).parent.parent / "gui"))
@@ -26,7 +25,7 @@ def main():
     
     # Step 1: Check CUDA availability
     if not check_pytorch.check_pytorch():
-        print("PyTorch does not have CUDA acceleration!")
+        print("CRITICAL HALT: PyTorch does not have CUDA acceleration!")
         sys.exit(1)
     print("PyTorch is successfully initialized and CUDA acceleration enabled! \nStartup...")
     

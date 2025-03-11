@@ -46,4 +46,4 @@ if __name__ == "__main__":
         print("❌ PyTorch is either missing or not configured correctly for CUDA.")
 
     print("👉 If you need to install PyTorch, run:")
-    print("   pip install torch==2.5.1+cu124 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cu124")
+    print("   pip install torch==2.5.1+cuCUDAVERSIONHERE torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cu124")
