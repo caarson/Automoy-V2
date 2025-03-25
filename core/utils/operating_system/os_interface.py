@@ -2,7 +2,6 @@ import platform
 import pyautogui
 import time
 import ctypes
-import keyboard
 import mouse
 import pyperclip
 import pyscreeze

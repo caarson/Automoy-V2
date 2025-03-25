@@ -115,14 +115,37 @@ def install_pytorch(env_name="automoy_env"):
     subprocess.run(pytorch_command, check=True)
 
 def install_requirements(env_name="automoy_env"):
-    """Install all dependencies in requirements.txt using Conda."""
+    """Install all dependencies in requirements.txt using Conda, then force install specific packages from force_install.txt."""
+    
     conda_exe = find_conda()
     if not conda_exe:
         print("❌ Conda executable not found. Aborting.")
         return
     
     print(f"📄 Installing dependencies from requirements.txt in Conda environment {env_name}...")
+    
+    # Step 1: Install standard dependencies
     subprocess.run([conda_exe, "run", "-n", env_name, "pip", "install", "-r", "installer/requirements.txt"], check=True)
+
+    # Step 2: Force install items in force_install.txt (if it exists)
+    force_install_file = "installer/force_install.txt"
+    if os.path.exists(force_install_file):
+        try:
+            with open(force_install_file, "r") as f:
+                force_packages = [pkg.strip() for pkg in f.readlines() if pkg.strip() and not pkg.startswith("#")]
+            
+            if force_packages:
+                print(f"🔄 Force reinstalling: {', '.join(force_packages)}")
+                for package in force_packages:
+                    print(f"📦 Forcing install of {package}...")
+                    subprocess.run([conda_exe, "run", "-n", env_name, "pip", "install", "--force-reinstall", package], check=True)
+                    print(f"✅ Successfully force installed: {package}")
+            else:
+                print("⚠️ No packages found in force_install.txt.")
+        except Exception as e:
+            print(f"❌ Error reading force_install.txt: {e}")
+
+    print("🚀 All installations complete!")
 
 
 def main():

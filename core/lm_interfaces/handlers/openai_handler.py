@@ -1,4 +1,5 @@
-from operate.config import Config
+sys.path.append(str(pathlib.Path(__file__).parent.parent.parent.parent / "config"))
+import Config
 import json
 import traceback
 import re

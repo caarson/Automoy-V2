@@ -26,6 +26,10 @@ dashscope
 pyautogui==0.9.54
 uiautomation
 screeninfo
+keyboard==0.13.5
+mouse==0.7.1
+
+
 
 # Linting, Testing, and Code Formatting
 ruff==0.6.7
@@ -40,3 +44,4 @@ google-auth<3,>=2
 
 # LLM API Services
 groq
+

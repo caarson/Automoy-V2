@@ -1,86 +1,77 @@
-import os
-import subprocess
-import sys
+import asyncio
 import time
-import pathlib
+from utils.operating_system.os_interface import OSInterface
+from utils.omniparser.omniparser_interface import OmniParserInterface
+from utils.vmware.vmware_interface import VMWareInterface
+from utils.web_scraping.webscrape_interface import WebScrapeInterface
+from lm_interfaces.handlers.main_interface import MainInterface
 
-sys.path.append(str(pathlib.Path(__file__).parent.parent / "evaluations"))
-import check_cuda
+class AutomoyOperator:
+    def __init__(self):
+        """Initialize Automoy's core interfaces."""
+        self.os_interface = OSInterface()
+        self.omniparser = OmniParserInterface()
+        self.vmware = VMWareInterface()
+        self.webscraper = WebScrapeInterface()
+        self.llm = MainInterface()
 
-def is_nvidia_installer_running():
-    """Check if the NVIDIA CUDA installer is running."""
-    try:
-        result = subprocess.run(["tasklist"], capture_output=True, text=True)
-        return "setup.exe" in result.stdout.lower() or "cuda_installer" in result.stdout.lower()
-    except Exception as e:
-        print(f"Error checking running processes: {e}")
-    return False
+    async def startup_sequence(self):
+        """Run startup checks and ensure all modules are ready."""
+        print("🚀 Automoy Starting Up...")
 
-def is_cuda_installed():
-    """Check if CUDA installation is complete by verifying if nvcc reports a version."""
-    try:
-        cuda_version = check_cuda.get_installed_cuda_version()
-        if cuda_version:
-            print(f"Detected CUDA version: {cuda_version}")
-            return True
-    except Exception as e:
-        print(f"Error checking CUDA version: {e}")
-    return False
+        # Step 1: OS Environment Check
+        print(f"Detected OS: {self.os_interface.os_type}")
 
-def run_cuda_setup():
-    """Runs the CUDA setup script to install CUDA and waits for completion."""
-    print("Starting CUDA installation...")
-    try:
-        cuda_process = subprocess.Popen([sys.executable, "installer/cuda_setup.py"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        
-        while is_nvidia_installer_running() or not is_cuda_installed():
-            print("nvcc not detected! \nWaiting for CUDA installation to complete...")
-            time.sleep(10)  # Check every 10 seconds
-        
-        stdout, stderr = cuda_process.communicate()
-        print(stdout)
-        print(stderr)
-        
-        if cuda_process.returncode == 0 and is_cuda_installed():
-            print("CUDA installation complete!")
-        else:
-            print("CUDA installation failed. Please check logs.")
-            sys.exit(1)
-    except subprocess.CalledProcessError as e:
-        print("CUDA installation encountered an error:")
-        print(e.output)
-        sys.exit(1)
+        # Step 2: OmniParser Server Check
+        if not self.omniparser.check_server_status():
+            print("❌ OmniParser Server is not running! Attempting to start it...")
+            self.omniparser.start_server()
+            await asyncio.sleep(5)
 
-def run_conda_setup():
-    """Runs the Conda setup script to install and configure Conda."""
-    print("Starting Conda installation and environment setup...")
-    try:
-        subprocess.run([sys.executable, "installer/conda_setup.py"], check=True)
-        print("Conda setup complete!")
-    except subprocess.CalledProcessError:
-        print("Conda setup failed. Please check logs.")
-        sys.exit(1)
+        # Step 3: Confirm VMWare Connectivity
+        if not self.vmware.is_vmware_installed():
+            print("⚠️ VMWare is not installed or not detected.")
 
-def run_omnispaper_setup():
-    """Runs the OmniParser setup script to ensure it's running."""
-    print("Starting OmniParser setup...")
-    try:
-        subprocess.run([sys.executable, "installer/omniparser_setup.py"], check=True)
-        print("OmniParser setup complete!")
-    except subprocess.CalledProcessError:
-        print("OmniParser setup failed. Please check logs.")
-        sys.exit(1)
+        # Step 4: Confirm Web Scraping Setup
+        if not self.webscraper.is_ready():
+            print("⚠️ Web Scraper is not properly configured!")
+
+        print("✅ All systems ready!")
+
+    async def operate_loop(self):
+        """Main operational loop of Automoy."""
+        await self.startup_sequence()
+        print("🔥 Entering Automoy Autonomous Operation Mode!")
+
+        while True:
+            try:
+                # Example: UI Parsing using OmniParser
+                ui_data = self.omniparser.capture_and_parse()
+                if ui_data:
+                    print("🖼️ Extracted UI Data:", ui_data)
+
+                # Example: Web Scraping Execution
+                scraped_data = self.webscraper.scrape_page("https://example.com")
+                if scraped_data:
+                    print("🌐 Scraped Data:", scraped_data)
+
+                # Example: Interacting with LLM for Decisions
+                response = self.llm.process_input("Analyze the UI and suggest next steps.")
+                print("🤖 LLM Response:", response)
+
+                # Example: Operating System Control
+                self.os_interface.press("enter")
+                print("⌨️ Simulated Enter Key Press")
+
+                # Example: Handling Virtual Machines
+                if self.vmware.list_vms():
+                    print("🖥️ Available VMs:", self.vmware.list_vms())
+
+                await asyncio.sleep(5)  # Adjust timing as needed
+            except KeyboardInterrupt:
+                print("\n🛑 Automoy Operation Halted.")
+                break
 
 if __name__ == "__main__":
-    print("Automoy-V2 Full Installer Starting...")
-
-    # Step 1: Install CUDA and wait for it to finish
-    run_cuda_setup()
-
-    # Step 2: Install Conda and setup environment
-    run_conda_setup()
-
-    # Step 3: Install and Start OmniParser Server
-    run_omnispaper_setup()
-
-    print("All installations complete! Automoy-V2 is now ready to use.")
+    operator = AutomoyOperator()
+    asyncio.run(operator.operate_loop())

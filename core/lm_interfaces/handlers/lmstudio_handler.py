@@ -4,8 +4,8 @@ import requests
 import json
 import asyncio
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-from operate.config import Config  # Corrected import path
+sys.path.append(str(pathlib.Path(__file__).parent.parent.parent.parent / "config"))
+import Config  # Corrected import path
 
 # Helper function to format OCR & YOLO data into a readable string
 def format_preprocessed_data(data):
