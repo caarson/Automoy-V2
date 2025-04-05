@@ -5,6 +5,7 @@ import pathlib
 import zipfile
 import time
 import urllib.request
+import signal
 
 # Import conda_setup.py from the same directory
 try:
@@ -17,40 +18,28 @@ except ImportError:
 # CONFIGURATION
 # =============================================================================
 
-# Paths
 DEPENDENCIES_DIR = pathlib.Path(__file__).parent.parent / "dependencies"
 OMNIPARSER_ZIP = DEPENDENCIES_DIR / "OmniParser-master.zip"
 OMNIPARSER_DIR = DEPENDENCIES_DIR / "OmniParser-master"
 
-# OmniParser server module path:
-# File location: OmniParser-master/omnitool/omniparserserver/omniparserserver.py
 OMNIPARSER_MODULE = "omnitool.omniparserserver.omniparserserver"
-
-# We want the working directory (for relative paths) to be:
 SERVER_CWD = OMNIPARSER_DIR / "omnitool" / "omniparserserver"
 
-# Model weights folder paths
 WEIGHTS_DIR = OMNIPARSER_DIR / "weights"
 ICON_DETECT_DIR = WEIGHTS_DIR / "icon_detect"
 ICON_CAPTION_DIR = WEIGHTS_DIR / "icon_caption_florence"
 
-# Model weight files (icon_detect)
 YOLO_MODEL_FILE = ICON_DETECT_DIR / "model.pt"
 TRAIN_ARGS_FILE = ICON_DETECT_DIR / "train_args.yaml"
 MODEL_YAML_FILE = ICON_DETECT_DIR / "model.yaml"
 
-# Model weight files (icon_caption_florence)
 ICON_CAPTION_FILE = ICON_CAPTION_DIR / "model.safetensors"
 ICON_CAPTION_CONFIG = ICON_CAPTION_DIR / "config.json"
 ICON_CAPTION_GEN_CONFIG = ICON_CAPTION_DIR / "generation_config.json"
 
-# Conda environment settings
 CONDA_ENV = "automoy_env"
-
-# Desired server port
 SERVER_PORT = 8111
 
-# Minimal FastAPI server code (only created if the file is missing)
 MINIMAL_FASTAPI_SERVER = f'''"""
 Minimal OmniParser server using FastAPI.
 
@@ -79,7 +68,6 @@ if __name__ == "__main__":
 # =============================================================================
 
 def extract_omniparser():
-    """Extracts OmniParser from the ZIP if not already extracted."""
     if not OMNIPARSER_DIR.exists():
         print(f"📦 Extracting OmniParser from {OMNIPARSER_ZIP}...")
         try:
@@ -92,45 +80,7 @@ def extract_omniparser():
     else:
         print("✅ OmniParser is already extracted.")
 
-def ensure_directory_exists(directory: pathlib.Path):
-    """Creates a directory if it doesn't exist."""
-    if not directory.exists():
-        print(f"📁 Creating missing directory: {directory}")
-        directory.mkdir(parents=True, exist_ok=True)
-
-def download_file(url: str, destination: pathlib.Path):
-    """Downloads a file from a given URL to the destination."""
-    if destination.exists():
-        print(f"✅ Already downloaded: {destination}")
-        return
-    try:
-        print(f"📥 Downloading {destination}...")
-        urllib.request.urlretrieve(url, destination)
-        print(f"✅ Downloaded {destination}")
-    except Exception as e:
-        print(f"❌ Failed to download {destination}: {e}")
-        sys.exit(1)
-
-def download_required_models():
-    """Downloads all required model weights and configuration files."""
-    print("🔍 Checking for required model weights...")
-    ensure_directory_exists(ICON_DETECT_DIR)
-    ensure_directory_exists(ICON_CAPTION_DIR)
-
-    download_file("https://huggingface.co/microsoft/OmniParser-v2.0/resolve/main/icon_detect/train_args.yaml", TRAIN_ARGS_FILE)
-    download_file("https://huggingface.co/microsoft/OmniParser-v2.0/resolve/main/icon_detect/model.yaml", MODEL_YAML_FILE)
-    download_file("https://huggingface.co/microsoft/OmniParser-v2.0/resolve/main/icon_detect/model.pt", YOLO_MODEL_FILE)
-
-    download_file("https://huggingface.co/microsoft/OmniParser-v2.0/resolve/main/icon_caption/model.safetensors", ICON_CAPTION_FILE)
-    download_file("https://huggingface.co/microsoft/OmniParser-v2.0/resolve/main/icon_caption/config.json", ICON_CAPTION_CONFIG)
-    download_file("https://huggingface.co/microsoft/OmniParser-v2.0/resolve/main/icon_caption/generation_config.json", ICON_CAPTION_GEN_CONFIG)
-
 def ensure_omniparser_server_file():
-    """
-    Ensures that the OmniParser server file exists at:
-      OmniParser-master/omnitool/omniparserserver/omniparserserver.py
-    If missing, creates the folder (and an empty __init__.py) and writes minimal server code.
-    """
     server_dir = OMNIPARSER_DIR / "omnitool" / "omniparserserver"
     init_file = server_dir / "__init__.py"
     server_py = server_dir / "omniparserserver.py"
@@ -149,32 +99,48 @@ def ensure_omniparser_server_file():
     else:
         print(f"✅ {server_py} already exists; not overwriting.")
 
+def download_required_models():
+    print("🔍 Checking for required model weights...")
+    for d in [ICON_DETECT_DIR, ICON_CAPTION_DIR]:
+        d.mkdir(parents=True, exist_ok=True)
+
+    download_file("https://huggingface.co/microsoft/OmniParser-v2.0/resolve/main/icon_detect/train_args.yaml", TRAIN_ARGS_FILE)
+    download_file("https://huggingface.co/microsoft/OmniParser-v2.0/resolve/main/icon_detect/model.yaml", MODEL_YAML_FILE)
+    download_file("https://huggingface.co/microsoft/OmniParser-v2.0/resolve/main/icon_detect/model.pt", YOLO_MODEL_FILE)
+
+    download_file("https://huggingface.co/microsoft/OmniParser-v2.0/resolve/main/icon_caption/model.safetensors", ICON_CAPTION_FILE)
+    download_file("https://huggingface.co/microsoft/OmniParser-v2.0/resolve/main/icon_caption/config.json", ICON_CAPTION_CONFIG)
+    download_file("https://huggingface.co/microsoft/OmniParser-v2.0/resolve/main/icon_caption/generation_config.json", ICON_CAPTION_GEN_CONFIG)
+
+def download_file(url: str, destination: pathlib.Path):
+    if destination.exists():
+        print(f"✅ Already downloaded: {destination}")
+        return
+    try:
+        print(f"📥 Downloading {destination}...")
+        urllib.request.urlretrieve(url, destination)
+        print(f"✅ Downloaded {destination}")
+    except Exception as e:
+        print(f"❌ Failed to download {destination}: {e}")
+        sys.exit(1)
+
 def validate_server_module():
-    """
-    Validates that the server module can be imported by running a simple import test.
-    The working directory is set to SERVER_CWD so that relative paths resolve correctly.
-    """
     print(f"🔎 Validating server module: {OMNIPARSER_MODULE}")
-    
+
     env = os.environ.copy()
     env["PYTHONPATH"] = str(OMNIPARSER_DIR) + os.pathsep + env.get("PYTHONPATH", "")
-    
+
     conda_exe = conda_setup.find_conda()
     if not conda_exe:
         print("❌ Could not find Conda. Aborting.")
         sys.exit(1)
 
     try:
-        result = subprocess.run(
-            [
-                conda_exe, "run", "-n", CONDA_ENV,
-                "python", "-c", f"import {OMNIPARSER_MODULE}"
-            ],
-            env=env,
-            cwd=str(SERVER_CWD),
-            capture_output=True,
-            text=True
-        )
+        result = subprocess.run([
+            conda_exe, "run", "-n", CONDA_ENV,
+            "python", "-c", f"import {OMNIPARSER_MODULE}"
+        ], env=env, cwd=str(SERVER_CWD), capture_output=True, text=True)
+
         if result.returncode != 0:
             print("❌ Server module validation failed")
             print("--- stdout ---\n", result.stdout)
@@ -185,10 +151,17 @@ def validate_server_module():
         print(f"❌ Validation error: {e}")
         sys.exit(1)
 
+def check_server_status() -> bool:
+    try:
+        import requests
+        response = requests.get(f"http://localhost:{SERVER_PORT}/probe/", timeout=5)
+        return response.status_code == 200
+    except Exception:
+        return False
+
 def start_omniparser_server():
-    """Starts the OmniParser server on port 8111 (SERVER_PORT) with logging."""
     print("🚀 Starting OmniParser server...")
-    
+
     env = os.environ.copy()
     env["PYTHONPATH"] = str(OMNIPARSER_DIR)
     env["PYTHONUNBUFFERED"] = "1"
@@ -199,26 +172,25 @@ def start_omniparser_server():
         sys.exit(1)
 
     try:
+        command = [
+            conda_exe, "run", "-n", CONDA_ENV,
+            "python", "-m", OMNIPARSER_MODULE,
+            "--som_model_path", str(YOLO_MODEL_FILE),
+            "--caption_model_name", "florence2",
+            "--caption_model_path", str(ICON_CAPTION_DIR),
+            "--device", "cuda",
+            "--BOX_TRESHOLD", "0.05",
+            "--port", str(SERVER_PORT)
+        ]
+
+        print(f"⏳ Launching server on port {SERVER_PORT}...")
         server_process = subprocess.Popen(
-            [
-                conda_exe, "run", "-n", CONDA_ENV,
-                "python", "-m", OMNIPARSER_MODULE,
-                "--som_model_path", str(YOLO_MODEL_FILE),
-                "--caption_model_name", "florence2",
-                "--caption_model_path", str(ICON_CAPTION_DIR),
-                "--device", "cuda",
-                "--BOX_TRESHOLD", "0.05",
-                "--port", str(SERVER_PORT)
-            ],
-            cwd=str(SERVER_CWD),
-            env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1
+            command, cwd=str(SERVER_CWD), env=env,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, bufsize=1
         )
 
-        # Start a thread to print the server's stdout in real time
+        # Setup a thread to print server output as it happens
         import threading
         def output_reader():
             while True:
@@ -226,19 +198,22 @@ def start_omniparser_server():
                 if not line and server_process.poll() is not None:
                     break
                 if line:
-                    print("[Server] " + line.strip())
-        threading.Thread(target=output_reader, daemon=True).start()
+                    print("[Server] " + line.rstrip())
 
-        print(f"⏳ Waiting for server startup (up to 2 minutes) on port {SERVER_PORT}...")
+        thread = threading.Thread(target=output_reader, daemon=True)
+        thread.start()
+
+        # Wait up to 2 minutes for /probe/ to respond
         start_time = time.time()
         while time.time() - start_time < 120:
             if server_process.poll() is not None:
                 print("❌ Server process exited prematurely!")
                 sys.exit(1)
             if check_server_status():
-                print(f"✅ Server started successfully on port {SERVER_PORT}! (Took {int(time.time()-start_time)}s)")
-                print(f"🔗 API available at http://localhost:{SERVER_PORT}")
-                return
+                took = time.time() - start_time
+                print(f"✅ Server started successfully on port {SERVER_PORT} (in ~{int(took)}s).")
+                print(f"🔗 API available at http://localhost:{SERVER_PORT}\n")
+                return server_process
             time.sleep(5)
 
         print("❌ Server failed to start within timeout.")
@@ -249,15 +224,6 @@ def start_omniparser_server():
         print(f"❌ Server startup failed: {e}")
         sys.exit(1)
 
-def check_server_status() -> bool:
-    """Checks the health endpoint at http://localhost:8111/probe/."""
-    try:
-        import requests
-        response = requests.get(f"http://localhost:{SERVER_PORT}/probe/", timeout=5)
-        return response.status_code == 200
-    except Exception:
-        return False
-
 # =============================================================================
 # MAIN
 # =============================================================================
@@ -265,19 +231,32 @@ def check_server_status() -> bool:
 if __name__ == "__main__":
     print("\n🔧 OmniParser Setup Utility 🔧\n")
 
-    # 2) Extract OmniParser if needed
     extract_omniparser()
-
-    # 3) Ensure the server file exists in omnitool/omniparserserver/
     ensure_omniparser_server_file()
-
-    # 4) Download model weights
     download_required_models()
-
-    # 5) Validate the server module (by attempting to import it)
     validate_server_module()
 
-    # 6) Start the OmniParser server on port 8111
-    start_omniparser_server()
+    server_process = start_omniparser_server()
+    if not server_process:
+        sys.exit(1)
+
+    print("OmniParser server is running.\n")
+    print("Press ENTER to stop the server and allow folder cleanup, or Ctrl+C to cancel.\n")
     
-    print("\n✅ Setup completed successfully!\n")
+    try:
+        input()
+    except KeyboardInterrupt:
+        print("\nKeyboardInterrupt detected, stopping server...")
+
+    print("Terminating OmniParser server process...")
+    server_process.terminate()
+    # Wait up to 10 seconds for it to die
+    try:
+        server_process.wait(10)
+    except subprocess.TimeoutExpired:
+        print("Server did not stop in time; forcing kill.")
+        server_process.kill()
+
+    print("✅ Server stopped. Now you can safely delete the OmniParser folder if desired.")
+    print("Setup completed successfully!")
+    sys.exit(0)

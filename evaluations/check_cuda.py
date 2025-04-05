@@ -1,71 +1,98 @@
-import subprocess
 import os
-import re
+import subprocess
+import shutil
 
-# Supported CUDA versions for Automoy
-SUPPORTED_CUDA_VERSIONS = ["11.8", "12.1", "12.4"]
+# Adjust if you want to match the same versions from cuda_setup.py
+CUDA_SUPPORTED_VERSIONS = [
+    "11.8",
+    "12.1",
+    "12.4"
+]
+
+# If you have extra versions like 12.6, add them.
+EXTRA_KNOWN_VERSIONS = []
+
+def find_nvcc_in_standard_paths():
+    """
+    Returns the absolute path to nvcc.exe if found in standard CUDA directories,
+    or None if not found.
+    """
+    base_dir = r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA"
+    possible_paths = []
+
+    if os.path.isdir(base_dir):
+        for folder_name in os.listdir(base_dir):
+            candidate = os.path.join(base_dir, folder_name, "bin", "nvcc.exe")
+            if os.path.isfile(candidate):
+                possible_paths.append(candidate)
+
+    all_versions = CUDA_SUPPORTED_VERSIONS + EXTRA_KNOWN_VERSIONS
+    for v in all_versions:
+        candidate = rf"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v{v}\bin\nvcc.exe"
+        if os.path.isfile(candidate):
+            possible_paths.append(candidate)
+
+    for p in possible_paths:
+        if os.path.exists(p):
+            return p
+    return None
+
+def direct_call_to_nvcc(nvcc_path):
+    """
+    Directly call e.g. 'C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.1\\bin\\nvcc.exe --version'
+    and parse out the version. Return version string or None.
+    """
+    try:
+        result = subprocess.run([nvcc_path, "--version"], capture_output=True, text=True, check=True)
+        output = result.stdout
+        for line in output.splitlines():
+            if "release" in line.lower():
+                # line might be: 'Cuda compilation tools, release 11.8, V11.8.89'
+                parts = line.lower().split("release")
+                if len(parts) > 1:
+                    return parts[1].split(",")[0].strip()
+    except Exception as e:
+        print(f"Error calling {nvcc_path}: {e}")
+    return None
 
 def get_installed_cuda_version():
     """
-    Detects installed CUDA versions using `nvcc --version`.
-    Returns:
-        str: Detected CUDA version or None if no supported CUDA is found.
+    1. If 'nvcc' is on PATH, call 'nvcc --version' to parse version.
+    2. Else if physically found in standard path, call it directly there.
+    3. Return version string or None.
     """
-    try:
-        # Run `nvcc --version` and extract the actual installed CUDA version
-        result = subprocess.run(["nvcc", "--version"], capture_output=True, text=True)
-        match = re.search(r"release (\d+\.\d+)", result.stdout)
+    if shutil.which("nvcc"):
+        # Try PATH-based detection
+        try:
+            cmd = ["nvcc", "--version"]
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            for line in result.stdout.splitlines():
+                if "release" in line:
+                    parts = line.split("release")
+                    if len(parts) > 1:
+                        return parts[1].split(",")[0].strip()
+        except Exception as e:
+            print(f"Error calling 'nvcc --version': {e}")
 
-        if match:
-            detected_version = match.group(1)
-            print(f"🔍 Detected installed CUDA version via NVCC: {detected_version}")
+    # If PATH-based detection fails or PATH not updated, do direct call in standard path
+    local_nvcc = find_nvcc_in_standard_paths()
+    if local_nvcc:
+        ver = direct_call_to_nvcc(local_nvcc)
+        if ver:
+            return ver
 
-            # Check if the detected version is in the supported range
-            if detected_version in SUPPORTED_CUDA_VERSIONS:
-                print("✅ Installed CUDA version is supported.")
-                return detected_version
-            else:
-                print("⚠️ Installed CUDA version is outside the supported range.")
-                return None
-    except FileNotFoundError:
-        print("⚠️ `nvcc` is not installed or not found.")
+    return None
 
-
-def check_cuda():
+def is_cuda_installed():
     """
-    Checks if a supported CUDA version is installed.
-    
-    Returns:
-        bool: True if a supported CUDA version is detected.
+    Simple boolean check. Returns True if we can parse a CUDA version.
     """
-    print("🔍 Checking CUDA installation...")
-
-    # Check system CUDA version using NVCC
-    installed_cuda = get_installed_cuda_version()
-    if not installed_cuda:
-        print("❌ No compatible CUDA installation found.")
-        return False
-
-    return True
-
-def run_nvidia_smi():
-    """
-    Runs the 'nvidia-smi' command to display GPU details.
-    """
-    try:
-        print("🔍 Running 'nvidia-smi' for additional diagnostics...")
-        result = subprocess.run(["nvidia-smi"], capture_output=True, text=True)
-        print(result.stdout)
-
-    except FileNotFoundError:
-        print("⚠️ 'nvidia-smi' is not installed or not found. Ensure you have NVIDIA drivers installed.")
-
-    return result
+    version = get_installed_cuda_version()
+    return bool(version)
 
 if __name__ == "__main__":
-    print("🚀 Checking System CUDA Version...")
-
-    if check_cuda():
-        print("✅ CUDA installation verified successfully.")
+    v = get_installed_cuda_version()
+    if v:
+        print(f"Detected CUDA version: {v}")
     else:
-        print("❌ No supported CUDA version found. Please install a supported version (11.8, 12.1, 12.4).")
+        print("No CUDA detected.")

@@ -28,7 +28,6 @@ CONDA_PATHS = [
 
 ANACONDA_URL = "https://repo.anaconda.com/archive/Anaconda3-2024.06-1-Windows-x86_64.exe"
 
-
 def find_conda():
     """Find the Conda executable."""
     for path in CONDA_PATHS:
@@ -36,11 +35,9 @@ def find_conda():
             return path
     return None
 
-
 def is_conda_installed():
     """Check if Conda is installed by looking for the executable."""
     return find_conda() is not None
-
 
 def is_env_created(env_name):
     """Check if the Conda environment exists."""
@@ -49,7 +46,6 @@ def is_env_created(env_name):
         return False
     result = subprocess.run([conda_exe, "env", "list"], capture_output=True, text=True)
     return env_name in result.stdout
-
 
 def install_anaconda():
     """Download and launch the Anaconda installer for the user to install manually."""
@@ -62,12 +58,14 @@ def install_anaconda():
 
     if not os.path.exists(installer_path):
         print("🌍 Downloading Anaconda installer using aria2c...")
-        subprocess.run([aria2c_path, "-x", "16", "-s", "16", "-j", "16", "-d", installer_dir, "-o", "Anaconda3-2024.02-1-Windows-x86_64.exe", ANACONDA_URL], check=True)
+        subprocess.run([aria2c_path, "-x", "16", "-s", "16", "-j", "16", 
+                        "-d", installer_dir, 
+                        "-o", "Anaconda3-2024.02-1-Windows-x86_64.exe", 
+                        ANACONDA_URL], check=True)
     
     print("🛠️ Launching Anaconda installer... Follow the setup instructions.")
     subprocess.run([installer_path], check=True)
     print("✅ Anaconda installation complete! Please restart your terminal if needed.")
-
 
 def create_conda_env(env_name="automoy_env"):
     """Create a new Conda environment if it does not already exist."""
@@ -115,38 +113,59 @@ def install_pytorch(env_name="automoy_env"):
     subprocess.run(pytorch_command, check=True)
 
 def install_requirements(env_name="automoy_env"):
-    """Install all dependencies in requirements.txt using Conda, then force install specific packages from force_install.txt."""
-    
+    """
+    Install dependencies from requirements.txt using Conda, 
+    then install packages from force_install.txt if present.
+    """
     conda_exe = find_conda()
     if not conda_exe:
         print("❌ Conda executable not found. Aborting.")
         return
     
-    print(f"📄 Installing dependencies from requirements.txt in Conda environment {env_name}...")
+    print(f"📄 Installing dependencies in Conda environment {env_name}...")
+
+    # Figure out where your requirements.txt is located
+    # This example assumes it is in the same folder as this script: 'installer/requirements.txt'
+    requirements_path = os.path.join(os.path.dirname(__file__), "requirements.txt")
     
-    # Step 1: Install standard dependencies
-    subprocess.run([conda_exe, "run", "-n", env_name, "pip", "install", "-r", "installer/requirements.txt"], check=True)
+    if os.path.isfile(requirements_path):
+        print(f"🔎 Found requirements at: {requirements_path}")
+        subprocess.run([
+            conda_exe, "run", "-n", env_name, "pip", "install", 
+            "-r", requirements_path
+        ], check=True)
+    else:
+        print("⚠️ No 'requirements.txt' found, skipping that step.")
 
     # Step 2: Force install items in force_install.txt (if it exists)
-    force_install_file = "installer/force_install.txt"
+    force_install_file = os.path.join(os.path.dirname(__file__), "force_install.txt")
+    
     if os.path.exists(force_install_file):
         try:
             with open(force_install_file, "r") as f:
-                force_packages = [pkg.strip() for pkg in f.readlines() if pkg.strip() and not pkg.startswith("#")]
+                force_packages = [
+                    pkg.strip() 
+                    for pkg in f.readlines() 
+                    if pkg.strip() and not pkg.startswith("#")
+                ]
             
             if force_packages:
                 print(f"🔄 Force reinstalling: {', '.join(force_packages)}")
                 for package in force_packages:
                     print(f"📦 Forcing install of {package}...")
-                    subprocess.run([conda_exe, "run", "-n", env_name, "pip", "install", "--force-reinstall", package], check=True)
+                    subprocess.run([
+                        conda_exe, "run", "-n", env_name, 
+                        "pip", "install", "--force-reinstall", package
+                    ], check=True)
                     print(f"✅ Successfully force installed: {package}")
             else:
                 print("⚠️ No packages found in force_install.txt.")
         except Exception as e:
             print(f"❌ Error reading force_install.txt: {e}")
+    else:
+        print("No force_install.txt found; skipping force installs.")
 
     print("🚀 All installations complete!")
-
 
 def main():
     print("🚀 Automoy-V2 Conda Installer Starting...")
@@ -159,7 +178,6 @@ def main():
     install_requirements(env_name)
     
     print(f"✅ Installation Complete! Activate your environment with: conda activate {env_name}")
-
 
 if __name__ == "__main__":
     main()

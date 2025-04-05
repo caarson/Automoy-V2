@@ -1,86 +1,101 @@
 import os
-import subprocess
 import sys
-import time
+import ctypes
+import subprocess
 import pathlib
+import shutil
 
-sys.path.append(str(pathlib.Path(__file__).parent.parent / "evaluations"))
-import check_cuda
-
-def is_nvidia_installer_running():
-    """Check if the NVIDIA CUDA installer is running."""
+def is_user_admin():
+    """
+    Returns True if the current process is running with admin privileges.
+    """
     try:
-        result = subprocess.run(["tasklist"], capture_output=True, text=True)
-        return "setup.exe" in result.stdout.lower() or "cuda_installer" in result.stdout.lower()
-    except Exception as e:
-        print(f"Error checking running processes: {e}")
-    return False
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        return False
 
-def is_cuda_installed():
-    """Check if CUDA installation is complete by verifying if nvcc reports a version."""
-    try:
-        cuda_version = check_cuda.get_installed_cuda_version()
-        if cuda_version:
-            print(f"Detected CUDA version: {cuda_version}")
-            return True
-    except Exception as e:
-        print(f"Error checking CUDA version: {e}")
-    return False
+def ensure_admin():
+    """
+    If not running as admin, re-launch this script in a new CMD console (with /k).
+    That console won't close on Ctrl+C or error.
+    """
+    if not is_user_admin():
+        print("Re-launching as administrator in a new console that won't close on error or Ctrl+C.")
+
+        exe_path = os.path.normpath(sys.executable)
+        script_path = os.path.normpath(os.path.abspath(sys.argv[0]))
+
+        # Build the command that we want cmd.exe to run
+        cmd_parts = [exe_path, script_path] + sys.argv[1:]
+        command_in_cmd = subprocess.list2cmdline(cmd_parts)
+
+        # /k => keep CMD window open after the command finishes
+        params_for_cmd = f'/k {command_in_cmd}'
+
+        # Elevate: run cmd.exe as admin with the /k ...
+        ctypes.windll.shell32.ShellExecuteW(
+            None,
+            "runas",
+            "cmd.exe",
+            params_for_cmd,
+            None,
+            1
+        )
+        sys.exit(0)
 
 def run_cuda_setup():
-    """Runs the CUDA setup script to install CUDA and waits for completion."""
     print("Starting CUDA installation...")
-    try:
-        cuda_process = subprocess.Popen([sys.executable, "installer/cuda_setup.py"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        
-        while is_nvidia_installer_running() or not is_cuda_installed():
-            print("nvcc not detected! \nWaiting for CUDA installation to complete...")
-            time.sleep(10)  # Check every 10 seconds
-        
-        stdout, stderr = cuda_process.communicate()
-        print(stdout)
-        print(stderr)
-        
-        if cuda_process.returncode == 0 and is_cuda_installed():
-            print("CUDA installation complete!")
-        else:
-            print("CUDA installation failed. Please check logs.")
-            sys.exit(1)
-    except subprocess.CalledProcessError as e:
-        print("CUDA installation encountered an error:")
-        print(e.output)
-        sys.exit(1)
+
+    # If setup.py is in the same folder as cuda_setup.py:
+    script_dir = pathlib.Path(__file__).parent.resolve()
+    cuda_setup_script = script_dir / "cuda_setup.py"
+
+    result = subprocess.run([sys.executable, str(cuda_setup_script)], check=False)
+    if result.returncode == 0:
+        print("CUDA installation complete!")
+    else:
+        print("CUDA installation failed or timed out. Please check logs.")
+        sys.exit(result.returncode)
 
 def run_conda_setup():
-    """Runs the Conda setup script to install and configure Conda."""
     print("Starting Conda installation and environment setup...")
-    try:
-        subprocess.run([sys.executable, "installer/conda_setup.py"], check=True)
+
+    script_dir = pathlib.Path(__file__).parent.resolve()
+    conda_setup_script = script_dir / "conda_setup.py"
+
+    rc = subprocess.run([sys.executable, str(conda_setup_script)], check=False)
+    if rc.returncode == 0:
         print("Conda setup complete!")
-    except subprocess.CalledProcessError:
+    else:
         print("Conda setup failed. Please check logs.")
         sys.exit(1)
 
 def run_omnispaper_setup():
-    """Runs the OmniParser setup script to ensure it's running."""
     print("Starting OmniParser setup...")
-    try:
-        subprocess.run([sys.executable, "installer/omniparser_setup.py"], check=True)
+
+    script_dir = pathlib.Path(__file__).parent.resolve()
+    omniparser_setup_script = script_dir / "omniparser_setup.py"
+
+    rc = subprocess.run([sys.executable, str(omniparser_setup_script)], check=False)
+    if rc.returncode == 0:
         print("OmniParser setup complete!")
-    except subprocess.CalledProcessError:
+    else:
         print("OmniParser setup failed. Please check logs.")
         sys.exit(1)
 
 if __name__ == "__main__":
     print("Automoy-V2 Full Installer Starting...")
 
-    # Step 1: Install CUDA and wait for it to finish
+    # 1) Elevate if needed (opens new admin console with /k)
+    ensure_admin()
+
+    # 2) CUDA
     run_cuda_setup()
 
-    # Step 2: Install Conda and setup environment
+    # 3) Conda
     run_conda_setup()
 
-    # Step 3: Install and Start OmniParser Server
+    # 4) OmniParser
     run_omnispaper_setup()
 
     print("All installations complete! Automoy-V2 is now ready to use.")
