@@ -44,6 +44,7 @@ def is_env_created(env_name):
     conda_exe = find_conda()
     if not conda_exe:
         return False
+    # Again we use a list for subprocess => safe if path has spaces
     result = subprocess.run([conda_exe, "env", "list"], capture_output=True, text=True)
     return env_name in result.stdout
 
@@ -58,12 +59,14 @@ def install_anaconda():
 
     if not os.path.exists(installer_path):
         print("🌍 Downloading Anaconda installer using aria2c...")
-        subprocess.run([aria2c_path, "-x", "16", "-s", "16", "-j", "16", 
-                        "-d", installer_dir, 
-                        "-o", "Anaconda3-2024.02-1-Windows-x86_64.exe", 
+        # If aria2c_path has spaces, this is safe because we pass a list with shell=False
+        subprocess.run([aria2c_path, "-x", "16", "-s", "16", "-j", "16",
+                        "-d", installer_dir,
+                        "-o", "Anaconda3-2024.02-1-Windows-x86_64.exe",
                         ANACONDA_URL], check=True)
     
     print("🛠️ Launching Anaconda installer... Follow the setup instructions.")
+    # If the installer path has spaces, this is still safe because we pass a list with shell=False
     subprocess.run([installer_path], check=True)
     print("✅ Anaconda installation complete! Please restart your terminal if needed.")
 

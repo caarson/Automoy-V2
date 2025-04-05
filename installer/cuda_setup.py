@@ -142,9 +142,11 @@ def install_cuda():
         download_installer(download_url, installer_path)
 
     print(f"Launching CUDA installer at: {installer_path}")
-    subprocess.run(f'start /wait "" "{installer_path}"', shell=True)
+    cmd_string = f'start /wait "" "{installer_path}"'
+    subprocess.run(cmd_string, shell=True)
 
     print("Waiting for CUDA installation to complete...")
+    
     if wait_for_cuda_installer():
         print(f"CUDA {selected_version} installation completed!")
         sys.exit(0)
