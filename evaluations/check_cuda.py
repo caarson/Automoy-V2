@@ -88,6 +88,13 @@ def is_cuda_installed():
     """Return True if we can parse a version from 'nvcc --version' or fallback paths."""
     return bool(check_cuda())
 
+def get_installed_cuda_version():
+    """
+    Shim for compatibility with conda_setup.py expecting check_cuda.get_installed_cuda_version().
+    Internally calls check_cuda() and returns its result (or None).
+    """
+    return check_cuda()
+
 if __name__ == "__main__":
     ver = check_cuda()
     if ver:
