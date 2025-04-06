@@ -1,11 +1,12 @@
 import os
 import sys
+import pathlib
 import requests
 import json
 import asyncio
 
 sys.path.append(str(pathlib.Path(__file__).parent.parent.parent.parent / "config"))
-import Config  # Corrected import path
+from config import Config
 
 # Helper function to format OCR & YOLO data into a readable string
 def format_preprocessed_data(data):

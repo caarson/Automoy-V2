@@ -1,42 +1,49 @@
 import json
+from .handlers.openai_handler import call_openai_model
+from .handlers.lmstudio_handler import call_lmstudio_model
+import pathlib
+import sys
 
-from handlers.openai_handler import call_openai_model
-from handlers.lmstudio_handler import call_lmstudio_model
-
-sys.path.append(str(pathlib.Path(__file__).parent.parent / "core"))
+# Ensure the project's core folder is on sys.path for exceptions
+sys.path.append(str(pathlib.Path(__file__).parent.parent.parent / "core"))
 from exceptions import ModelNotRecognizedException
 
+# Ensure the config folder is on sys.path for Config
 sys.path.append(str(pathlib.Path(__file__).parent.parent.parent / "config"))
-from config import Config  # Import Config class
+from config import Config
 
+class MainInterface:
+    async def get_next_action(self, model, messages, objective, session_id, screenshot_path):
+        """
+        Sends the conversation `messages` to the chosen model (either OpenAI or LMStudio)
+        and returns the raw text response.
+        
+        Returns a tuple: (response_text, session_id, None)
+        """
+        print(f"[MainInterface] Using model: {model}")
 
-async def get_next_action(model, messages, objective, session_id, screenshot_path):
-    """
-    get_next_action is responsible for sending the conversation `messages` to the chosen model
-    (either OpenAI or LMStudio) and returning the raw text response.
+        # Load configuration and determine which API source to use
+        config = Config()
+        api_source, _ = config.get_api_source()
 
-    We REMOVED the unconditional calls to `preprocess_with_ocr_and_yolo`. Now this function
-    only delegates to the model. If you need screenshot / OCR / YOLO, do it based on the AI's
-    chosen actions in your main flow.
-    """
-    print(f"[handlers_api] Using model: {model}")
+        if api_source == "openai":
+            response = await call_openai_model(messages, objective, model)
+            print(f"[DEBUG] OpenAI Response: {response}")
+            return (response, session_id, None)
+        elif api_source == "lmstudio":
+            response = await call_lmstudio_model(messages, objective, model)
+            print(f"[DEBUG] LMStudio Response: {response}")
+            return (response, session_id, None)
 
-    # Load config and determine which API source to use (lmstudio or openai).
-    config = Config()
-    api_source, _ = config.get_api_source()
+        raise ModelNotRecognizedException(model)
 
-    # Call the model based on the determined API source.
-    if api_source == "openai":
-        response = await call_openai_model(messages, objective, model)
-        print(f"[DEBUG] OpenAI Response: {response}")
-        # Return the raw text plus session_id, no full_data (None by default).
-        return (response, session_id, None)
+# For testing purposes:
+if __name__ == "__main__":
+    import asyncio
 
-    elif api_source == "lmstudio":
-        response = await call_lmstudio_model(messages, objective, model)
-        print(f"[DEBUG] LMStudio Response: {response}")
-        # Return the raw text plus session_id, no full_data (None by default).
-        return (response, session_id, None)
+    async def test():
+        interface = MainInterface()
+        result = await interface.get_next_action("gpt-4", ["Hello"], "Test objective", "session123", "dummy.png")
+        print("Test result:", result)
 
-    # If we have neither openai nor lmstudio, raise an exception.
-    raise ModelNotRecognizedException(model)
+    asyncio.run(test())

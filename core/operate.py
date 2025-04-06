@@ -4,7 +4,7 @@ from utils.operating_system.os_interface import OSInterface
 from utils.omniparser.omniparser_interface import OmniParserInterface
 from utils.vmware.vmware_interface import VMWareInterface
 from utils.web_scraping.webscrape_interface import WebScrapeInterface
-from lm_interfaces.handlers.main_interface import MainInterface
+from lm_interfaces.main_interface import MainInterface
 
 class AutomoyOperator:
     def __init__(self):
@@ -18,7 +18,6 @@ class AutomoyOperator:
     async def startup_sequence(self):
         """Run startup checks and ensure all modules are ready."""
         print("🚀 Automoy Starting Up...")
-
         # Step 1: OS Environment Check
         print(f"Detected OS: {self.os_interface.os_type}")
 
@@ -42,7 +41,6 @@ class AutomoyOperator:
         """Main operational loop of Automoy."""
         await self.startup_sequence()
         print("🔥 Entering Automoy Autonomous Operation Mode!")
-
         while True:
             try:
                 # Example: UI Parsing using OmniParser
@@ -64,14 +62,26 @@ class AutomoyOperator:
                 print("⌨️ Simulated Enter Key Press")
 
                 # Example: Handling Virtual Machines
-                if self.vmware.list_vms():
-                    print("🖥️ Available VMs:", self.vmware.list_vms())
+                vm_list = self.vmware.list_vms()
+                if vm_list:
+                    print("🖥️ Available VMs:", vm_list)
 
                 await asyncio.sleep(5)  # Adjust timing as needed
             except KeyboardInterrupt:
                 print("\n🛑 Automoy Operation Halted.")
                 break
 
-if __name__ == "__main__":
+# Module-level function to provide a uniform interface.
+def operate_loop():
+    """
+    This function instantiates AutomoyOperator and returns its operate_loop coroutine.
+    This allows other modules to do:
+         from operate import operate_loop
+         asyncio.run(operate_loop())
+    """
     operator = AutomoyOperator()
-    asyncio.run(operator.operate_loop())
+    return operator.operate_loop()
+
+# For direct testing:
+if __name__ == "__main__":
+    asyncio.run(operate_loop())

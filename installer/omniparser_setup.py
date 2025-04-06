@@ -257,6 +257,6 @@ if __name__ == "__main__":
         print("Server did not stop in time; forcing kill.")
         server_process.kill()
 
-    print("✅ Server stopped. Now you can safely delete the OmniParser folder if desired.")
+    print("✅ Server stopped. Now you can safely delete the OmniParser folder if desired (only applicable for debug! DO NOT DELETE UNLESS YOU WISH TO RECOMPILE YOUR OMNIPARSER MODULE).")
     print("Setup completed successfully!")
     sys.exit(0)

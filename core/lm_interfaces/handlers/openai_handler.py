@@ -1,5 +1,10 @@
+import sys
+import pathlib
+
+# Now we can update sys.path safely
 sys.path.append(str(pathlib.Path(__file__).parent.parent.parent.parent / "config"))
-import Config
+
+from config import Config
 import json
 import traceback
 import re
