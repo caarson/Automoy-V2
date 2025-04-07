@@ -152,11 +152,13 @@ class OmniParserInterface:
             self.server_process = None
 
     def parse_screenshot(self, image_path):
+        import base64
         url = f"{self.server_url}/parse"
         try:
             with open(image_path, "rb") as f:
-                files = {"file": f}
-                response = requests.post(url, files=files)
+                encoded = base64.b64encode(f.read()).decode("utf-8")
+                payload = {"base64_image": encoded}
+                response = requests.post(url, json=payload)
                 response.raise_for_status()
                 return response.json()
         except requests.exceptions.RequestException as e:
@@ -182,8 +184,17 @@ signal.signal(signal.SIGTERM, lambda sig, frame: sys.exit(0))
 if __name__ == "__main__":
     if launched:
         try:
-            result = omniparser.parse_screenshot("sample_screenshot.png")
-            print("🔍 Parsed Data:", result)
+            sample_path = PROJECT_ROOT / "core" / "utils" / "omniparser" / "sample_screenshot.png"
+            if sample_path.exists():
+                result = omniparser.parse_screenshot(str(sample_path))
+                if result:
+                    print(f"✅ Latency: {result.get('latency', 'N/A'):.2f}s")
+                    for entry in result.get("parsed_content_list", []):
+                        print(f" - [{entry['type'].upper()}] {entry['content']}")
+                else:
+                    print("⚠️ No data returned from OmniParser.")
+            else:
+                print(f"⚠️ Sample screenshot not found at: {sample_path}")
         except FileNotFoundError as e:
             print(f"❌ File not found: {e.filename}")
     else:
