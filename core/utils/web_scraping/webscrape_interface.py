@@ -36,6 +36,10 @@ class WebScrapeInterface:
     
         soup = BeautifulSoup(response.text, "html.parser")
         return soup.get_text()
+    
+    def is_ready(self):
+        # Stub logic for now
+        return True
 
 # For testing the class:
 if __name__ == "__main__":

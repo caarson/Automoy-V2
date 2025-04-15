@@ -142,6 +142,9 @@ class VMWareInterface:
             if vm.name == vm_name:
                 return vm
         return None
+    
+    def is_vmware_installed(self):
+        return False  # or True, depending on what you want for now
 
 # Example Usage:
 if __name__ == "__main__":

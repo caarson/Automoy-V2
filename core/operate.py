@@ -11,27 +11,23 @@ class AutomoyOperator:
         """Initialize Automoy's core interfaces."""
         self.os_interface = OSInterface()
         self.omniparser = OmniParserInterface()
-        self.vmware = VMWareInterface()
+        self.vmware = VMWareInterface("localhost", "user", "password")  # replace with real creds if needed
         self.webscraper = WebScrapeInterface()
         self.llm = MainInterface()
 
     async def startup_sequence(self):
         """Run startup checks and ensure all modules are ready."""
         print("🚀 Automoy Starting Up...")
-        # Step 1: OS Environment Check
         print(f"Detected OS: {self.os_interface.os_type}")
 
-        # Step 2: OmniParser Server Check
-        if not self.omniparser.check_server_status():
+        if not self.omniparser._check_server_ready():
             print("❌ OmniParser Server is not running! Attempting to start it...")
             self.omniparser.start_server()
             await asyncio.sleep(5)
 
-        # Step 3: Confirm VMWare Connectivity
         if not self.vmware.is_vmware_installed():
             print("⚠️ VMWare is not installed or not detected.")
 
-        # Step 4: Confirm Web Scraping Setup
         if not self.webscraper.is_ready():
             print("⚠️ Web Scraper is not properly configured!")
 
@@ -41,47 +37,66 @@ class AutomoyOperator:
         """Main operational loop of Automoy."""
         await self.startup_sequence()
         print("🔥 Entering Automoy Autonomous Operation Mode!")
+
         while True:
             try:
-                # Example: UI Parsing using OmniParser
-                ui_data = self.omniparser.capture_and_parse()
+                # 1. Screenshot -> OmniParser -> Click Buttons
+                screenshot_path = self.os_interface.take_screenshot("automoy_screenshot.png")
+                ui_data = self.omniparser.parse_screenshot(screenshot_path)
+
                 if ui_data:
-                    print("🖼️ Extracted UI Data:", ui_data)
+                    print("🖼️ Parsed UI Data:")
+                    for entry in ui_data.get("parsed_content_list", []):
+                        content = entry.get("content", "")
+                        position = entry.get("position", {})
+                        x, y = position.get("x"), position.get("y")
 
-                # Example: Web Scraping Execution
-                scraped_data = self.webscraper.scrape_page("https://example.com")
-                if scraped_data:
-                    print("🌐 Scraped Data:", scraped_data)
+                        print(f" - [{entry['type'].upper()}] '{content}' at ({x}, {y})")
 
-                # Example: Interacting with LLM for Decisions
-                response = self.llm.process_input("Analyze the UI and suggest next steps.")
+                        if entry["type"] == "button":
+                            self.os_interface.move_mouse(x, y, duration=0.3)
+                            self.os_interface.click_mouse()
+                            time.sleep(0.5)
+
+                # 2. Web scraping (real logic)
+                raw_html_text = self.webscraper.fetch_page_content("https://example.com")
+                if raw_html_text:
+                    print("🌐 Scraped Content Preview:", raw_html_text[:300])
+
+                # 3. Ask LLM (placeholder)
+                messages = ["Analyze the UI and suggest next steps."]
+                objective = "Autonomously control and interpret UI"
+                session_id = "session-001"
+                screenshot_path = "automoy_screenshot.png"
+
+                response, _, _ = await self.llm.get_next_action(
+                    model="gpt-4",
+                    messages=messages,
+                    objective=objective,
+                    session_id=session_id,
+                    screenshot_path=screenshot_path
+                )
                 print("🤖 LLM Response:", response)
 
-                # Example: Operating System Control
+                # 4. Basic OS automation
                 self.os_interface.press("enter")
                 print("⌨️ Simulated Enter Key Press")
 
-                # Example: Handling Virtual Machines
+                # 5. VMWare Integration (optional)
                 vm_list = self.vmware.list_vms()
                 if vm_list:
                     print("🖥️ Available VMs:", vm_list)
 
-                await asyncio.sleep(5)  # Adjust timing as needed
+                await asyncio.sleep(5)
+
             except KeyboardInterrupt:
                 print("\n🛑 Automoy Operation Halted.")
                 break
 
-# Module-level function to provide a uniform interface.
+# Module-level callable for external run
 def operate_loop():
-    """
-    This function instantiates AutomoyOperator and returns its operate_loop coroutine.
-    This allows other modules to do:
-         from operate import operate_loop
-         asyncio.run(operate_loop())
-    """
     operator = AutomoyOperator()
     return operator.operate_loop()
 
-# For direct testing:
 if __name__ == "__main__":
     asyncio.run(operate_loop())

@@ -1,171 +1,57 @@
 import os
 import sys
+import subprocess
+import pathlib
 import time
 import requests
-import subprocess
 import threading
-import pathlib
 import atexit
 import signal
 
+REQUIRED_ENV_NAME = "automoy_env"
+
 # --- Helper function to auto-find conda ---
 def auto_find_conda():
-    """Attempt to locate the conda executable automatically."""
-    conda_exe = os.environ.get("CONDA_EXE")
-    if conda_exe and os.path.isfile(conda_exe):
-        return conda_exe
-    try:
-        output = subprocess.check_output(["where", "conda"], shell=True, text=True)
-        lines = [line.strip() for line in output.splitlines() if line.strip()]
-        if lines:
-            return lines[0]
-    except Exception:
-        pass
-
+    import pathlib
     user_home = pathlib.Path.home()
     possible_paths = [
+        os.environ.get("CONDA_EXE"),
         user_home / "anaconda3" / "condabin" / "conda.bat",
         user_home / "miniconda3" / "condabin" / "conda.bat",
         user_home / "anaconda3" / "Scripts" / "conda.exe",
         user_home / "miniconda3" / "Scripts" / "conda.exe"
     ]
     for path in possible_paths:
-        if path.exists():
+        if path and os.path.isfile(path):
             return str(path)
-
     return None
 
-# --- Compute the project root based on file location ---
+# Relaunch if not inside automoy_env
+if os.environ.get("CONDA_DEFAULT_ENV") != REQUIRED_ENV_NAME:
+    conda_exe = auto_find_conda()
+    if not conda_exe:
+        print("❌ Could not locate conda executable. Please check your Anaconda installation.")
+        sys.exit(1)
+
+    print(f"🔁 Relaunching in conda env: {REQUIRED_ENV_NAME}")
+    subprocess.run([
+        conda_exe, "run", "-n", REQUIRED_ENV_NAME,
+        "python", os.path.abspath(__file__)
+    ])
+    sys.exit()
+
+from operate import operate_loop
+from utils.omniparser.omniparser_interface import OmniParserInterface
+
+# --- Compute the project root ---
 PROJECT_ROOT = pathlib.Path(__file__).parents[1].resolve()
 
-# --- Default paths for OmniParser ---
+# --- OmniParser defaults ---
 DEFAULT_SERVER_CWD = str(PROJECT_ROOT / "dependencies" / "OmniParser-master" / "omnitool" / "omniparserserver")
 DEFAULT_MODEL_PATH = str(PROJECT_ROOT / "dependencies" / "OmniParser-master" / "weights" / "icon_detect" / "model.pt")
 DEFAULT_CAPTION_MODEL_DIR = str(PROJECT_ROOT / "dependencies" / "OmniParser-master" / "weights" / "icon_caption_florence")
 
-class OmniParserInterface:
-    def __init__(self, server_url="http://localhost:8111"):
-        self.server_url = server_url
-        self.server_process = None
-
-    def launch_server(self,
-                      conda_path=None,
-                      conda_env="automoy_env",
-                      omiparser_module="omniparserserver",
-                      cwd=None,
-                      port=8111,
-                      model_path=None,
-                      caption_model_dir=None):
-
-        if conda_path is None:
-            conda_path = auto_find_conda()
-            if not conda_path:
-                print("❌ Could not auto-locate conda executable.")
-                return False
-
-        if cwd is None:
-            cwd = DEFAULT_SERVER_CWD
-        if model_path is None:
-            model_path = DEFAULT_MODEL_PATH
-        if caption_model_dir is None:
-            caption_model_dir = DEFAULT_CAPTION_MODEL_DIR
-
-        if not os.path.isdir(cwd):
-            print(f"❌ Error: The provided working directory '{cwd}' is invalid or does not exist.")
-            return False
-
-        env = os.environ.copy()
-        env["PYTHONUNBUFFERED"] = "1"
-        env["PYTHONPATH"] = str(PROJECT_ROOT / "dependencies" / "OmniParser-master")
-
-        command = [
-            conda_path, "run", "-n", conda_env,
-            "python", "-m", omiparser_module,
-            "--som_model_path", model_path,
-            "--caption_model_name", "florence2",
-            "--caption_model_path", caption_model_dir,
-            "--device", "cuda",
-            "--BOX_TRESHOLD", "0.05",
-            "--port", str(port)
-        ]
-
-        print(f"🚀 Launching OmniParser server on port {port}...")
-        print(f"Using working directory: {cwd}")
-
-        try:
-            self.server_process = subprocess.Popen(
-                command,
-                cwd=cwd,
-                env=env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1
-            )
-        except Exception as e:
-            print(f"❌ Failed to launch server process: {e}")
-            return False
-
-        def _read_output():
-            while True:
-                line = self.server_process.stdout.readline()
-                if not line and self.server_process.poll() is not None:
-                    break
-                if line:
-                    print("[Server]", line.rstrip())
-
-        threading.Thread(target=_read_output, daemon=True).start()
-
-        timeout_sec = 120
-        start_time = time.time()
-        while time.time() - start_time < timeout_sec:
-            if self.server_process.poll() is not None:
-                print("❌ OmniParser server exited prematurely!")
-                self.server_process = None
-                return False
-            if self._check_server_ready(port):
-                print(f"✅ OmniParser server is ready at http://localhost:{port}")
-                return True
-            time.sleep(5)
-
-        print("❌ OmniParser server did not become ready within 2 minutes.")
-        self.server_process.terminate()
-        self.server_process = None
-        return False
-
-    def _check_server_ready(self, port=8111):
-        try:
-            resp = requests.get(f"http://localhost:{port}/probe/", timeout=3)
-            return resp.status_code == 200
-        except Exception:
-            return False
-
-    def stop_server(self):
-        if self.server_process and self.server_process.poll() is None:
-            print("Stopping OmniParser server...")
-            self.server_process.terminate()
-            try:
-                self.server_process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                print("Server did not terminate in time; forcing kill.")
-                self.server_process.kill()
-            self.server_process = None
-
-    def parse_screenshot(self, image_path):
-        import base64
-        url = f"{self.server_url}/parse"
-        try:
-            with open(image_path, "rb") as f:
-                encoded = base64.b64encode(f.read()).decode("utf-8")
-                payload = {"base64_image": encoded}
-                response = requests.post(url, json=payload)
-                response.raise_for_status()
-                return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f"❌ OmniParser request failed: {e}")
-            return None
-
-# --- Launch and register cleanup ---
+# --- Initialize OmniParser ---
 omniparser = OmniParserInterface()
 launched = omniparser.launch_server(
     conda_path=auto_find_conda(),
@@ -176,26 +62,16 @@ launched = omniparser.launch_server(
     caption_model_dir=None
 )
 
-# Ensure server cleanup on exit
+# --- Clean shutdown ---
 atexit.register(omniparser.stop_server)
 signal.signal(signal.SIGINT, lambda sig, frame: sys.exit(0))
 signal.signal(signal.SIGTERM, lambda sig, frame: sys.exit(0))
 
+# --- Run Automoy ---
 if __name__ == "__main__":
     if launched:
-        try:
-            sample_path = PROJECT_ROOT / "core" / "utils" / "omniparser" / "sample_screenshot.png"
-            if sample_path.exists():
-                result = omniparser.parse_screenshot(str(sample_path))
-                if result:
-                    print(f"✅ Latency: {result.get('latency', 'N/A'):.2f}s")
-                    for entry in result.get("parsed_content_list", []):
-                        print(f" - [{entry['type'].upper()}] {entry['content']}")
-                else:
-                    print("⚠️ No data returned from OmniParser.")
-            else:
-                print(f"⚠️ Sample screenshot not found at: {sample_path}")
-        except FileNotFoundError as e:
-            print(f"❌ File not found: {e.filename}")
+        import asyncio
+        print("✅ OmniParser launched. Running Automoy...")
+        asyncio.run(operate_loop())
     else:
-        print("OmniParser server did not launch correctly.")
+        print("❌ OmniParser server failed to launch.")

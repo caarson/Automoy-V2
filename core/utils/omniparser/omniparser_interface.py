@@ -37,7 +37,7 @@ class OmniParserInterface:
     def launch_server(self,
                       conda_path=None,
                       conda_env="automoy_env",
-                      omiparser_module="omnitool.omniparserserver.omniparserserver",
+                      omiparser_module="omniparserserver",
                       cwd=None,
                       port=8111,
                       model_path=None,
@@ -65,7 +65,7 @@ class OmniParserInterface:
 
         command = [
             conda_path, "run", "-n", conda_env,
-            "python", "-m", omiparser_module,
+            "python", f"{omiparser_module}.py",
             "--som_model_path", model_path,
             "--caption_model_name", "florence2",
             "--caption_model_path", caption_model_dir,
