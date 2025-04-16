@@ -8,7 +8,8 @@ from utils.vmware.vmware_interface import VMWareInterface
 from utils.web_scraping.webscrape_interface import WebScrapeInterface
 from lm_interfaces.main_interface import MainInterface
 from prompts import get_system_prompt
-from parsing import handle_llm_response
+from lm_interface import handle_llm_response
+from utils.region.mapper import map_elements_to_coords  # ✅ NEW import
 
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[1] / "config"))
 from config import Config
@@ -59,11 +60,9 @@ class AutomoyOperator:
 
                 if ui_data:
                     print("🖼️ Parsed UI Data:")
-                    for entry in ui_data.get("parsed_content_list", []):
-                        content = entry.get("content", "")
-                        position = entry.get("position", {})
-                        x, y = position.get("x"), position.get("y")
-                        print(f" - [{entry['type'].upper()}] '{content}' at ({x}, {y})")
+                    coords = map_elements_to_coords(ui_data, screenshot_path)  # ✅ NEW: map coordinates
+                    for el in coords:
+                        print(f" - [{el['type'].upper()}] '{el['content']}' at center {el['center']}")
 
                 raw_html_text = self.webscraper.fetch_page_content("https://example.com")
                 if raw_html_text:
