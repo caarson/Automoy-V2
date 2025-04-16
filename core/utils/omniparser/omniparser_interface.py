@@ -1,6 +1,8 @@
 import os
 import sys
 import time
+import base64
+import json
 import requests
 import subprocess
 import threading
@@ -140,10 +142,24 @@ class OmniParserInterface:
         url = f"{self.server_url}/parse"
         try:
             with open(image_path, "rb") as f:
-                files = {"file": f}
-                response = requests.post(url, files=files)
-                response.raise_for_status()
-                return response.json()
+                encoded_image = base64.b64encode(f.read()).decode("utf-8")
+
+            payload = {"base64_image": encoded_image}
+            headers = {"Content-Type": "application/json"}
+            response = requests.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+
+            parsed = response.json()
+
+            # Save the returned image
+            if "som_image_base64" in parsed:
+                output_path = pathlib.Path(__file__).parent / "returned_img_with_boxes.png"
+                with open(output_path, "wb") as out_file:
+                    out_file.write(base64.b64decode(parsed["som_image_base64"]))
+                print(f"🖼️ Saved parsed image to: {output_path}")
+
+            return parsed
+
         except requests.exceptions.RequestException as e:
             print(f"❌ OmniParser request failed: {e}")
             return None
@@ -160,7 +176,7 @@ if __name__ == "__main__":
     )
 
     if launched:
-        result = omniparser.parse_screenshot("sample_screenshot.png")
+        result = omniparser.parse_screenshot("core/utils/omniparser/sample_screenshot.png")
         print("🔍 Parsed Data:", result)
         omniparser.stop_server()
     else:

@@ -1,16 +1,14 @@
 import asyncio
 import time
-import json
-import re
+import sys
+import pathlib
 from utils.operating_system.os_interface import OSInterface
 from utils.omniparser.omniparser_interface import OmniParserInterface
 from utils.vmware.vmware_interface import VMWareInterface
 from utils.web_scraping.webscrape_interface import WebScrapeInterface
 from lm_interfaces.main_interface import MainInterface
 from prompts import get_system_prompt
-from parsing import handle_llm_response  # 🔧 new import
-import sys
-import pathlib
+from parsing import handle_llm_response
 
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[1] / "config"))
 from config import Config
@@ -67,31 +65,27 @@ class AutomoyOperator:
                         x, y = position.get("x"), position.get("y")
                         print(f" - [{entry['type'].upper()}] '{content}' at ({x}, {y})")
 
-                        if entry["type"] == "button":
-                            self.os_interface.move_mouse(x, y, duration=0.3)
-                            self.os_interface.click_mouse()
-                            time.sleep(0.5)
-
                 raw_html_text = self.webscraper.fetch_page_content("https://example.com")
                 if raw_html_text:
                     print("🌐 Scraped Content Preview:", raw_html_text[:300])
 
                 system_prompt = get_system_prompt(self.model, self.objective)
                 messages = [
+                    {"role": "system", "content": self.objective},
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": "Analyze the UI and suggest next steps."}
                 ]
 
-                response_text, _, _ = await self.llm.get_next_action(
+                response, _, _ = await self.llm.get_next_action(
                     model=self.model,
                     messages=messages,
                     objective=self.objective,
                     session_id="automoy-session-1",
                     screenshot_path=screenshot_path
                 )
+                print("🧠 LLM Response:", response)
 
-                print("🧠 LLM Response:", response_text)
-                handle_llm_response(response_text, self.os_interface)
+                handle_llm_response(response, self.os_interface)
 
                 vm_list = self.vmware.list_vms()
                 if vm_list:
