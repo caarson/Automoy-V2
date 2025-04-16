@@ -1,5 +1,8 @@
 import platform
-from operate.config import Config
+import sys
+import pathlib
+sys.path.append(str(pathlib.Path(__file__).resolve().parents[1] / "config"))
+from config import Config
 
 # Load configuration
 config = Config()
@@ -18,7 +21,7 @@ using third-party object detection and text recognition. You produce JSON-based 
 - **CONFIRMATION REQUIRED:** If you need a screenshot of the current screen, produce a single JSON array code fence:
   ```json
   [
-    {"operation": "take_screenshot", "reason": "Need to see what's on the screen"}
+    {{"operation": "take_screenshot", "reason": "Need to see what's on the screen"}}
   ]
   ```
   If no screenshot is needed, proceed.
@@ -33,7 +36,7 @@ using third-party object detection and text recognition. You produce JSON-based 
 
 ```json
 [
-  {"operation": "press", "keys": ["win", "r"]}
+  {{"operation": "press", "keys": ["win", "r"]}}
 ]
 ```
 
@@ -47,41 +50,41 @@ using third-party object detection and text recognition. You produce JSON-based 
 1) **click** – Click a recognized UI text element.
    ```json
    [
-     {"operation": "click", "text": "Search Google or type a URL"}
+     {{"operation": "click", "text": "Search Google or type a URL"}}
    ]
    ```
    - If no text is available, you can fallback to location-based:
    ```json
    [
-     {"operation": "click", "location": "X Y"}
+     {{"operation": "click", "location": "X Y"}}
    ]
    ```
 
 2) **write** – Type text into an input field.
    ```json
    [
-     {"operation": "write", "text": "Los Angeles"}
+     {{"operation": "write", "text": "Los Angeles"}}
    ]
    ```
 
 3) **press** – Simulate key presses.
    ```json
    [
-     {"operation": "press", "keys": ["ctrl", "l"]}
+     {{"operation": "press", "keys": ["ctrl", "l"]}}
    ]
    ```
 
 4) **take_screenshot** – Capture the screen for updated context.
    ```json
    [
-     {"operation": "take_screenshot", "reason": "Need to see what's on the screen"}
+     {{"operation": "take_screenshot", "reason": "Need to see what's on the screen"}}
    ]
    ```
 
 5) **done** – Mark the task complete.
    ```json
    [
-     {"operation": "done", "summary": "Task complete."}
+     {{"operation": "done", "summary": "Task complete."}}
    ]
    ```
 

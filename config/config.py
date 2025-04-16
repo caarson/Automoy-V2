@@ -35,6 +35,18 @@ class Config:
     def get(self, key, default=None):
         """Retrieve a configuration value with an optional default."""
         return self.config_data.get(key, default)
+    
+    def get_api_source(self):
+        """
+        Determines which LLM API to use based on available keys.
+        Returns a tuple: (source, value) where source is 'openai' or 'lmstudio'
+        """
+        if self.get("OPENAI_API_KEY"):
+            return "openai", self.get("OPENAI_API_KEY")
+        elif self.get("LMSTUDIO_API_URL"):
+            return "lmstudio", self.get("LMSTUDIO_API_URL")
+        else:
+            raise ValueError("No valid API configuration found.")
 
 # Example Usage:
 if __name__ == "__main__":

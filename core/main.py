@@ -1,6 +1,6 @@
 import os
 import sys
-import subprocess
+import argparse
 import pathlib
 import time
 import requests
@@ -10,36 +10,18 @@ import signal
 
 REQUIRED_ENV_NAME = "automoy_env"
 
-# --- Helper function to auto-find conda ---
-def auto_find_conda():
-    import pathlib
-    user_home = pathlib.Path.home()
-    possible_paths = [
-        os.environ.get("CONDA_EXE"),
-        user_home / "anaconda3" / "condabin" / "conda.bat",
-        user_home / "miniconda3" / "condabin" / "conda.bat",
-        user_home / "anaconda3" / "Scripts" / "conda.exe",
-        user_home / "miniconda3" / "Scripts" / "conda.exe"
-    ]
-    for path in possible_paths:
-        if path and os.path.isfile(path):
-            return str(path)
-    return None
+# --- Parse command-line arguments ---
+parser = argparse.ArgumentParser(description="Launch Automoy")
+parser.add_argument("--objective", type=str, help="Automation objective for Automoy")
+args = parser.parse_args()
 
-# Relaunch if not inside automoy_env
+# --- Verify we're in the correct Conda environment ---
 if os.environ.get("CONDA_DEFAULT_ENV") != REQUIRED_ENV_NAME:
-    conda_exe = auto_find_conda()
-    if not conda_exe:
-        print("❌ Could not locate conda executable. Please check your Anaconda installation.")
-        sys.exit(1)
+    print(f"❌ You are not in the required Conda environment: '{REQUIRED_ENV_NAME}'.")
+    print("💡 Please activate the correct environment and run this script again.")
+    sys.exit(1)
 
-    print(f"🔁 Relaunching in conda env: {REQUIRED_ENV_NAME}")
-    subprocess.run([
-        conda_exe, "run", "-n", REQUIRED_ENV_NAME,
-        "python", os.path.abspath(__file__)
-    ])
-    sys.exit()
-
+# --- Project imports ---
 from operate import operate_loop
 from utils.omniparser.omniparser_interface import OmniParserInterface
 
@@ -54,7 +36,7 @@ DEFAULT_CAPTION_MODEL_DIR = str(PROJECT_ROOT / "dependencies" / "OmniParser-mast
 # --- Initialize OmniParser ---
 omniparser = OmniParserInterface()
 launched = omniparser.launch_server(
-    conda_path=auto_find_conda(),
+    conda_path=None,
     conda_env="automoy_env",
     cwd=DEFAULT_SERVER_CWD,
     port=8111,
@@ -72,6 +54,6 @@ if __name__ == "__main__":
     if launched:
         import asyncio
         print("✅ OmniParser launched. Running Automoy...")
-        asyncio.run(operate_loop())
+        asyncio.run(operate_loop(objective=args.objective))
     else:
         print("❌ OmniParser server failed to launch.")

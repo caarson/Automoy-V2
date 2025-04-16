@@ -5,6 +5,7 @@ import ctypes
 import mouse
 import pyperclip
 import pyscreeze
+import keyboard
 
 class OSInterface:
     def __init__(self):
