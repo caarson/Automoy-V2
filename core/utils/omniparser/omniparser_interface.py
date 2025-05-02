@@ -144,6 +144,8 @@ class OmniParserInterface:
             with open(image_path, "rb") as f:
                 encoded_image = base64.b64encode(f.read()).decode("utf-8")
 
+            print(f"[DEBUG] Encoded image length: {len(encoded_image)}")
+
             payload = {"base64_image": encoded_image}
             headers = {"Content-Type": "application/json"}
             response = requests.post(url, json=payload, headers=headers)
@@ -151,7 +153,11 @@ class OmniParserInterface:
 
             parsed = response.json()
 
-            # Save the returned image
+            if not isinstance(parsed, dict) or "coords" not in parsed:
+                print(f"⚠️ Invalid response structure from OmniParser: {parsed}")
+                return None
+
+            # Save the returned image if available
             if "som_image_base64" in parsed:
                 output_path = pathlib.Path(__file__).parent / "returned_img_with_boxes.png"
                 with open(output_path, "wb") as out_file:

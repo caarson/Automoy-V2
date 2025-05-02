@@ -12,12 +12,15 @@ class Config:
         if not os.path.exists(self.config_file):
             raise FileNotFoundError(f"Configuration file '{self.config_file}' not found!")
 
-        with open(self.config_file, "r") as file:
+        with open(self.config_file, "r", encoding="utf-8") as file:
             for line in file:
                 line = line.strip()
-                if line and not line.startswith("#"):  # Ignore empty lines and comments
-                    key, value = line.split(":", 1)
-                    config_data[key.strip()] = self._convert_value(value.strip())
+                if line and not line.startswith("#"):
+                    if ":" in line:
+                        key, value = line.split(":", 1)
+                        key = key.strip()
+                        value = value.split("#", 1)[0].strip()  # Strip inline comments
+                        config_data[key] = self._convert_value(value)
 
         return config_data
 
@@ -35,24 +38,52 @@ class Config:
     def get(self, key, default=None):
         """Retrieve a configuration value with an optional default."""
         return self.config_data.get(key, default)
-    
+
     def get_api_source(self):
         """
-        Determines which LLM API to use based on available keys.
-        Returns a tuple: (source, value) where source is 'openai' or 'lmstudio'
+        Determines which LLM API to use based on 'OPENAI' and 'LMSTUDIO' flags.
+        Returns a tuple: (source, key_or_url)
         """
-        if self.get("OPENAI_API_KEY"):
+        if self.get("OPENAI", False) and self.get("OPENAI_API_KEY"):
             return "openai", self.get("OPENAI_API_KEY")
-        elif self.get("LMSTUDIO_API_URL"):
+        elif self.get("LMSTUDIO", False) and self.get("LMSTUDIO_API_URL"):
             return "lmstudio", self.get("LMSTUDIO_API_URL")
         else:
-            raise ValueError("No valid API configuration found.")
+            raise ValueError(
+                "No valid API configuration found: "
+                "ensure OPENAI or LMSTUDIO is set to True and has a valid key or URL."
+            )
 
-# Example Usage:
+    def get_temperature(self):
+        """Returns temperature for the active LLM provider."""
+        source, _ = self.get_api_source()
+        return self.get(
+            "OPENAI_TEMPERATURE" if source == "openai" else "LMSTUDIO_TEMPERATURE",
+            0.7,
+        )
+
+    def get_model(self):
+        """Returns the model name configured for the active LLM provider."""
+        source, _ = self.get_api_source()
+        if source == "openai":
+            return self.get("OPENAI_MODEL", "gpt-4o")
+        elif source == "lmstudio":
+            return self.get("LMSTUDIO_MODEL", "deepseek-r1-distill-qwen-7b")
+
+
+# Example Usage
 if __name__ == "__main__":
     config = Config()
-    print("OPENAI_API_KEY:", config.get("OPENAI_API_KEY"))
-    print("LMSTUDIO_API_URL:", config.get("LMSTUDIO_API_URL"))
-    print("MODEL:", config.get("MODEL"))
-    print("DEFINE_REGION:", config.get("DEFINE_REGION"))
-    print("DEBUG:", config.get("DEBUG"))
+
+    # Print the active LLM provider and its credentials
+    provider, key_or_url = config.get_api_source()
+    print(f"Using LLM Provider: {provider}")
+    print(f"Credential/URL: {key_or_url}")
+
+    # Print model and temperature settings
+    print(f"Model: {config.get_model()}")
+    print(f"Temperature: {config.get_temperature()}")
+
+    # Print other misc. configuration values
+    print(f"DEFINE_REGION: {config.get('DEFINE_REGION')}")
+    print(f"DEBUG: {config.get('DEBUG')}")

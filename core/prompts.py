@@ -45,6 +45,7 @@ using third-party object detection and text recognition. You produce JSON-based 
 2) All string values must be in double quotes.
 3) Only the JSON snippet in the code fence is executed.
 4) Avoid lengthy chain-of-thought.
+5) Analyze the screenshot information at the beginning of your objective.
 
 ### **VALID ACTIONS**
 1) **click** – Click a recognized UI text element.

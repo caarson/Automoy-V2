@@ -3,7 +3,7 @@ easyocr==1.7.2
 transformers
 ultralytics==8.3.70
 supervision==0.18.0
-openai==1.3.5
+openai
 azure-identity
 
 # Scientific & Image Processing
@@ -44,4 +44,5 @@ google-auth<3,>=2
 
 # LLM API Services
 groq
+
 

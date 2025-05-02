@@ -32,7 +32,7 @@ class AutomoyOperator:
         if not self.omniparser._check_server_ready():
             print("❌ OmniParser Server is not running! Attempting to start it...")
             self.omniparser.start_server()
-            await asyncio.sleep(5)
+            await asyncio.sleep(1)
 
         if not self.vmware.is_vmware_installed():
             print("⚠️ VMWare is not installed or not detected.")
@@ -55,18 +55,12 @@ class AutomoyOperator:
 
         while True:
             try:
-                screenshot_path = self.os_interface.take_screenshot("automoy_screenshot.png")
-                ui_data = self.omniparser.parse_screenshot(screenshot_path)
-
-                if ui_data:
-                    print("🖼️ Parsed UI Data:")
-                    coords = map_elements_to_coords(ui_data, screenshot_path)  # ✅ NEW: map coordinates
-                    for el in coords:
-                        print(f" - [{el['type'].upper()}] '{el['content']}' at center {el['center']}")
-
-                raw_html_text = self.webscraper.fetch_page_content("https://example.com")
-                if raw_html_text:
-                    print("🌐 Scraped Content Preview:", raw_html_text[:300])
+                # If we don't have UI context yet, take screenshot
+                if not hasattr(self, "coords") or not self.coords:
+                    print("📸 No cached UI. Taking screenshot...")
+                    screenshot_path = self.os_interface.take_screenshot("automoy_screenshot.png")
+                    ui_data = self.omniparser.parse_screenshot(screenshot_path)
+                    self.coords = map_elements_to_coords(ui_data, screenshot_path)
 
                 system_prompt = get_system_prompt(self.model, self.objective)
                 messages = [
@@ -82,10 +76,20 @@ class AutomoyOperator:
                     session_id="automoy-session-1",
                     screenshot_path=screenshot_path
                 )
-                print("🧠 LLM Response:", response)
+                print("🧬 LLM Response:", response)
 
-                handle_llm_response(response, self.os_interface)
+                # Check if the LLM wants to take a screenshot
+                if response and isinstance(response[0], dict) and response[0].get("operation") == "take_screenshot":
+                    screenshot_path = self.os_interface.take_screenshot("automoy_screenshot.png")
+                    ui_data = self.omniparser.parse_screenshot(screenshot_path)
+                    self.coords = map_elements_to_coords(ui_data, screenshot_path)
+                    print("📸 New screenshot and UI parsed.")
+                    continue  # ✅ Skip execution step and prompt again
+                else:
+                    # Perform the action
+                    handle_llm_response(response, self.os_interface, parsed_ui=self.coords, screenshot_path=screenshot_path)
 
+                # Optional: display available VMs
                 vm_list = self.vmware.list_vms()
                 if vm_list:
                     print("🖥️ Available VMs:", vm_list)
@@ -95,6 +99,9 @@ class AutomoyOperator:
             except KeyboardInterrupt:
                 print("\n🛑 Automoy Operation Halted.")
                 break
+
+
+
 
 def operate_loop(objective=None):
     operator = AutomoyOperator(objective=objective)

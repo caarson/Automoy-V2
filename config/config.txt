@@ -1,5 +1,31 @@
-OPENAI_API_KEY: 
-LMSTUDIO_API_URL: http://llm.technologies-ai.com/
-MODEL: deepseek-r1-distill-qwen-7b
+####
+# Automoy Configuration File
+#
+# This config is intended primarily for development use.
+# All settings here can also be modified through the GUI.
+#
+
+#########################
+# LLM Configuration
+#########################
+
+#### OpenAI Settings
+OPENAI: True                         # Enable OpenAI as the LLM backend.
+OPENAI_API_KEY:                      # Insert your OpenAI API key here
+OPENAI_MODEL: gpt-4o                 # Specify which OpenAI model to use
+OPENAI_TEMPERATURE: 0.5              # Controls creativity (0 = deterministic, 1 = random)
+
+#### LMStudio Settings
+LMSTUDIO: False                      # Set to True to use LMStudio as the LLM backend.
+LMSTUDIO_API_URL: https://llm.technologies-ai.com/                   # Insert your LMStudio API URL here
+LMSTUDIO_MODEL: deepseek-r1-distill-qwen-7b   # Specify which LMStudio model to use
+LMSTUDIO_TEMPERATURE: 0.5            # Controls creativity (0 = deterministic, 1 = random)
+
+#########################
+# Utility Settings
+#########################
+
 DEFINE_REGION: False
 DEBUG: True
+VMWARE: False
+WEB_SCRAPE: False

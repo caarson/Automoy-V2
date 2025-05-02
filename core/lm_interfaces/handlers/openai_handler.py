@@ -1,138 +1,114 @@
 import sys
 import pathlib
-
-# Now we can update sys.path safely
-sys.path.append(str(pathlib.Path(__file__).parent.parent.parent.parent / "config"))
-
-from config import Config
 import json
 import traceback
 import re
 import tiktoken
 
+# Load Config
+sys.path.append(str(pathlib.Path(__file__).parent.parent.parent.parent / "config"))
+from config import Config
+
 config = Config()
 
 def extract_json_from_text(content):
-    """
-    Extracts JSON from OpenAI response text using regex.
-    Returns an empty list if no JSON is found.
-    """
     json_match = re.search(r"```json\s*(.*?)\s*```", content, re.DOTALL)
     if json_match:
-        json_text = json_match.group(1)
-        return json_text.strip()
-    else:
-        print("[ERROR] No JSON block detected in OpenAI response.")
-        return "[]"
+        return json_match.group(1).strip()
+    print("[ERROR] No JSON block detected in OpenAI response. Returning raw content.")
+    return content.strip()  # fallback to raw content
 
 def fix_json_format(raw_response):
-    """
-    Cleans up OpenAI's raw response to ensure it's valid JSON before parsing.
-    """
     try:
-        return json.loads(raw_response)  # Try parsing first
+        return json.loads(raw_response)
     except json.JSONDecodeError:
-        print("[WARNING] OpenAI response has incorrect JSON formatting. Attempting auto-fix...")
-        
+        print("[WARNING] Attempting to fix JSON format...")
         cleaned_response = re.sub(r'[^a-zA-Z0-9:{}\[\],"\'.\s]', '', raw_response)
         cleaned_response = re.sub(r',?\s*{}\s*', '', cleaned_response)
         cleaned_response = re.sub(r'"done"\s*:\s*{(.*?)\s*}', r'"done": {"summary": "\1"}', cleaned_response)
         cleaned_response = re.sub(r'([{,])\s*([a-zA-Z0-9_]+)\s*:', r'\1 "\2":', cleaned_response)
-        
         try:
             return json.loads(cleaned_response)
         except json.JSONDecodeError as e:
             print(f"[ERROR] JSON Decode Failed After Fixing: {e}")
             return []
 
-def count_tokens(messages, model_name="gpt-4o"):
-    """Estimates the token count for OpenAI messages."""
-    enc = tiktoken.encoding_for_model(model_name)
+def count_tokens(messages, model_name):
+    try:
+        enc = tiktoken.encoding_for_model(model_name)
+    except KeyError:
+        enc = tiktoken.get_encoding("cl100k_base")
     return sum(len(enc.encode(msg["content"])) for msg in messages)
 
-def truncate_messages(messages, max_tokens=7000, model_name="gpt-4o"):
-    """Truncates messages to fit within OpenAI's context length limit."""
-    total_tokens = count_tokens(messages, model_name)
-    
-    while total_tokens > max_tokens and len(messages) > 1:
-        messages.pop(1)  # Remove oldest user messages first
-        total_tokens = count_tokens(messages, model_name)
-
+def truncate_messages(messages, max_tokens, model_name):
+    while count_tokens(messages, model_name) > max_tokens and len(messages) > 1:
+        messages.pop(1)  # remove oldest user message first
     return messages
 
 def transform_operations(response_list):
-    """
-    Transforms OpenAI's response into the correct format.
-    """
-    transformed_operations = []
+    transformed = []
     for item in response_list:
         if isinstance(item, dict) and "operation" in item:
-            transformed_operations.append(item)  # Keep the valid operation format
+            transformed.append(item)
         else:
             print(f"[WARNING] Unexpected operation format: {item}")
-    
-    return transformed_operations
+    return transformed
 
-async def call_openai_model(messages, objective, model_name="gpt-4o"):
-    """
-    Calls OpenAI's GPT-based models and ensures JSON is formatted correctly.
-    Directly truncates preprocessed data without additional parsing.
-    """
+async def call_openai_model(messages, objective, model_name=None):
     try:
-        # Log the input being sent to GPT
-        print(f"[DEBUG] Messages Sent to GPT Before Modification:\n{json.dumps(messages, indent=2)}")
+        model_name = model_name or config.get_model()
+        temperature = config.get_temperature()
 
-        # Directly truncate preprocessed data
-        preprocessed_data = messages[-1]["content"] if messages and "content" in messages[-1] else ""
+        if config.get("DEBUG", False):
+            print(f"[DEBUG] Raw messages:\n{json.dumps(messages, indent=2)}")
 
-        # Truncate the preprocessed data before adding it to messages
-        def truncate_text(text, max_tokens=2000, model_name="gpt-4o"):
-            enc = tiktoken.encoding_for_model(model_name)
+        content = messages[-1]["content"] if messages and "content" in messages[-1] else ""
+
+        def truncate_text(text, max_tokens, model_name):
+            try:
+                enc = tiktoken.encoding_for_model(model_name)
+            except KeyError:
+                enc = tiktoken.get_encoding("cl100k_base")
             tokenized = enc.encode(text)
             return enc.decode(tokenized[:max_tokens]) if len(tokenized) > max_tokens else text
 
-        preprocessed_data = truncate_text(preprocessed_data, max_tokens=2000)
-
-        # Ensure preprocessed data does not exceed the limit before sending
-        truncated_data = truncate_messages([{"role": "system", "content": preprocessed_data}], max_tokens=6000, model_name=model_name)
-        
+        content = truncate_text(content, max_tokens=2000, model_name=model_name)
+        truncated_data = truncate_messages([{"role": "system", "content": content}], max_tokens=6000, model_name=model_name)
         messages = messages[:-1] + truncated_data
 
-        print(f"[DEBUG] Messages Sent to GPT After Modification:\n{json.dumps(messages, indent=2)}")
+        if config.get("DEBUG", False):
+            print(f"[DEBUG] Truncated messages:\n{json.dumps(messages, indent=2)}")
 
-        # Initialize OpenAI client and make the request
-        client = config.initialize_openai()
-        response = client.chat.completions.create(
+        import openai
+        client = openai.OpenAI(api_key=config.get("OPENAI_API_KEY"))
+
+        stream = client.chat.completions.create(
             model=model_name,
             messages=messages,
+            temperature=temperature,
             presence_penalty=1,
             frequency_penalty=1,
+            stream=True,
         )
 
-        if not response or not response.choices:
-            print("[ERROR] OpenAI response is empty or invalid.")
-            return []
+        collected_content = ""
+        for chunk in stream:
+            delta = getattr(chunk.choices[0].delta, "content", None)
+            if delta:
+                if config.get("DEBUG", False):
+                    print(delta, end="", flush=True)
+                collected_content += delta
 
-        content = response.choices[0].message.content
+        if config.get("DEBUG", False):
+            print(f"\n[DEBUG] Raw GPT Response Content (streamed):\n{repr(collected_content)}")
 
-        # Log the raw response from GPT
-        print(f"[DEBUG] Raw GPT Response:\n{content}")
-
-        try:
-            parsed_response = json.loads(content)
-        except json.JSONDecodeError as e:
-            print(f"[ERROR] JSON Decode Error: {e}")
-            return []
-
-        parsed_response = fix_json_format(content)
-        formatted_response = transform_operations(parsed_response)
-
-        print(f"[DEBUG] Transformed OpenAI Response: {formatted_response}")
-
-        return formatted_response if isinstance(formatted_response, list) else []
+        raw_json = extract_json_from_text(collected_content)
+        parsed = fix_json_format(raw_json)
+        transformed = transform_operations(parsed)
+        return transformed if isinstance(transformed, list) else []
 
     except Exception as e:
         print(f"[ERROR] Exception in call_openai_model: {e}")
-        if config.verbose:
+        if config.get("DEBUG", False):
             traceback.print_exc()
         return []
