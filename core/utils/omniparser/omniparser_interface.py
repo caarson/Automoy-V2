@@ -1,6 +1,7 @@
 """
 omniparser_interface.py · 2025‑05‑03
 RAW‑first encode strategy + optional CUDA‑cache flush.
+Saves the overlay image as processed_screenshot.png
 """
 
 from __future__ import annotations
@@ -18,13 +19,13 @@ from typing import Optional, Iterable
 
 import requests
 
-# ――― Try to bring in torch (but keep running if it's absent) ―――
+# torch is optional – used only to free CUDA cache if available
 try:
     import torch
-except ImportError:  # torch not in the env → run without cache‑flush
+except ImportError:
     torch = None  # type: ignore
 
-# Pillow is optional – used only for the JPEG fallback
+# Pillow is optional – used only for JPEG fallback
 try:
     from PIL import Image
 except ImportError:
@@ -177,6 +178,13 @@ class OmniParserInterface:
 
     # ――― parse screenshot ―――
     def parse_screenshot(self, image_path: str | os.PathLike) -> Optional[dict]:
+        """
+        Parse the screenshot at *image_path*.
+        On success:
+          • saves overlay as 'processed_screenshot.png'
+          • returns the full JSON result
+        Returns None on any unrecoverable error.
+        """
         img_path = pathlib.Path(image_path)
         url = f"{self.server_url}/parse/"
 
@@ -194,18 +202,18 @@ class OmniParserInterface:
                 parsed = r.json()
 
                 if torch and torch.cuda.is_available():
-                    torch.cuda.empty_cache()  # clear hidden states/leak
+                    torch.cuda.empty_cache()  # avoid Florence hidden‑state leak
 
                 if not isinstance(parsed, dict) or "coords" not in parsed:
                     print(f"⚠️ Unexpected response: {parsed}")
                     return None
 
-                # save overlay if provided
+                # save overlay if present
                 if "som_image_base64" in parsed:
-                    out = pathlib.Path(__file__).with_name("returned_img_with_boxes.png")
-                    with out.open("wb") as f:
+                    out_path = pathlib.Path(__file__).with_name("processed_screenshot.png")
+                    with out_path.open("wb") as f:
                         f.write(base64.b64decode(parsed["som_image_base64"]))
-                    print(f"🖼️  Saved → {out}")
+                    print(f"🖼️  Overlay saved → {out_path}")
 
                 print(f"✅ Parsed OK with {label}")
                 return parsed
