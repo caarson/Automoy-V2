@@ -1,189 +1,254 @@
-import os
-import sys
-import time
+"""
+omniparser_interface.py · 2025‑05‑03
+RAW‑first encode strategy + optional CUDA‑cache flush.
+"""
+
+from __future__ import annotations
+
 import base64
+import io
 import json
-import requests
-import subprocess
-import threading
+import os
 import pathlib
+import subprocess
+import sys
+import threading
+import time
+from typing import Optional, Iterable
 
-# --- Helper function to auto-find conda ---
-def auto_find_conda():
-    """Attempt to locate the conda executable automatically."""
-    conda_exe = os.environ.get("CONDA_EXE")
-    if conda_exe and os.path.isfile(conda_exe):
-        return conda_exe
+import requests
+
+# ――― Try to bring in torch (but keep running if it's absent) ―――
+try:
+    import torch
+except ImportError:  # torch not in the env → run without cache‑flush
+    torch = None  # type: ignore
+
+# Pillow is optional – used only for the JPEG fallback
+try:
+    from PIL import Image
+except ImportError:
+    Image = None  # type: ignore
+
+
+# ───────────────────────── helper: locate conda ────────────────────────────
+def _auto_find_conda() -> Optional[str]:
+    conda = os.environ.get("CONDA_EXE")
+    if conda and os.path.isfile(conda):
+        return conda
     try:
-        output = subprocess.check_output(["where", "conda"], shell=True, text=True)
-        lines = [line.strip() for line in output.splitlines() if line.strip()]
-        if lines:
-            return lines[0]
+        out = subprocess.check_output(["where", "conda"], shell=True, text=True)
+        return next(line for line in out.splitlines() if line.strip())
     except Exception:
-        pass
-    return None
+        return None
 
-# --- Compute the project root based on file location ---
-PROJECT_ROOT = pathlib.Path(__file__).parent.parent.parent.parent.resolve()
 
-# --- Default paths for OmniParser ---
-DEFAULT_SERVER_CWD = str(PROJECT_ROOT / "dependencies" / "OmniParser-master" / "omnitool" / "omniparserserver")
-DEFAULT_MODEL_PATH = str(PROJECT_ROOT / "dependencies" / "OmniParser-master" / "weights" / "icon_detect" / "model.pt")
-DEFAULT_CAPTION_MODEL_DIR = str(PROJECT_ROOT / "dependencies" / "OmniParser-master" / "weights" / "icon_caption_florence")
+# ───────────────────────────── paths / constants ────────────────────────────
+PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[3]
 
+DEFAULT_SERVER_CWD = PROJECT_ROOT / "dependencies" / "OmniParser-master" / \
+    "omnitool" / "omniparserserver"
+DEFAULT_MODEL_PATH = PROJECT_ROOT / "dependencies" / "OmniParser-master" / \
+    "weights" / "icon_detect" / "model.pt"
+DEFAULT_CAPTION_MODEL_DIR = PROJECT_ROOT / "dependencies" / "OmniParser-master" / \
+    "weights" / "icon_caption_florence"
+
+
+# ───────────────────────── image encoding helpers ───────────────────────────
+def _raw_b64(img_path: pathlib.Path) -> str:
+    with img_path.open("rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+
+def _jpeg_b64(img_path: pathlib.Path, max_dim: int) -> str:
+    if Image is None:
+        return _raw_b64(img_path)
+
+    with Image.open(img_path) as im:
+        if im.mode != "RGB":
+            im = im.convert("RGB")
+        im.thumbnail((max_dim, max_dim), Image.LANCZOS)
+        buf = io.BytesIO()
+        im.save(buf, format="JPEG", quality=85, optimize=True)
+        return base64.b64encode(buf.getvalue()).decode()
+
+
+def _encoding_sequence(img_path: pathlib.Path) -> Iterable[tuple[str, str]]:
+    """RAW first, then 1920‑/1280‑/720‑pixel JPEGs."""
+    yield "RAW", _raw_b64(img_path)
+    for dim in (1920, 1280, 720):
+        yield f"JPEG‑{dim}px", _jpeg_b64(img_path, dim)
+
+
+# ─────────────────────────── main interface class ───────────────────────────
 class OmniParserInterface:
-    def __init__(self, server_url="http://localhost:8111"):
-        self.server_url = server_url
-        self.server_process = None
+    def __init__(self, server_url: str = "http://localhost:8111") -> None:
+        self.server_url = server_url.rstrip("/")
+        self.server_process: Optional[subprocess.Popen] = None
 
-    def launch_server(self,
-                      conda_path=None,
-                      conda_env="automoy_env",
-                      omiparser_module="omniparserserver",
-                      cwd=None,
-                      port=8111,
-                      model_path=None,
-                      caption_model_dir=None):
+    # ――― context manager ―――
+    def __enter__(self):
+        if not self.server_process and not self.launch_server():
+            raise RuntimeError("Failed to start OmniParser.")
+        return self
 
-        if conda_path is None:
-            conda_path = auto_find_conda()
-            if not conda_path:
-                print("❌ Could not auto-locate conda executable.")
-                return False
+    def __exit__(self, exc_type, exc, tb):
+        self.stop_server()
 
-        if cwd is None:
-            cwd = DEFAULT_SERVER_CWD
-        if model_path is None:
-            model_path = DEFAULT_MODEL_PATH
-        if caption_model_dir is None:
-            caption_model_dir = DEFAULT_CAPTION_MODEL_DIR
+    # ――― server lifecycle ―――
+    def launch_server(
+        self,
+        *,
+        conda_path: Optional[str] = None,
+        conda_env: str = "automoy_env",
+        omiparser_module: str = "omniparserserver",
+        cwd: Optional[str | os.PathLike] = None,
+        port: int = 8111,
+        model_path: Optional[str | os.PathLike] = None,
+        caption_model_dir: Optional[str | os.PathLike] = None,
+    ) -> bool:
 
-        if not os.path.isdir(cwd):
-            print(f"❌ Error: The provided working directory '{cwd}' is invalid or does not exist.")
+        conda_path = conda_path or _auto_find_conda()
+        if not conda_path:
+            print("❌ Could not locate conda.")
             return False
 
-        env = os.environ.copy()
-        env["PYTHONUNBUFFERED"] = "1"
-
-        command = [
+        cwd = str(cwd or DEFAULT_SERVER_CWD)
+        cmd = [
             conda_path, "run", "-n", conda_env,
-            "python", f"{omiparser_module}.py",
-            "--som_model_path", model_path,
+            sys.executable, f"{omiparser_module}.py",
+            "--som_model_path", str(model_path or DEFAULT_MODEL_PATH),
             "--caption_model_name", "florence2",
-            "--caption_model_path", caption_model_dir,
+            "--caption_model_path", str(caption_model_dir or DEFAULT_CAPTION_MODEL_DIR),
             "--device", "cuda",
             "--BOX_TRESHOLD", "0.05",
-            "--port", str(port)
+            "--port", str(port),
         ]
 
-        print(f"🚀 Launching OmniParser server on port {port}...")
-        print(f"Using working directory: {cwd}")
-
+        print(f"🚀 Launching OmniParser on :{port}")
         try:
             self.server_process = subprocess.Popen(
-                command,
+                cmd,
                 cwd=cwd,
-                env=env,
+                env={**os.environ, "PYTHONUNBUFFERED": "1"},
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
-                bufsize=1
             )
         except Exception as e:
-            print(f"❌ Failed to launch server process: {e}")
+            print(f"❌ Spawn failed: {e}")
             return False
 
-        def _read_output():
-            while True:
-                line = self.server_process.stdout.readline()
-                if not line and self.server_process.poll() is not None:
-                    break
+        def _tail():
+            for line in iter(self.server_process.stdout.readline, ""):
                 if line:
                     print("[Server]", line.rstrip())
+                if self.server_process.poll() is not None:
+                    break
 
-        threading.Thread(target=_read_output, daemon=True).start()
+        threading.Thread(target=_tail, daemon=True).start()
 
-        timeout_sec = 120
-        start_time = time.time()
-        while time.time() - start_time < timeout_sec:
+        t0 = time.time()
+        while time.time() - t0 < 120:
             if self.server_process.poll() is not None:
-                print("❌ OmniParser server exited prematurely!")
-                self.server_process = None
+                print("❌ OmniParser exited.")
                 return False
-            if self._check_server_ready(port):
-                print(f"✅ OmniParser server is ready at http://localhost:{port}")
-                return True
-            time.sleep(5)
+            try:
+                if requests.get(f"http://localhost:{port}/probe/", timeout=3).status_code == 200:
+                    print(f"✅ Ready at http://localhost:{port}")
+                    return True
+            except requests.RequestException:
+                pass
+            time.sleep(2)
 
-        print("❌ OmniParser server did not become ready within 2 minutes.")
-        self.server_process.terminate()
-        self.server_process = None
+        print("❌ OmniParser did not become ready.")
+        self.stop_server()
         return False
 
-    def _check_server_ready(self, port=8111):
-        try:
-            resp = requests.get(f"http://localhost:{port}/probe/", timeout=3)
-            return resp.status_code == 200
-        except Exception:
-            return False
-
-    def stop_server(self):
+    def stop_server(self) -> None:
         if self.server_process and self.server_process.poll() is None:
-            print("Stopping OmniParser server...")
+            print("Stopping OmniParser...")
             self.server_process.terminate()
             try:
-                self.server_process.wait(timeout=10)
+                self.server_process.wait(10)
             except subprocess.TimeoutExpired:
-                print("Server did not terminate in time; forcing kill.")
                 self.server_process.kill()
-            self.server_process = None
+        self.server_process = None
 
-    def parse_screenshot(self, image_path):
-        url = f"{self.server_url}/parse"
-        try:
-            with open(image_path, "rb") as f:
-                encoded_image = base64.b64encode(f.read()).decode("utf-8")
+    # ――― parse screenshot ―――
+    def parse_screenshot(self, image_path: str | os.PathLike) -> Optional[dict]:
+        img_path = pathlib.Path(image_path)
+        url = f"{self.server_url}/parse/"
 
-            print(f"[DEBUG] Encoded image length: {len(encoded_image)}")
+        for label, encoded in _encoding_sequence(img_path):
+            print(f"[DEBUG] Sending {label} → {len(encoded):,} bytes")
 
-            payload = {"base64_image": encoded_image}
-            headers = {"Content-Type": "application/json"}
-            response = requests.post(url, json=payload, headers=headers)
-            response.raise_for_status()
+            try:
+                r = requests.post(
+                    url,
+                    json={"base64_image": encoded},
+                    headers={"Content-Type": "application/json"},
+                    timeout=120,
+                )
+                r.raise_for_status()
+                parsed = r.json()
 
-            parsed = response.json()
+                if torch and torch.cuda.is_available():
+                    torch.cuda.empty_cache()  # clear hidden states/leak
 
-            if not isinstance(parsed, dict) or "coords" not in parsed:
-                print(f"⚠️ Invalid response structure from OmniParser: {parsed}")
+                if not isinstance(parsed, dict) or "coords" not in parsed:
+                    print(f"⚠️ Unexpected response: {parsed}")
+                    return None
+
+                # save overlay if provided
+                if "som_image_base64" in parsed:
+                    out = pathlib.Path(__file__).with_name("returned_img_with_boxes.png")
+                    with out.open("wb") as f:
+                        f.write(base64.b64decode(parsed["som_image_base64"]))
+                    print(f"🖼️  Saved → {out}")
+
+                print(f"✅ Parsed OK with {label}")
+                return parsed
+
+            except requests.HTTPError as e:
+                if r.status_code >= 500 and label == "RAW":
+                    print("⚠️ 5xx on RAW – retrying with JPEG...")
+                    continue
+                print(f"❌ HTTPError ({r.status_code}) after {label}: {e}")
                 return None
 
-            # Save the returned image if available
-            if "som_image_base64" in parsed:
-                output_path = pathlib.Path(__file__).parent / "returned_img_with_boxes.png"
-                with open(output_path, "wb") as out_file:
-                    out_file.write(base64.b64decode(parsed["som_image_base64"]))
-                print(f"🖼️ Saved parsed image to: {output_path}")
+            except requests.RequestException as e:
+                print(f"❌ Request failed: {e}")
+                return None
 
-            return parsed
+        return None
 
-        except requests.exceptions.RequestException as e:
-            print(f"❌ OmniParser request failed: {e}")
-            return None
 
+# ───────────────────────── CLI demo ─────────────────────────
 if __name__ == "__main__":
-    omniparser = OmniParserInterface()
-    launched = omniparser.launch_server(
-        conda_path=None,
-        conda_env="automoy_env",
-        cwd=DEFAULT_SERVER_CWD,
-        port=8111,
-        model_path=None,
-        caption_model_dir=None
-    )
+    import argparse
 
-    if launched:
-        result = omniparser.parse_screenshot("core/utils/omniparser/sample_screenshot.png")
-        print("🔍 Parsed Data:", result)
-        omniparser.stop_server()
-    else:
-        print("OmniParser server did not launch correctly.")
+    parser = argparse.ArgumentParser(description="Run OmniParser on screenshots.")
+    parser.add_argument("images", nargs="*", help="image path(s)")
+    parser.add_argument("--keep-alive", action="store_true",
+                        help="Do not stop the server at the end")
+    args = parser.parse_args()
+
+    if not args.images:
+        sample = PROJECT_ROOT / "core" / "utils" / "omniparser" / "sample_screenshot.png"
+        if not sample.exists():
+            print(f"❌ Sample screenshot missing at {sample}")
+            sys.exit(1)
+        print(f"No images given – using bundled sample: {sample}")
+        args.images = [str(sample)]
+
+    op = OmniParserInterface()
+    if not op.launch_server():
+        sys.exit(1)
+
+    for img in args.images:
+        res = op.parse_screenshot(img)
+        print("🔍 Parsed:", json.dumps(res, indent=2)[:500], "...\n")
+
+    if not args.keep_alive:
+        op.stop_server()
