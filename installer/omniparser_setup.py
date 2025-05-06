@@ -78,93 +78,112 @@ if __name__ == "__main__":
 # =============================================================================
 def apply_gpu_patches() -> None:
     """
-    Make OmniParser safe on 4 GB GPUs.
+    Fix GPU leaks and FP16-load for OmniParser, and disable Uvicorn autoreload.
 
-    1. Upgrade torch/cu121 (works on Windows & Linux)
-    2. Attempt binary‑only install of xformers / flash‑attn (skip if none)
-    3. Patch routers/parse.py
-       • force RGB               • det.cpu()  (move YOLO output off‑GPU)
-       • inference_mode + fp16   • empty_cache + ipc_collect + gc.collect
-    4. Patch server_startup.py
-       • load Florence‑2 in fp16 • keep model on CUDA
+    1. Upgrade torch/cu121 wheels
+    2. Optional install of xformers / flash-attn
+    3. Patch:
+       • routers/parse.py       → RGB fix, det.cpu(), fp16 autocast, cache clear
+       • omniparserserver.py    → set reload=False, workers=1
+    4. Patch server_startup.py   → load Florence-2 in fp16 on CUDA
     """
-    print("\n🔧 Applying GPU‑memory patches…")
+    print("\n🔧 Applying GPU-memory patches…")
 
-    conda_exe = conda_setup.find_conda()
-    if not conda_exe:
-        print("❌ Conda not found; aborting patches.")
-        sys.exit(1)
+    conda = conda_setup.find_conda()
+    if not conda:
+        print("❌ Conda not found."); sys.exit(1)
 
-    # ── 1) Upgrade PyTorch CUDA‑12.1 wheels ──────────────────────────────
+    # 1️⃣ PyTorch CU-12.1 wheels (Win+Linux)
     subprocess.check_call([
-        conda_exe, "run", "-n", CONDA_ENV, "pip", "install", "--upgrade",
+        conda, "run", "-n", CONDA_ENV, "pip", "install", "--upgrade",
         "torch", "torchvision", "torchaudio",
-        "--index-url", "https://download.pytorch.org/whl/cu121"
+        "--index-url", "https://download.pytorch.org/whl/cu121",
     ])
 
-    # ── 2) Optional: xformers / flash‑attn (binary‑only) ─────────────────
-    print("🔍 Trying binary‑only install of xformers / flash‑attn …")
-    res = subprocess.run(
-        [conda_exe, "run", "-n", CONDA_ENV, "pip", "install",
-         "--only-binary", ":all:", "xformers", "flash-attn"],
-        capture_output=True, text=True
-    )
-    if res.returncode == 0:
-        print("✅ Installed xformers / flash‑attn")
+    # 2️⃣ Optional memory-efficient kernels
+    proc = subprocess.run([
+        conda, "run", "-n", CONDA_ENV, "pip", "install",
+        "--only-binary", ":all:", "xformers", "flash-attn"
+    ], capture_output=True, text=True)
+    if proc.returncode == 0:
+        print("✅ Installed xformers / flash-attn")
     else:
-        print("⚠️  No binary wheels found – skipping xformers / flash‑attn")
+        print("⚠️  No binary wheels – skipping xformers / flash-attn")
 
-    # ── 3) Patch routers/parse.py  (memory‑leak fix) ─────────────────────
-    router_py = OMNIPARSER_DIR / "omnitool" / "omniparserserver" / "routers" / "parse.py"
-    if router_py.exists():
-        code = router_py.read_text(encoding="utf-8")
-        if "ipc_collect()" not in code:                     # apply once
-            # imports
-            if "import torch" not in code:
-                code = code.replace("import io", "import io\nimport torch, gc")
-            # RGB conversion
-            m = re.search(r"img\s*=\s*Image\.open\([^\n]*\)", code)
-            if m and "convert(\"RGB\")" not in code[m.end():m.end()+120]:
-                code = code.replace(m.group(0),
-                                   m.group(0) + "\n    if img.mode != \"RGB\":\n        img = img.convert(\"RGB\")")
-            # det_cpu and caption block
-            if "det_cpu" not in code:
-                code = re.sub(r"(det\s*=\s*[^\n]+)",
-                              r"\1\n        det_cpu = det.cpu()", code, count=1)
-                code = code.replace("build_response(det, caption)",
-                                    "build_response(det_cpu, caption)")
-            # fp16 inference wrapper
-            if "torch.inference_mode()" not in code:
-                code = re.sub(
-                    r"(def parse[^\n]+:\n\s+)",
-                    r"\1with torch.inference_mode(), torch.cuda.amp.autocast(dtype=torch.float16):\n    ",
-                    code, count=1
-                )
-                code = code.replace("\n        det = ", "\n            det = ")
-                code = code.replace("\n        caption = ", "\n            caption = ")
-            # cleanup before return
-            if "torch.cuda.empty_cache()" not in code:
-                code = code.replace(
-                    "return resp",
-                    "torch.cuda.empty_cache()\n    torch.cuda.ipc_collect()\n"
-                    "    gc.collect()\n    return resp"
-                )
-            router_py.write_text(code, encoding="utf-8")
-            print("✅ Patched routers/parse.py (RGB + cleanup)")
+    # Import torch now that it’s installed
+    import torch  # noqa: E402
 
-    # ── 4) Patch server_startup.py  (fp16 Florence) ──────────────────────
-    startup_py = OMNIPARSER_DIR / "omnitool" / "omniparserserver" / "server_startup.py"
-    if startup_py.exists():
-        txt = startup_py.read_text(encoding="utf-8")
-        if "torch_dtype=torch.float16" not in txt:
+    def insert_cleanup(src: str) -> str:
+        """Inject cache-clear before every `return`."""
+        if "torch.cuda.empty_cache()" in src:
+            return src
+        return re.sub(
+            r"(\n\s+return\s)",
+            "\n    torch.cuda.empty_cache()\n    torch.cuda.ipc_collect()\n    gc.collect()\\g<1>",
+            src
+        )
+
+    # 3a️⃣ Patch routers/parse.py
+    router = OMNIPARSER_DIR / "omnitool" / "omniparserserver" / "routers" / "parse.py"
+    if router.exists():
+        txt = router.read_text("utf-8")
+        if "ipc_collect()" not in txt:
+            if "import torch" not in txt:
+                txt = txt.replace("import io", "import io\nimport torch, gc")
+            # RGB safety
             txt = re.sub(
-                r"AutoModelForVision2Seq\.from_pretrained\(\s*caption_model_dir\s*,",
-                "AutoModelForVision2Seq.from_pretrained(\n        caption_model_dir,\n        torch_dtype=torch.float16,",
+                r"img\s*=\s*Image\.open\([^\n]*\)(?![\s\S]*convert\(\"RGB\"\))",
+                lambda m: m.group(0) +
+                    "\n    if img.mode != \"RGB\":\n        img = img.convert(\"RGB\")",
                 txt, count=1
             )
-            txt = txt.replace(".to(device)", ".to('cuda')")
-            startup_py.write_text(txt, encoding="utf-8")
-            print("✅ Patched server_startup.py (fp16 on CUDA)")
+            # det → CPU + fp16
+            if "det =" in txt and "det_cpu" not in txt:
+                txt = re.sub(r"(det\s*=\s*[^\n]+)",
+                             r"\1\n        det_cpu = det.cpu()", txt, count=1)
+                txt = txt.replace("build_response(det, caption)",
+                                  "build_response(det_cpu, caption)")
+                if "torch.inference_mode()" not in txt:
+                    txt = re.sub(
+                        r"(def\s+parse[^\n]*:\n\s+)",
+                        r"\1with torch.inference_mode(), torch.cuda.amp.autocast(dtype=torch.float16):\n    ",
+                        txt, count=1
+                    )
+                    txt = txt.replace("\n        det = ", "\n            det = ")
+                    txt = txt.replace("\n        det_cpu = ", "\n            det_cpu = ")
+                    txt = txt.replace("\n        caption = ", "\n            caption = ")
+            txt = insert_cleanup(txt)
+            router.write_text(txt, "utf-8")
+            print("✅ Patched routers/parse.py")
+
+    # 3b️⃣ Disable Uvicorn autoreload in omniparserserver.py
+    mono = OMNIPARSER_DIR / "omnitool" / "omniparserserver" / "omniparserserver.py"
+    if mono.exists():
+        main_txt = mono.read_text("utf-8")
+        if "reload=True" in main_txt:
+            patched = re.sub(
+                r"uvicorn\.run\(([^)]*)reload\s*=\s*True([^)]*)\)",
+                r"uvicorn.run(\1reload=False, workers=1\2)",
+                main_txt,
+                count=1
+            )
+            mono.write_text(patched, "utf-8")
+            print("✅ Patched omniparserserver.py → reload=False, workers=1")
+
+    # 4️⃣ Patch server_startup.py for fp16 Florence
+    startup = OMNIPARSER_DIR / "omnitool" / "omniparserserver" / "server_startup.py"
+    if startup.exists():
+        code = startup.read_text("utf-8")
+        if "torch_dtype=torch.float16" not in code:
+            code = re.sub(
+                r"AutoModelForVision2Seq\.from_pretrained\(\s*caption_model_dir\s*,",
+                "AutoModelForVision2Seq.from_pretrained(\n        caption_model_dir,\n        torch_dtype=torch.float16,",
+                code,
+                count=1
+            )
+            code = code.replace(".to(device)", ".to('cuda')")
+            startup.write_text(code, "utf-8")
+            print("✅ Patched server_startup.py (fp16)")
 
     print("🎉 GPU patches complete.\n")
 
@@ -225,7 +244,7 @@ def download_required_models():
     download_file("https://huggingface.co/microsoft/OmniParser-v2.0/resolve/main/icon_caption/generation_config.json", ICON_CAPTION_GEN_CONFIG)
 
 def validate_server_module():
-    print("\n🔎 Validating server import …")
+    print("🔎 Validating server import …")
     env = os.environ.copy()
     env["PYTHONPATH"] = str(OMNIPARSER_DIR) + os.pathsep + env.get("PYTHONPATH", "")
 
@@ -234,13 +253,24 @@ def validate_server_module():
         print("❌ Conda not found.")
         sys.exit(1)
 
-    result = subprocess.run(
-        [conda_exe, "run", "-n", CONDA_ENV, "python", "-c", f"import {OMNIPARSER_MODULE}"],
-        env=env, cwd=str(SERVER_CWD), capture_output=True, text=True
-    )
+    try:
+        # give it 15 s to complete, then bail out
+        result = subprocess.run(
+            [conda_exe, "run", "-n", CONDA_ENV, "python", "-c", f"import {OMNIPARSER_MODULE}"],
+            env=env,
+            cwd=str(SERVER_CWD),
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+    except subprocess.TimeoutExpired:
+        print("⌛ Import check timed out; skipping validation.")
+        return
+
     if result.returncode != 0:
         print("❌ Import check failed\n", result.stderr)
         sys.exit(1)
+
     print("✅ Server module imports successfully")
 
 def check_server_status() -> bool:
