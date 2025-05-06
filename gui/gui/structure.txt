@@ -1,8 +1,0 @@
-automoy_gui/
-├── overall.py                ← (FastAPI will go here later)
-├── templates/
-│   └── index.html         ← HTML frontend
-├── static/
-│   ├── style.css          ← CSS styling
-│   └── script.js          ← Frontend interactivity
-

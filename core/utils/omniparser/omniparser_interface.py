@@ -84,8 +84,11 @@ def _encoding_sequence(img_path: pathlib.Path) -> Iterable[tuple[str, str]]:
 # ─────────────────────────── main interface class ───────────────────────────
 class OmniParserInterface:
     def __init__(self, server_url: str = "http://localhost:8111") -> None:
-        self.server_url = server_url.rstrip("/")
-        self.server_process: Optional[subprocess.Popen] = None
+         self.server_url = server_url.rstrip("/")
+         self.server_process: Optional[subprocess.Popen] = None
+         # cache last screenshot parse
+         self._last_image_path: Optional[pathlib.Path] = None
+         self._last_parsed: Optional[dict] = None
 
     # ――― context manager ―――
     def __enter__(self):
@@ -191,11 +194,17 @@ class OmniParserInterface:
         """
         Parse the screenshot at *image_path*.
         On success:
-          • saves overlay as 'processed_screenshot.png'
-          • returns the full JSON result
+        • saves overlay as 'processed_screenshot.png'
+        • returns the full JSON result
         Returns None on any unrecoverable error.
         """
         img_path = pathlib.Path(image_path)
+
+        # ➊ reuse last parse if it's the same file
+        if getattr(self, "_last_image_path", None) == img_path and getattr(self, "_last_parsed", None) is not None:
+            print("♻️  Re-using cached parse result")
+            return self._last_parsed
+
         url = f"{self.server_url}/parse/"
 
         for label, encoded in _encoding_sequence(img_path):
@@ -211,12 +220,14 @@ class OmniParserInterface:
                 r.raise_for_status()
                 parsed = r.json()
 
-                if torch and torch.cuda.is_available():
-                    torch.cuda.empty_cache()  # avoid Florence hidden‑state leak
-
-                if not isinstance(parsed, dict) or "coords" not in parsed:
-                    print(f"⚠️ Unexpected response: {parsed}")
+                # ➋ look for parsed_content_list, not 'coords'
+                if not isinstance(parsed, dict) or "parsed_content_list" not in parsed:
+                    print(f"⚠️ Unexpected response structure: {parsed}")
                     return None
+
+                # avoid any GPU hidden-state leak
+                if torch and torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
                 # save overlay if present
                 if "som_image_base64" in parsed:
@@ -226,6 +237,10 @@ class OmniParserInterface:
                     print(f"🖼️  Overlay saved → {out_path}")
 
                 print(f"✅ Parsed OK with {label}")
+
+                # ➌ cache and return
+                self._last_image_path = img_path
+                self._last_parsed = parsed
                 return parsed
 
             except requests.HTTPError as e:
@@ -240,8 +255,6 @@ class OmniParserInterface:
                 return None
 
         return None
-
-
 # ───────────────────────── CLI demo ─────────────────────────
 if __name__ == "__main__":
     import argparse
