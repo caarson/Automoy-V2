@@ -1,0 +1,74 @@
+body {
+    margin: 0;
+    font-family: 'Segoe UI', sans-serif;
+    background-color: #0e1117;
+    color: #cfd6e1;
+}
+
+.container {
+    padding: 2rem;
+    max-width: 1200px;
+    margin: auto;
+}
+
+.title {
+    text-align: center;
+    color: #00bfff;
+    font-size: 2.5rem;
+}
+
+.control-panel {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    margin: 2rem 0;
+}
+
+.glow-button {
+    padding: 0.75rem 1.5rem;
+    background: #1e1e2f;
+    border: 2px solid #00bfff;
+    color: #00bfff;
+    font-weight: bold;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.glow-button:hover {
+    background-color: #00bfff;
+    color: #0e1117;
+}
+
+#temperatureSlider {
+    width: 200px;
+}
+
+.chat-section {
+    display: flex;
+    gap: 2rem;
+    justify-content: space-between;
+}
+
+.chat-box {
+    flex: 1;
+    background-color: #1e1e2f;
+    padding: 1rem;
+    border-radius: 10px;
+}
+
+textarea {
+    width: 100%;
+    height: 100px;
+    background-color: #0e1117;
+    color: #cfd6e1;
+    border: 1px solid #00bfff;
+    padding: 0.5rem;
+    border-radius: 6px;
+    resize: none;
+}
+
+button {
+    margin-top: 0.5rem;
+    width: 100%;
+}

@@ -16,8 +16,13 @@ def handle_llm_response(response, os_interface, parsed_ui=None, screenshot_path=
 
         if op_type == "press":
             keys = action.get("keys", [])
-            for key in keys:
-                os_interface.press(key)
+            # support simultaneous combos
+            if isinstance(keys, list) and len(keys) > 1:
+                os_interface.press(keys)
+            else:
+                # treat single key (or single‐item list) uniformly
+                single = keys[0] if isinstance(keys, list) and keys else keys
+                os_interface.press(single)
             print(f"⌨️ Simulated Key Press: {keys}")
 
         elif op_type == "click":

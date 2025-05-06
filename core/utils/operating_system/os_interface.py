@@ -6,6 +6,8 @@ import mouse
 import pyperclip
 import pyscreeze
 import keyboard
+from typing import Union, Sequence
+
 
 class OSInterface:
     def __init__(self):
@@ -13,13 +15,31 @@ class OSInterface:
         if self.os_type not in ["Windows", "Linux", "Darwin"]:
             raise RuntimeError(f"Unsupported OS: {self.os_type}")
 
-    # Press Keys
-    def press(self, key, interval=0.1):
-        """Simulates a key press with an optional delay."""
-        keyboard.press(key)
-        time.sleep(interval)
-        keyboard.release(key)
+    # Press Keys or Type Text
+    def press(self,
+              keys: Union[str, Sequence[str]],
+              interval: float = 0.05) -> None:
+        """
+        Simulates:
+         • a simultaneous combo press if you pass a list/tuple of valid key names
+         • a single key press if you pass a string that's a known key
+         • or types the string literally if the 'key' isn't recognized.
+        """
+        try:
+            # try real key-press
+            if isinstance(keys, (list, tuple)):
+                combo = "+".join(keys)
+                keyboard.press_and_release(combo)
+            else:
+                keyboard.press(keys)
+                time.sleep(interval)
+                keyboard.release(keys)
+        except ValueError:
+            # fallback: type the literal text
+            text = "".join(keys) if isinstance(keys, (list, tuple)) else keys
+            self.type_text(text)
 
+    
     def hotkey(self, *keys):
         """Simulates pressing multiple keys simultaneously (e.g., Ctrl+C)."""
         keyboard.press_and_release("+".join(keys))
@@ -79,3 +99,4 @@ class OSInterface:
 if __name__ == "__main__":
     os_interface = OSInterface()
     print(f"Running on {os_interface.os_type}")
+    os_interface.press(["win","r"])

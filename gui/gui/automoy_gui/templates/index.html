@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Automoy Control Center</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1 class="title">Automoy</h1>
+
+        <div class="control-panel">
+            <button id="startBtn" class="glow-button">Start</button>
+            <button id="pauseBtn" class="glow-button">Pause</button>
+            <input type="range" min="0" max="1" step="0.01" id="temperatureSlider">
+            <label for="temperatureSlider" id="tempLabel">Temperature: 0.50</label>
+        </div>
+
+        <div class="chat-section">
+            <div class="chat-box">
+                <h2>Main Command</h2>
+                <textarea id="mainCommand" placeholder="e.g., Open Google Chrome..."></textarea>
+                <button onclick="sendMainCommand()">Send</button>
+            </div>
+
+            <div class="chat-box">
+                <h2>Correction Chat</h2>
+                <textarea id="correctionMsg" placeholder="e.g., Wait, do it differently..."></textarea>
+                <button onclick="sendCorrection()">Send</button>
+            </div>
+        </div>
+
+        <div id="statusOutput"></div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
