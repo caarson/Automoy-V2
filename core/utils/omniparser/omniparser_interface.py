@@ -166,6 +166,16 @@ class OmniParserInterface:
         self.stop_server()
         return False
 
+    def _check_server_ready(self) -> bool:
+        """
+        Check if the OmniParser HTTP API is up and responding.
+        """
+        try:
+            resp = requests.get(f"{self.server_url}/probe/", timeout=2)
+            return resp.status_code == 200
+        except requests.RequestException:
+            return False
+
     def stop_server(self) -> None:
         if self.server_process and self.server_process.poll() is None:
             print("Stopping OmniParser...")

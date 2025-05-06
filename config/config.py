@@ -33,17 +33,14 @@ class Config:
                 return float(value)
             return int(value)
         except ValueError:
-            return value  # Return as string if conversion fails
+            return value
 
     def get(self, key, default=None):
         """Retrieve a configuration value with an optional default."""
         return self.config_data.get(key, default)
 
     def get_api_source(self):
-        """
-        Determines which LLM API to use based on 'OPENAI' and 'LMSTUDIO' flags.
-        Returns a tuple: (source, key_or_url)
-        """
+        """Determines which LLM API to use based on 'OPENAI' and 'LMSTUDIO' flags."""
         if self.get("OPENAI", False) and self.get("OPENAI_API_KEY"):
             return "openai", self.get("OPENAI_API_KEY")
         elif self.get("LMSTUDIO", False) and self.get("LMSTUDIO_API_URL"):
@@ -55,12 +52,8 @@ class Config:
             )
 
     def get_temperature(self):
-        """Returns temperature for the active LLM provider."""
-        source, _ = self.get_api_source()
-        return self.get(
-            "OPENAI_TEMPERATURE" if source == "openai" else "LMSTUDIO_TEMPERATURE",
-            0.7,
-        )
+        """Returns temperature from Prompts (Advanced) settings."""
+        return self.get("TEMPERATURE", 0.5)
 
     def get_model(self):
         """Returns the model name configured for the active LLM provider."""

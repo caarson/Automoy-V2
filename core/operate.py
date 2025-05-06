@@ -63,10 +63,20 @@ class AutomoyOperator:
                     self.coords = map_elements_to_coords(ui_data, screenshot_path)
 
                 system_prompt = get_system_prompt(self.model, self.objective)
+                # ─── pack up the UI context into JSON ──────────────────────
+                import json
+                ui_json = json.dumps(self.coords, indent=2)
+
                 messages = [
                     {"role": "system", "content": self.objective},
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": "Analyze the UI and suggest next steps."}
+                    {
+                      "role": "user",
+                      "content":
+                          f"Here is the current UI context (parsed icons, text, coords):\n"
+                          f"```\n{ui_json}\n```\n"
+                          "Analyze this UI and suggest the next step (use only one JSON action)."
+                    }
                 ]
 
                 response, _, _ = await self.llm.get_next_action(
