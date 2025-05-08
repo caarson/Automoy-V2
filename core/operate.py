@@ -1,6 +1,9 @@
 import asyncio
-import time
 import sys
+import os
+from datetime import datetime
+import shutil
+import json
 import pathlib
 from utils.operating_system.os_interface import OSInterface
 from utils.omniparser.omniparser_interface import OmniParserInterface
@@ -30,8 +33,8 @@ class AutomoyOperator:
         print(f"Detected OS: {self.os_interface.os_type}")
 
         if not self.omniparser._check_server_ready():
-            print("❌ OmniParser Server is not running! Attempting to start it...")
-            self.omniparser.start_server()
+            print("❌ OmniParser Server is not running! Attempting to start it…")
+            self.omniparser.launch_server()
             await asyncio.sleep(1)
 
         if not self.vmware.is_vmware_installed():
@@ -53,53 +56,110 @@ class AutomoyOperator:
                 self.objective = "Default objective - Automate screen flow"
                 print("⚠️ No input received. Using default objective.")
 
+        # ─── Screenshot slots ───────────────────────────────────────
+        self.current_screenshot: str = None
+        self.cached_screenshot: str = None
+        self.saved_screenshot: str = None
+
+        # ─── Remember last action for prompt context only ────────────
+        self.last_action: dict = None
+
         while True:
             try:
-                # If we don't have UI context yet, take screenshot
-                if not hasattr(self, "coords") or not self.coords:
-                    print("📸 No cached UI. Taking screenshot...")
-                    screenshot_path = self.os_interface.take_screenshot("automoy_screenshot.png")
-                    ui_data = self.omniparser.parse_screenshot(screenshot_path)
-                    self.coords = map_elements_to_coords(ui_data, screenshot_path)
+                # ─── Take initial screenshot / parse UI if needed ─────────
+                if not self.coords:
+                    self.current_screenshot = self.os_interface.take_screenshot("automoy_current.png")
+                    ui_data = self.omniparser.parse_screenshot(self.current_screenshot)
+                    self.coords = map_elements_to_coords(ui_data, self.current_screenshot)
+                    print("📸 Initial screenshot taken & UI parsed.")
 
+                # ─── Build system + history + UI prompt ───────────────────
                 system_prompt = get_system_prompt(self.model, self.objective)
-                # ─── pack up the UI context into JSON ──────────────────────
                 import json
                 ui_json = json.dumps(self.coords, indent=2)
+                history = (
+                    f"Last action: {json.dumps(self.last_action)}"
+                    if self.last_action else
+                    "No previous action."
+                )
 
                 messages = [
                     {"role": "system", "content": self.objective},
                     {"role": "system", "content": system_prompt},
+                    {"role": "system", "content": history},
                     {
-                      "role": "user",
-                      "content":
-                          f"Here is the current UI context (parsed icons, text, coords):\n"
-                          f"```\n{ui_json}\n```\n"
-                          "Analyze this UI and suggest the next step (use only one JSON action)."
+                        "role": "user",
+                        "content": (
+                            "Here is the current UI context (parsed icons, text, coords):\n"
+                            f"```\n{ui_json}\n```\n"
+                            "Analyze this UI and suggest the next step (use only one JSON action)."
+                        )
                     }
                 ]
 
+                # ─── Get LLM’s single JSON action ─────────────────────────
                 response, _, _ = await self.llm.get_next_action(
                     model=self.model,
                     messages=messages,
                     objective=self.objective,
                     session_id="automoy-session-1",
-                    screenshot_path=screenshot_path
+                    screenshot_path=self.current_screenshot
                 )
                 print("🧬 LLM Response:", response)
 
-                # Check if the LLM wants to take a screenshot
-                if response and isinstance(response[0], dict) and response[0].get("operation") == "take_screenshot":
-                    screenshot_path = self.os_interface.take_screenshot("automoy_screenshot.png")
-                    ui_data = self.omniparser.parse_screenshot(screenshot_path)
-                    self.coords = map_elements_to_coords(ui_data, screenshot_path)
-                    print("📸 New screenshot and UI parsed.")
-                    continue  # ✅ Skip execution step and prompt again
-                else:
-                    # Perform the action
-                    handle_llm_response(response, self.os_interface, parsed_ui=self.coords, screenshot_path=screenshot_path)
+                # ─── Handle special screenshot ops first ──────────────────
+                if response and isinstance(response[0], dict):
+                    op = response[0].get("operation")
 
-                # Optional: display available VMs
+                    if op == "take_screenshot":
+                        # rotate: current → cached, drop oldest saved
+                        import os
+                        if self.cached_screenshot and os.path.exists(self.cached_screenshot):
+                            os.remove(self.cached_screenshot)
+                        self.cached_screenshot = self.current_screenshot
+                        self.current_screenshot = self.os_interface.take_screenshot("automoy_current.png")
+                        ui_data = self.omniparser.parse_screenshot(self.current_screenshot)
+                        self.coords = map_elements_to_coords(ui_data, self.current_screenshot)
+                        print("📸 New screenshot taken & UI parsed.")
+                        self.last_action = response[0]
+                        continue
+
+                    if op == "save_screenshot":
+                        name = response[0].get("name")
+                        if name:
+                            import shutil
+                            shutil.copy(self.current_screenshot, name)
+                            self.saved_screenshot = name
+                            print(f"💾 Screenshot saved as {name}.")
+                        self.last_action = response[0]
+                        continue
+
+                    if op == "open_screenshot":
+                        name = response[0].get("name") or response[0].get("named")
+                        target = {
+                            "current_screenshot": self.current_screenshot,
+                            "cached_screenshot": self.cached_screenshot,
+                        }.get(name, None) or self.saved_screenshot
+                        if target:
+                            import subprocess
+                            subprocess.Popen(["start", target], shell=True)
+                            print(f"🔍 Opened screenshot {target}.")
+                        else:
+                            print("⚠️ No such screenshot to open.")
+                        self.last_action = response[0]
+                        continue
+
+                # ─── Execute every other operation ────────────────────────
+                if response and isinstance(response[0], dict):
+                    handle_llm_response(
+                        response,
+                        self.os_interface,
+                        parsed_ui=self.coords,
+                        screenshot_path=self.current_screenshot
+                    )
+                    self.last_action = response[0]
+
+                # ─── Optionally show VMs ─────────────────────────────────
                 vm_list = self.vmware.list_vms()
                 if vm_list:
                     print("🖥️ Available VMs:", vm_list)

@@ -1,14 +1,13 @@
 import atexit
 import ssl
-import requests
-from pyVim import connect
+from pyVim import connect as vim_connect
 from pyVmomi import vim
 
 class VMWareInterface:
-    def __init__(self, host, user, password, port=443):
+    def __init__(self, host: str, user: str, password: str, port: int = 443):
         """
         Initializes connection to VMware vSphere/ESXi.
-        
+
         :param host: VMware host IP or hostname.
         :param user: Username for authentication.
         :param password: Password for authentication.
@@ -20,23 +19,47 @@ class VMWareInterface:
         self.port = port
         self.si = None  # Service Instance
 
-    def connect(self):
+    def connect(self) -> bool:
         """Establishes connection to the VMware ESXi/vCenter Server."""
         context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
         context.verify_mode = ssl.CERT_NONE  # Ignore SSL warnings
 
         try:
-            self.si = connect.SmartConnect(
-                host=self.host, user=self.user, pwd=self.password, port=self.port, sslContext=context
+            self.si = vim_connect.SmartConnect(
+                host=self.host,
+                user=self.user,
+                pwd=self.password,
+                port=self.port,
+                sslContext=context,
             )
-            atexit.register(connect.Disconnect, self.si)  # Ensure clean disconnect
+            atexit.register(vim_connect.Disconnect, self.si)
             print("✅ Connected to VMware vSphere/ESXi!")
             return True
         except Exception as e:
             print(f"❌ Connection failed: {e}")
+            self.si = None
             return False
 
-    def list_vms(self):
+    def disconnect(self) -> None:
+        """Disconnects cleanly from the VMware server."""
+        if self.si:
+            try:
+                vim_connect.Disconnect(self.si)
+                print("🛑 Disconnected from VMware.")
+            except Exception:
+                pass
+        self.si = None
+
+    def is_vmware_installed(self) -> bool:
+        """Checks whether the necessary VMware SDK modules are available."""
+        try:
+            import pyVim.connect  # noqa: F401
+            import pyVmomi.vim  # noqa: F401
+            return True
+        except ImportError:
+            return False
+
+    def list_vms(self) -> list[str]:
         """Retrieves a list of VMs on the ESXi/vCenter host."""
         if not self.si:
             print("❌ Not connected. Run `connect()` first.")
@@ -44,112 +67,111 @@ class VMWareInterface:
 
         content = self.si.RetrieveContent()
         container = content.rootFolder
-        viewType = [vim.VirtualMachine]
-        recursive = True
-        containerView = content.viewManager.CreateContainerView(container, viewType, recursive)
-        
-        vms = containerView.view
+        view_type = [vim.VirtualMachine]
+        container_view = content.viewManager.CreateContainerView(
+            container, view_type, recursive=True
+        )
+        vms = container_view.view
         return [vm.name for vm in vms]
 
-    def create_vm(self, vm_name, datastore_name, guest_os, memory_mb=1024, cpus=1):
+    def create_vm(
+        self,
+        vm_name: str,
+        datastore_name: str,
+        guest_os: str,
+        memory_mb: int = 1024,
+        cpus: int = 1,
+    ):
         """
         Creates a VM with specified configurations.
-        
-        :param vm_name: Name of the virtual machine.
-        :param datastore_name: Datastore to use.
-        :param guest_os: Guest OS type.
-        :param memory_mb: Memory in MB (default: 1024).
-        :param cpus: Number of CPUs (default: 1).
         """
         if not self.si:
             print("❌ Not connected. Run `connect()` first.")
             return
 
         content = self.si.RetrieveContent()
-        datacenter = content.rootFolder.childEntity[0]  # Assume single datacenter
+        datacenter = content.rootFolder.childEntity[0]
         vm_folder = datacenter.vmFolder
         resource_pool = datacenter.hostFolder.childEntity[0].resourcePool
-        datastore = [ds for ds in datacenter.datastoreFolder.childEntity if ds.name == datastore_name][0]
+        datastore = next(
+            (ds for ds in datacenter.datastoreFolder.childEntity if ds.name == datastore_name),
+            None,
+        )
+        if not datastore:
+            print(f"⚠️ Datastore '{datastore_name}' not found.")
+            return
 
-        vm_config = vim.vm.ConfigSpec(
+        vm_cfg = vim.vm.ConfigSpec(
             name=vm_name,
             memoryMB=memory_mb,
             numCPUs=cpus,
             guestId=guest_os,
-            files=vim.vm.FileInfo(logDirectory=None, snapshotDirectory=None, suspendDirectory=None, vmPathName=f"[{datastore_name}]"),
+            files=vim.vm.FileInfo(vmPathName=f"[{datastore_name}]")
         )
-
-        task = vm_folder.CreateVM_Task(config=vm_config, pool=resource_pool)
-        print(f"🚀 Creating VM `{vm_name}`... Task initiated.")
+        task = vm_folder.CreateVM_Task(config=vm_cfg, pool=resource_pool)
+        print(f"🚀 Creating VM '{vm_name}'... Task initiated.")
         return task
 
-    def power_on_vm(self, vm_name):
+    def power_on_vm(self, vm_name: str):
         """Powers on a VM."""
         if not self.si:
             print("❌ Not connected. Run `connect()` first.")
             return
 
-        content = self.si.RetrieveContent()
-        vm = self._get_vm_by_name(content, vm_name)
-
+        vm = self._get_vm_by_name(vm_name)
         if vm:
             task = vm.PowerOnVM_Task()
-            print(f"🔌 Powering on `{vm_name}`... Task initiated.")
+            print(f"🔌 Powering on '{vm_name}'... Task initiated.")
             return task
-        else:
-            print(f"⚠️ VM `{vm_name}` not found.")
+        print(f"⚠️ VM '{vm_name}' not found.")
 
-    def power_off_vm(self, vm_name):
+    def power_off_vm(self, vm_name: str):
         """Powers off a VM."""
         if not self.si:
             print("❌ Not connected. Run `connect()` first.")
             return
 
-        content = self.si.RetrieveContent()
-        vm = self._get_vm_by_name(content, vm_name)
-
+        vm = self._get_vm_by_name(vm_name)
         if vm:
             task = vm.PowerOffVM_Task()
-            print(f"⛔ Powering off `{vm_name}`... Task initiated.")
+            print(f"⛔ Powering off '{vm_name}'... Task initiated.")
             return task
-        else:
-            print(f"⚠️ VM `{vm_name}` not found.")
+        print(f"⚠️ VM '{vm_name}' not found.")
 
-    def delete_vm(self, vm_name):
+    def delete_vm(self, vm_name: str):
         """Deletes a VM."""
         if not self.si:
             print("❌ Not connected. Run `connect()` first.")
             return
 
-        content = self.si.RetrieveContent()
-        vm = self._get_vm_by_name(content, vm_name)
-
+        vm = self._get_vm_by_name(vm_name)
         if vm:
             task = vm.Destroy_Task()
-            print(f"🗑️ Deleting `{vm_name}`... Task initiated.")
+            print(f"🗑️ Deleting '{vm_name}'... Task initiated.")
             return task
-        else:
-            print(f"⚠️ VM `{vm_name}` not found.")
+        print(f"⚠️ VM '{vm_name}' not found.")
 
-    def _get_vm_by_name(self, content, vm_name):
-        """Helper function to find a VM by name."""
+    def _get_vm_by_name(self, vm_name: str) -> vim.VirtualMachine | None:
+        content = self.si.RetrieveContent()
         container = content.rootFolder
-        viewType = [vim.VirtualMachine]
-        recursive = True
-        containerView = content.viewManager.CreateContainerView(container, viewType, recursive)
-
-        for vm in containerView.view:
+        view_type = [vim.VirtualMachine]
+        container_view = content.viewManager.CreateContainerView(
+            container, view_type, recursive=True
+        )
+        for vm in container_view.view:
             if vm.name == vm_name:
                 return vm
         return None
-    
-    def is_vmware_installed(self):
-        return False  # or True, depending on what you want for now
 
 # Example Usage:
 if __name__ == "__main__":
-    vmware = VMWareInterface(host="your-vmware-host", user="your-username", password="your-password")
-    
-    if vmware.connect():
+    vmware = VMWareInterface(
+        host="your-vmware-host",
+        user="your-username",
+        password="your-password"
+    )
+    if not vmware.is_vmware_installed():
+        print("❌ VMware SDK not installed.")
+    elif vmware.connect():
         print("Available VMs:", vmware.list_vms())
-        vmware.create_vm(vm_name="Automoy-VM", datastore_name="datastore1", guest_os="otherGuest")
+        # vmware.create_vm(vm_name="Automoy-VM", datastore_name="datastore1", guest_os="otherGuest")

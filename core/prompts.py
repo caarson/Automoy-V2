@@ -46,6 +46,7 @@ using third-party object detection and text recognition. You produce JSON-based 
 3) Only the JSON snippet in the code fence is executed.
 4) Avoid lengthy chain-of-thought.
 5) Analyze the screenshot information at the beginning of your objective.
+6) Take screenshots after each operation for updated context.
 
 ### **VALID ACTIONS**
 1) **click** – Click a recognized UI text element.
@@ -61,14 +62,14 @@ using third-party object detection and text recognition. You produce JSON-based 
    ]
    ```
 
-2) **write** – Type text into an input field.
+2) **write** – Type text. (best if writing out a word or more)
    ```json
    [
      {{"operation": "write", "text": "Los Angeles"}}
    ]
    ```
 
-3) **press** – Simulate key presses.
+3) **press** – Simulate key presses. (best for hot keys or individual key-presses)
    ```json
    [
      {{"operation": "press", "keys": ["ctrl", "l"]}}
@@ -78,11 +79,31 @@ using third-party object detection and text recognition. You produce JSON-based 
 4) **take_screenshot** – Capture the screen for updated context.
    ```json
    [
-     {{"operation": "take_screenshot", "reason": "Need to see what's on the screen"}}
+     {{"operation": "take_screenshot"}}
    ]
    ```
 
-5) **done** – Mark the task complete.
+5) **save_screenshot** – Save the screen for later use.
+   ```json
+   [
+     {{"operation": "save_screenshot", "name": "example_screenshot_name"}}
+   ]
+   ```
+
+6) **open_screenshot** – Open a screenshot.
+   ```json
+   [
+     {{"operation": "open_screenshot", "name": "example_screenshot_name"}}
+   ]
+   ```
+   or 
+   ```json
+   [
+     {{"operation": "open_screenshot", "named": "cached_screenshot"}}
+   ]
+   ```
+
+7) **done** – Mark the task complete.
    ```json
    [
      {{"operation": "done", "summary": "Task complete."}}

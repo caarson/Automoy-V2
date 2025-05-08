@@ -191,70 +191,55 @@ class OmniParserInterface:
 
     # ――― parse screenshot ―――
     def parse_screenshot(self, image_path: str | os.PathLike) -> Optional[dict]:
-        """
-        Parse the screenshot at *image_path*.
-        On success:
-        • saves overlay as 'processed_screenshot.png'
-        • returns the full JSON result
-        Returns None on any unrecoverable error.
-        """
         img_path = pathlib.Path(image_path)
 
-        # ➊ reuse last parse if it's the same file
-        if getattr(self, "_last_image_path", None) == img_path and getattr(self, "_last_parsed", None) is not None:
-            print("♻️  Re-using cached parse result")
+        # Reuse if cached
+        # if we already parsed this exact file, re-use the result
+        if self._last_image_path == img_path and self._last_parsed is not None:
+            print("♻️ Re-using cached parse result")
             return self._last_parsed
 
         url = f"{self.server_url}/parse/"
 
         for label, encoded in _encoding_sequence(img_path):
             print(f"[DEBUG] Sending {label} → {len(encoded):,} bytes")
-
             try:
-                r = requests.post(
-                    url,
-                    json={"base64_image": encoded},
-                    headers={"Content-Type": "application/json"},
-                    timeout=120,
-                )
+                r = requests.post(url, json={"base64_image": encoded}, timeout=120)
                 r.raise_for_status()
                 parsed = r.json()
 
-                # ➋ look for parsed_content_list, not 'coords'
+                # ← HERE ←
                 if not isinstance(parsed, dict) or "parsed_content_list" not in parsed:
                     print(f"⚠️ Unexpected response structure: {parsed}")
                     return None
 
-                # avoid any GPU hidden-state leak
                 if torch and torch.cuda.is_available():
                     torch.cuda.empty_cache()
 
-                # save overlay if present
                 if "som_image_base64" in parsed:
-                    out_path = pathlib.Path(__file__).with_name("processed_screenshot.png")
-                    with out_path.open("wb") as f:
-                        f.write(base64.b64decode(parsed["som_image_base64"]))
-                    print(f"🖼️  Overlay saved → {out_path}")
+                    out = pathlib.Path(__file__).with_name("processed_screenshot.png")
+                    out.write_bytes(base64.b64decode(parsed["som_image_base64"]))
+                    print(f"🖼️  Overlay saved → {out}")
 
                 print(f"✅ Parsed OK with {label}")
 
-                # ➌ cache and return
+                # cache and return
                 self._last_image_path = img_path
                 self._last_parsed = parsed
                 return parsed
 
             except requests.HTTPError as e:
                 if r.status_code >= 500 and label == "RAW":
-                    print("⚠️ 5xx on RAW – retrying with JPEG...")
+                    print("⚠️ 5xx on RAW – retrying with JPEG…")
                     continue
                 print(f"❌ HTTPError ({r.status_code}) after {label}: {e}")
                 return None
-
             except requests.RequestException as e:
                 print(f"❌ Request failed: {e}")
                 return None
 
         return None
+
 # ───────────────────────── CLI demo ─────────────────────────
 if __name__ == "__main__":
     import argparse

@@ -42,7 +42,7 @@ def handle_llm_response(response, os_interface, parsed_ui=None, screenshot_path=
                     break
 
             if matched_coords:
-                x, y = matched_coords
+                x,y = matched_coords
                 os_interface.click(x, y)
                 print(f"🖱️ Clicked on '{target_text}' at ({x}, {y})")
             else:
