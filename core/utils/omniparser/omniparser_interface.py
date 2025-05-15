@@ -125,7 +125,7 @@ class OmniParserInterface:
             "--caption_model_name", "florence2",
             "--caption_model_path", str(caption_model_dir or DEFAULT_CAPTION_MODEL_DIR),
             "--device", "cuda",
-            "--BOX_TRESHOLD", "0.05",
+            "--BOX_TRESHOLD", "0.15",
             "--port", str(port),
         ]
 
@@ -212,6 +212,21 @@ class OmniParserInterface:
                 if not isinstance(parsed, dict) or "parsed_content_list" not in parsed:
                     print(f"⚠️ Unexpected response structure: {parsed}")
                     return None
+
+                # Convert parsed_content_list → coords (legacy format expected by mapper)
+                if isinstance(parsed.get("parsed_content_list"), list):
+                    coords = []
+                    for item in parsed["parsed_content_list"]:
+                        print("📦 Parsed Item:", json.dumps(item, indent=2))
+                        coords.append({
+                            "bbox": item["bbox_normalized"] if isinstance(item.get("bbox_normalized"), list) else [0, 0, 0, 0],
+                            "content": item.get("content", ""),
+                            "type": item.get("type", ""),
+                            "interactivity": item.get("interactivity", False),
+                            "source": item.get("source", ""),
+                        })
+                    parsed["coords"] = coords
+                    print(f"✅ Converted {len(coords)} items to coords")
 
                 if torch and torch.cuda.is_available():
                     torch.cuda.empty_cache()

@@ -3,7 +3,6 @@ import sys
 import os
 from datetime import datetime
 import shutil
-import json
 import pathlib
 from utils.operating_system.os_interface import OSInterface
 from utils.omniparser.omniparser_interface import OmniParserInterface
@@ -46,6 +45,7 @@ class AutomoyOperator:
         print("✅ All systems ready!")
 
     async def operate_loop(self):
+        import json
         await self.startup_sequence()
         print("🔥 Entering Automoy Autonomous Operation Mode!")
 
@@ -61,17 +61,23 @@ class AutomoyOperator:
         self.cached_screenshot: str = None
         self.saved_screenshot: str = None
 
+        # ─── Parsed UI cache ────────────────────────────────────────
+        self.coords = None
+
         # ─── Remember last action for prompt context only ────────────
         self.last_action: dict = None
 
         while True:
             try:
                 # ─── Take initial screenshot / parse UI if needed ─────────
-                if not self.coords:
+                if self.coords is None:
                     self.current_screenshot = self.os_interface.take_screenshot("automoy_current.png")
                     ui_data = self.omniparser.parse_screenshot(self.current_screenshot)
                     self.coords = map_elements_to_coords(ui_data, self.current_screenshot)
                     print("📸 Initial screenshot taken & UI parsed.")
+
+                    print("🧠 Parsed UI Coord Map:", json.dumps(self.coords, indent=2))
+
 
                 # ─── Build system + history + UI prompt ───────────────────
                 system_prompt = get_system_prompt(self.model, self.objective)
