@@ -1,26 +1,42 @@
 import json
 import re
+import pathlib
+import sys
+
 from utils.region.mapper import map_elements_to_coords
+from .handlers.openai_handler import call_openai_model
+from .handlers.lmstudio_handler import call_lmstudio_model
+
+# Ensure the project's core folder is on sys.path for exceptions
+sys.path.append(str(pathlib.Path(__file__).parent.parent.parent / "core"))
+from exceptions import ModelNotRecognizedException
+
+# Ensure the config folder is on sys.path for Config
+sys.path.append(str(pathlib.Path(__file__).parent.parent.parent / "config"))
+from config import Config
+
 
 def handle_llm_response(response, os_interface, parsed_ui=None, screenshot_path=None):
+    """Parse an LLM response (JSON inside a markdown code‑block) and execute the described UI action via `os_interface`."""
     try:
-        # Extract the JSON from the code block
         code_block = re.search(r"```json\s*(.*?)\s*```", response, re.DOTALL)
         if not code_block:
             print("⚠️ Could not extract a valid JSON action from LLM response.")
             return
 
         action_list = json.loads(code_block.group(1))
+        if not action_list:
+            print("⚠️ JSON action list is empty.")
+            return
+
         action = action_list[0]
         op_type = action.get("operation")
 
         if op_type == "press":
             keys = action.get("keys", [])
-            # support simultaneous combos
             if isinstance(keys, list) and len(keys) > 1:
                 os_interface.press(keys)
             else:
-                # treat single key (or single‐item list) uniformly
                 single = keys[0] if isinstance(keys, list) and keys else keys
                 os_interface.press(single)
             print(f"⌨️ Simulated Key Press: {keys}")
@@ -33,7 +49,6 @@ def handle_llm_response(response, os_interface, parsed_ui=None, screenshot_path=
 
             coords_map = map_elements_to_coords(parsed_ui, screenshot_path)
 
-            # Partial match support
             matched_coords = None
             for content_key, element in coords_map.items():
                 if target_text in content_key:
@@ -42,7 +57,7 @@ def handle_llm_response(response, os_interface, parsed_ui=None, screenshot_path=
                     break
 
             if matched_coords:
-                x,y = matched_coords
+                x, y = matched_coords
                 os_interface.click(x, y)
                 print(f"🖱️ Clicked on '{target_text}' at ({x}, {y})")
             else:
@@ -61,3 +76,49 @@ def handle_llm_response(response, os_interface, parsed_ui=None, screenshot_path=
 
     except Exception as e:
         print(f"❌ Error parsing or executing LLM response: {e}")
+
+
+class MainInterface:
+    """High‑level interface for obtaining the next UI action from an LLM."""
+
+    async def get_next_action(self, model, messages, objective, session_id, screenshot_path):
+        """
+        Send the `messages` conversation context to the chosen model and
+        return its raw text response.
+
+        Returns:
+            tuple[str, str, None]: (response_text, session_id, None)
+        """
+        print(f"[MainInterface] Using model: {model}")
+
+        config = Config()
+        api_source, _ = config.get_api_source()
+
+        if api_source == "openai":
+            response = await call_openai_model(messages, objective, model)
+            print(f"[DEBUG] OpenAI Response: {response}")
+            return (response, session_id, None)
+        elif api_source == "lmstudio":
+            response = await call_lmstudio_model(messages, objective, model)
+            print(f"[DEBUG] LMStudio Response: {response}")
+            return (response, session_id, None)
+
+        raise ModelNotRecognizedException(model)
+
+
+# Self‑test
+if __name__ == "__main__":
+    import asyncio
+
+    async def _test():
+        interface = MainInterface()
+        text, sid, _ = await interface.get_next_action(
+            model="gpt-4",
+            messages=["Hello"],
+            objective="Test objective",
+            session_id="session123",
+            screenshot_path="dummy.png"
+        )
+        print("Test result:", text)
+
+    asyncio.run(_test())

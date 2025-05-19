@@ -1,0 +1,28 @@
+####
+# Automoy Enviroment Configuration File
+#
+# Enviromental configuration file.
+#
+# This config is intended primarily for development use.
+# All settings here can also be modified through the GUI.
+#
+
+#########################
+# Anchor Point
+#########################
+
+DESKTOP_ANCHOR_POINT: True            # Enable if you would like Automoy to use the desktop as it's anchor point - generally considered safest and "automatic"
+PROMPT_ANCHOR_POINT: False
+VLLM_ANCHOR_POINT: False
+
+PROMPT:
+"
+Windows desktop, chrome is minimized in the task bar, there is nothing open on the screen.
+"
+
+#########################
+# Region
+#########################
+ 
+DEFINE_REGION: False
+DEFINE_WINDOW_REGION: False

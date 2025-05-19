@@ -1,7 +1,6 @@
 import platform
-import sys
-import pathlib
-sys.path.append(str(pathlib.Path(__file__).resolve().parents[1] / "config"))
+import pathlib, sys 
+sys.path.append(str(pathlib.Path(__file__).resolve().parents[2] / "config"))  # ⬅ add
 from config import Config
 
 # Load configuration
@@ -119,6 +118,7 @@ using third-party object detection and text recognition. You produce JSON-based 
 - Only one operation per response.
 
 Your objective is: {objective}
+
 """
 
 ###############################################################################

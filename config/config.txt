@@ -1,9 +1,24 @@
 ####
 # Automoy Configuration File
 #
+# Main configuration file.
+#
 # This config is intended primarily for development use.
 # All settings here can also be modified through the GUI.
 #
+
+#########################
+# General Configuration
+#########################
+
+DEBUG: True
+
+#########################
+# Environment Initialization Configuration
+#########################
+
+ENVIRONMENTAL_SETTINGS: True        # Change if you would like to use your own environmental settings in environment.txt     
+DEFINE_REGION: False
 
 #########################
 # LLM Configuration
@@ -14,20 +29,19 @@
 TEMPERATURE: 0.7
 
 #### OpenAI Settings
-OPENAI: False                         # Enable OpenAI as the LLM backend.
+OPENAI: False                        # Enable OpenAI as the LLM backend.
 OPENAI_API_KEY:                      # Insert your OpenAI API key here
 OPENAI_MODEL: gpt-4o                 # Specify which OpenAI model to use
 
 #### LMStudio Settings
+
 LMSTUDIO: True                      # Set to True to use LMStudio as the LLM backend.
-LMSTUDIO_API_URL: http://127.0.0.1:1234                   # Insert your LMStudio API URL here
+LMSTUDIO_API_URL: https://replacing-blogs-jose-wiley.trycloudflare.com/   # Insert your LMStudio API URL here
 LMSTUDIO_MODEL: deepseek-r1-distill-qwen-7b   # Specify which LMStudio model to use
 
 #########################
-# Utility Settings
+# Utility Configuration
 #########################
 
-DEFINE_REGION: False
-DEBUG: True
 VMWARE: False
 WEB_SCRAPE: False
