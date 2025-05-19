@@ -30,9 +30,15 @@ class AutomoyOperator:
         self.vmware = VMWareInterface("localhost", "user", "password")
         self.webscraper = WebScrapeInterface()
         self.llm = MainInterface()
+
         self.config = Config()
         self.model = self.config.get("MODEL", "gpt-4")
         self.objective = objective
+        self.desktop_anchor_point = self.config.get("DESKTOP_ANCHOR_POINT", False)
+        self.prompt_anchor_point = self.config.get("PROMPT_ANCHOR_POINT", False)
+        self.vllm_anchor_point = self.config.get("VLLM_ANCHOR_POINT", False)
+        self.anchor_prompt = self.config.get("PROMPT", "")
+        
 
         # ─── Runtime state ────────────────────────────────────────────
         self.current_screenshot: str | None = None
@@ -89,9 +95,34 @@ class AutomoyOperator:
 
                 # ─── Build conversation for the LLM ───────────────────
                 ui_json = json.dumps(self.coords, indent=2)
+
+                # Only display the current screen state description if any anchor point config is enabled, and only on first run
+                if self.last_action is None:
+                    screen_state_lines = []
+                    if self.desktop_anchor_point:
+                        screen_state_lines.append("The screen is at the Windows desktop. No windows are open or focused.")
+                    if self.prompt_anchor_point:
+                        screen_state_lines.append("The screen is in the state described by the following prompt.")
+                    if self.vllm_anchor_point:
+                        screen_state_lines.append("The screen is in a virtualized environment anchor state.")
+                    if self.anchor_prompt:
+                        screen_state_lines.append(f"Screen state description: {self.anchor_prompt.strip()}")
+
+                    if screen_state_lines:
+                        screen_state_info = "\n".join(screen_state_lines)
+                        screen_state_section = (
+                            "Current screen state:\n"
+                            f"```\n{screen_state_info}\n```\n"
+                        )
+                    else:
+                        screen_state_section = ""
+                else:
+                    screen_state_section = ""
+
                 user_content = (
                     "Here is the current UI context (parsed icons, text, coords):\n"
                     f"```\n{ui_json}\n```\n"
+                    f"{screen_state_section}"
                     "Analyze this UI and suggest the next step (use only one JSON action)."
                 )
                 system_prompt = get_system_prompt(self.model, self.objective)
