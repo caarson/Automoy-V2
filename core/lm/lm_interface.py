@@ -19,9 +19,14 @@ from config import Config
 def handle_llm_response(response, os_interface, parsed_ui=None, screenshot_path=None):
     """Parse an LLM response (JSON inside a markdown code‑block) and execute the described UI action via `os_interface`."""
     try:
+        # Defensive: If response is an error string, print and return
+        if response.strip().startswith("[ERROR]"):
+            print(response)
+            return
         code_block = re.search(r"```json\s*(.*?)\s*```", response, re.DOTALL)
         if not code_block:
             print("⚠️ Could not extract a valid JSON action from LLM response.")
+            print(f"[DEBUG] Raw LLM response: {response}")
             return
 
         action_list = json.loads(code_block.group(1))
@@ -76,6 +81,7 @@ def handle_llm_response(response, os_interface, parsed_ui=None, screenshot_path=
 
     except Exception as e:
         print(f"❌ Error parsing or executing LLM response: {e}")
+        print(f"[DEBUG] Raw LLM response: {response}")
 
 
 class MainInterface:

@@ -89,12 +89,18 @@ async def call_lmstudio_model(messages, objective, model):
 
     print(f"[DEBUG] Sending request to LMStudio API ({api_url}) with model: {model}")
     print(f"[DEBUG] Final Payload Before Sending:\n{json.dumps(payload, indent=2)}")
+    payload_str = json.dumps(payload)
+    print(f"[DEBUG] Payload size: {len(payload_str)} bytes")
+    if len(payload_str) > 10000:
+        print("[WARNING] Payload is very large and may cause timeouts or errors.")
 
     try:
         with requests.post(api_url, json=payload, headers=headers, stream=True) as response:
             response.raise_for_status()
 
             full_response = ""
+            printed_any_token = False
+            print("[Waiting for streamed output...]")  # Always print before streaming starts
             # Stream and print tokens as they arrive.
             for line in response.iter_lines():
                 if not line:
@@ -102,20 +108,24 @@ async def call_lmstudio_model(messages, objective, model):
                 decoded_line = line.decode("utf-8").strip()
                 if decoded_line.startswith("data: "):
                     try:
-                        # Parse the JSON chunk to extract the token.
                         json_data = json.loads(decoded_line[6:])
+                        if not isinstance(json_data, dict) or "choices" not in json_data:
+                            print(f"[ERROR] Unexpected LMStudio chunk: {json_data}")
+                            continue
                         token = json_data["choices"][0].get("delta", {}).get("content", "")
-                        # Print token as it's generated.
-                        print(token, end="", flush=True)
-                        full_response += token
-                        # Stop when finish_reason is provided.
+                        if token is not None and token != "":
+                            printed_any_token = True
+                            sys.stdout.write(token)
+                            sys.stdout.flush()
+                        full_response += token if token is not None else ""
                         if json_data["choices"][0].get("finish_reason") is not None:
                             break
                     except json.JSONDecodeError:
                         print("[ERROR] Failed to parse streamed JSON chunk:", decoded_line)
+                else:
+                    print(f"[LMStudio stream] {decoded_line}")
             print("\n[DEBUG] Full Response Received:", full_response)
             return full_response if full_response.strip() else "[ERROR] No valid response from the model."
-
     except requests.RequestException as e:
         error_msg = f"[ERROR] API connection failed: {e}"
         print(error_msg)
