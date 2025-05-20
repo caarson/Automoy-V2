@@ -31,6 +31,8 @@ try:
 except ImportError:
     Image = None  # type: ignore
 
+import shutil  # for copying processed screenshot
+
 
 # ───────────────────────── helper: locate conda ────────────────────────────
 def _auto_find_conda() -> Optional[str]:
@@ -235,13 +237,19 @@ class OmniParserInterface:
                     out = pathlib.Path(__file__).with_name("processed_screenshot.png")
                     out.write_bytes(base64.b64decode(parsed["som_image_base64"]))
                     print(f"🖼️  Overlay saved → {out}")
+                    try:
+                        gui_dest = PROJECT_ROOT / "gui" / "static" / "processed_screenshot.png"
+                        shutil.copy2(out, gui_dest)
+                        print(f"[DEBUG] Copied processed screenshot to GUI static: {gui_dest}")
+                    except Exception as e:
+                        print(f"[ERROR] Could not copy processed screenshot to GUI static: {e}")
 
-                print(f"✅ Parsed OK with {label}")
+                    print(f"✅ Parsed OK with {label}")
 
-                # cache and return
-                self._last_image_path = img_path
-                self._last_parsed = parsed
-                return parsed
+                    # cache and return
+                    self._last_image_path = img_path
+                    self._last_parsed = parsed
+                    return parsed
 
             except requests.HTTPError as e:
                 if r.status_code >= 500 and label == "RAW":

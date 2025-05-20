@@ -56,28 +56,30 @@ document.addEventListener('DOMContentLoaded', function() {
     setInterval(refreshOperatorState, 1000);
 });
 
-// Function to refresh the screenshot from the latest processed image
+// Function to refresh the screenshot from the processed_screenshot endpoint
 function refreshScreenshot() {
-    console.log('Refreshing screenshot...');
-    fetch('/get_latest_screenshot')
-        .then(response => response.json())
-        .then(data => {
-            const imgElement = document.getElementById('screenshotImg');
-            const placeholderEl = document.getElementById('screenshotPlaceholder');
-            if (data.status === 'success') {
-                placeholderEl.style.display = 'none';
-                imgElement.style.display = 'block';
-                const url = data.screenshotUrl + '?_=' + new Date().getTime();
-                imgElement.src = url;
-                console.log('Screenshot refreshed:', url);
+    const imgElement = document.getElementById('screenshotImg');
+    const placeholderEl = document.getElementById('screenshotPlaceholder');
+    const url = '/processed_screenshot.png?_=' + Date.now();
+    console.log('Fetching processed screenshot from:', url);
+    fetch(url)
+        .then(res => {
+            if (res.ok) {
+                return res.blob();
             } else {
-                imgElement.style.display = 'none';
-                placeholderEl.style.display = 'flex';
-                console.log('No screenshot available');
+                throw new Error('No frame available');
             }
         })
-        .catch(error => {
-            console.error('Error fetching screenshot:', error);
+        .then(blob => {
+            console.log('Received new frame, updating image');
+            imgElement.src = URL.createObjectURL(blob);
+            imgElement.style.display = 'block';
+            placeholderEl.style.display = 'none';
+        })
+        .catch(err => {
+            console.log('Waiting for frame...', err.message);
+            imgElement.style.display = 'none';
+            placeholderEl.style.display = 'flex';
         });
 }
 

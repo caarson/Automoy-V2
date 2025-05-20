@@ -1,11 +1,13 @@
 import os
 import sys
+import pathlib
+# Add project root to sys.path so `import core.operate` works
+PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+
 import webbrowser
 import threading
-
-# Add the parent directory to sys.path to resolve imports
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
+import shutil
 from pathlib import Path
 import socket
 from fastapi import FastAPI, Request, Form, BackgroundTasks
@@ -15,12 +17,12 @@ from fastapi.templating import Jinja2Templates
 from core.operate import AutomoyOperator
 import subprocess
 import time
-import shutil
 import asyncio
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
-# Dynamically compute the project root and add it to the Python path
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(PROJECT_ROOT))
+# Add the parent directory to sys.path to resolve imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Define base directory (where this script lives)
 BASE_DIR = os.path.dirname(__file__)
@@ -122,14 +124,28 @@ async def take_screenshot(background_tasks: BackgroundTasks):
 OMNIPARSER_SCREENSHOT_PATH = os.path.join(os.path.dirname(os.path.dirname(BASE_DIR)), "core", "utils", "omniparser", "processed_screenshot.png")
 LOCAL_SCREENSHOT_PATH = os.path.join(BASE_DIR, "static", "processed_screenshot.png")
 
+@app.get("/processed_screenshot.png")
+async def processed_screenshot():  # corrected signature
+    """Serve the latest processed screenshot with debug info."""
+    file_path = PROJECT_ROOT / "core" / "utils" / "omniparser" / "processed_screenshot.png"
+    exists = file_path.exists()
+    print(f"[DEBUG] processed_screenshot endpoint called. Path: {file_path}, exists: {exists}")
+    if exists:
+        print("[DEBUG] Serving updated processed_screenshot.png")
+        return FileResponse(str(file_path), media_type="image/png")
+    else:
+        return JSONResponse({"status": "not_found"}, status_code=404)
+
 @app.get("/get_latest_screenshot")
 async def get_latest_screenshot():
-    """Return the latest processed screenshot URL or indicate no screenshot."""
+    """Return JSON with screenshotUrl and debug info."""
     file_path = PROJECT_ROOT / "core" / "utils" / "omniparser" / "processed_screenshot.png"
-    if file_path.exists():
+    exists = file_path.exists()
+    print(f"[DEBUG] get_latest_screenshot called. Path: {file_path}, exists: {exists}")
+    if exists:
         return JSONResponse({"status": "success", "screenshotUrl": "/processed_screenshot.png"})
     else:
-        return JSONResponse({"status": "no_screenshot", "message": "No screenshot available"}, status_code=200)
+        return JSONResponse({"status": "no_screenshot", "message": "No screenshot available"})
 
 # Create and start the AutomoyOperator in background
 operator = AutomoyOperator()
@@ -187,14 +203,26 @@ def launch_gui():
 
     threading.Timer(1, open_browser).start()
 
+# Watcher to sync processed_screenshot into GUI static folder
+class ScreenshotEventHandler(FileSystemEventHandler):
+    def on_modified(self, event):
+        if not event.is_directory and event.src_path.endswith('processed_screenshot.png'):
+            try:
+                target = PROJECT_ROOT / 'gui' / 'static' / 'processed_screenshot.png'
+                shutil.copy2(event.src_path, target)
+                print(f"[DEBUG] Detected new processed image, copied to GUI static: {target}")
+            except Exception as e:
+                print(f"[ERROR] Failed to copy processed screenshot: {e}")
+
+# Start the watcher before launching the server
+watch_dir = PROJECT_ROOT / 'core' / 'utils' / 'omniparser'
+observer = Observer()
+observer.schedule(ScreenshotEventHandler(), path=str(watch_dir), recursive=False)
+observer.daemon = True
+observer.start()
+
 # Ensure no browser is launched when the server starts
 if __name__ == "__main__":
     launch_gui()
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=False, log_level="info")
-
-@app.get("/processed_screenshot.png")
-async def processed_screenshot():
-    """Serve the latest processed screenshot from the OmniParser utils directory."""
-    file_path = PROJECT_ROOT / "core" / "utils" / "omniparser" / "processed_screenshot.png"
-    return FileResponse(str(file_path), media_type="image/png")

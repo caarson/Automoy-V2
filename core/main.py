@@ -8,6 +8,7 @@ import threading
 import atexit
 import signal
 import pygetwindow as gw
+import shutil
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -101,7 +102,23 @@ if __name__ == "__main__":
 
         asyncio.run(wait_for_objective())
         asyncio.run(manage_gui_window("hide"))
-        # Take screenshot logic here
+
+        # Fetch and save processed screenshot from OmniParser
+        try:
+            resp = requests.get("http://127.0.0.1:8111/processed_screenshot.png", timeout=10)
+            if resp.status_code == 200:
+                screenshot_source = PROJECT_ROOT / "core" / "utils" / "omniparser" / "processed_screenshot.png"
+                with open(screenshot_source, "wb") as f:
+                    f.write(resp.content)
+                # Also copy to GUI static directory for serving as static resource
+                gui_static_dest = PROJECT_ROOT / "gui" / "static" / "processed_screenshot.png"
+                shutil.copy2(screenshot_source, gui_static_dest)
+                print("[INFO] Saved and copied processed screenshot for GUI display.")
+            else:
+                print(f"[WARNING] Could not fetch processed screenshot: {resp.status_code}")
+        except Exception as e:
+            print(f"[ERROR] Fetch processed screenshot failed: {e}")
+
         asyncio.run(manage_gui_window("show"))
         asyncio.run(operate_loop(objective=args.objective))
     else:
