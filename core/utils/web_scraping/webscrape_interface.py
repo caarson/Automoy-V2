@@ -6,22 +6,27 @@ import time
 import random
 
 
+# Modify initialization to delay browser launch until explicitly requested
 class WebScrapeInterface:
     def __init__(self):
-        chrome_options = uc.ChromeOptions()
-        # Remove headless for interaction reliability
-        # chrome_options.add_argument('--headless')  # Disable to avoid Google detection
-        chrome_options.add_argument('--no-sandbox')
-        chrome_options.add_argument('--disable-gpu')
-        chrome_options.add_argument('--disable-dev-shm-usage')
-        chrome_options.add_argument('--window-size=1920,1080')
-        chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-        chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36')
+        self.driver = None  # Delay initialization of the browser
 
-        self.driver = uc.Chrome(options=chrome_options)
-        self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+    def initialize_browser(self):
+        if self.driver is None:
+            chrome_options = uc.ChromeOptions()
+            chrome_options.add_argument('--no-sandbox')
+            chrome_options.add_argument('--disable-gpu')
+            chrome_options.add_argument('--disable-dev-shm-usage')
+            chrome_options.add_argument('--window-size=1920,1080')
+            chrome_options.add_argument('--disable-blink-features=AutomationControlled')
+            chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36')
+
+            self.driver = uc.Chrome(options=chrome_options)
+            self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
     def simulate_human_behavior(self):
+        if self.driver is None:
+            raise RuntimeError("Browser not initialized. Call initialize_browser() first.")
         try:
             self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
             time.sleep(random.uniform(1.5, 3.0))
@@ -29,6 +34,7 @@ class WebScrapeInterface:
             pass
 
     def google_search(self, query, num_results=10):
+        self.initialize_browser()
         self.driver.get(f'https://www.google.com/search?q={query}&num={num_results}')
         time.sleep(random.uniform(2.5, 4.0))
         self.simulate_human_behavior()
@@ -57,6 +63,7 @@ class WebScrapeInterface:
         return results
 
     def bing_search(self, query, num_results=10):
+        self.initialize_browser()
         self.driver.get(f'https://www.bing.com/search?q={query}&count={num_results}')
         time.sleep(random.uniform(2.5, 4.0))
         self.simulate_human_behavior()
@@ -81,6 +88,7 @@ class WebScrapeInterface:
 
     def fetch_page_content(self, url, max_chars=2000):
         try:
+            self.initialize_browser()
             self.driver.get(url)
             time.sleep(random.uniform(2.5, 4.5))
             self.simulate_human_behavior()
@@ -94,7 +102,9 @@ class WebScrapeInterface:
             return ""
 
     def close(self):
-        self.driver.quit()
+        if self.driver is not None:
+            self.driver.quit()
+            self.driver = None
 
 
 # Interactive CLI
