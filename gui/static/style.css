@@ -1,74 +1,263 @@
 body {
     margin: 0;
-    font-family: 'Segoe UI', sans-serif;
-    background-color: #0e1117;
-    color: #cfd6e1;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; /* Modern font stack */
+    background-color: #121212; /* Darker, more neutral background */
+    color: #e0e0e0; /* Softer white for text */
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden; /* Prevent body scroll */
 }
 
-.container {
-    padding: 2rem;
-    max-width: 1200px;
-    margin: auto;
+.top-nav {
+    display: flex;
+    align-items: center; /* Vertically align items */
+    padding: 10px 25px;
+    background-color: #1f1f1f; /* Slightly lighter for depth */
+    border-bottom: 1px solid #2d2d2d;
+    flex-shrink: 0;
+    height: 48px; /* Fixed height */
 }
 
-.title {
-    text-align: center;
-    color: #00bfff;
-    font-size: 2.5rem;
+.top-nav span {
+    margin-right: 25px;
+    cursor: pointer;
+    color: #b0b0b0; /* Lighter gray for nav items */
+    font-size: 0.875rem; /* 14px */
+    transition: color 0.2s ease;
 }
 
-.control-panel {
+.top-nav span:hover {
+    color: #64b5f6; /* Softer blue hover */
+}
+
+.main-flex {
+    display: flex;
+    flex-direction: row;
+    flex-grow: 1;
+    overflow: hidden;
+}
+
+.left-panel {
+    flex: 0 0 360px; /* Slightly narrower */
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    border-right: 1px solid #2d2d2d;
+    background-color: #181818; /* Panel background */
+}
+
+.logo-title-row {
     display: flex;
     align-items: center;
-    justify-content: space-around;
-    margin: 2rem 0;
+    gap: 10px;
+    margin-bottom: 25px;
+    flex-shrink: 0;
 }
 
-.glow-button {
-    padding: 0.75rem 1.5rem;
-    background: #1e1e2f;
-    border: 2px solid #00bfff;
-    color: #00bfff;
-    font-weight: bold;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: 0.3s;
+.title-separator {
+    font-size: 1.5rem;
+    color: #424242;
+    line-height: 1;
+    font-weight: 300;
 }
 
-.glow-button:hover {
-    background-color: #00bfff;
-    color: #0e1117;
+.logo-img {
+    width: 28px; /* Smaller logo */
+    height: 28px;
+    object-fit: contain;
 }
 
-#temperatureSlider {
-    width: 200px;
+.main-title {
+    font-size: 1.375rem; /* 22px */
+    font-weight: 500; /* Medium weight */
+    color: #e0e0e0;
 }
 
-.chat-section {
+.reasoning-block {
+    margin-bottom: 20px;
+    flex-shrink: 0;
+    overflow-y: auto; /* Scroll if content too long */
+    padding-right: 10px; /* For scrollbar */
+}
+
+.reasoning-section {
+    margin-bottom: 16px;
+}
+
+.reasoning-label {
+    font-weight: 500;
+    font-size: 0.875rem; /* 14px */
+    display: block;
+    margin-bottom: 6px;
+    color: #9e9e9e; /* Subdued label color */
+}
+
+#thinkingText, #visualText, #stepsText {
+    font-size: 0.875rem; /* 14px */
+    display: block;
+    line-height: 1.6;
+    color: #c0c0c0; /* Slightly dimmer text for content */
+}
+
+.objective-form {
     display: flex;
-    gap: 2rem;
-    justify-content: space-between;
+    align-items: center;
+    margin-top: auto;
+    padding-top: 15px;
+    border-top: 1px solid #2d2d2d; /* Separator */
+    flex-shrink: 0;
 }
 
-.chat-box {
+#objectiveInput {
     flex: 1;
-    background-color: #1e1e2f;
-    padding: 1rem;
-    border-radius: 10px;
+    font-size: 0.875rem;
+    padding: 9px 12px; /* Slightly smaller padding */
+    border-radius: 5px 0 0 5px; /* Softer radius */
+    border: 1px solid #333;
+    outline: none;
+    background: #212121; /* Darker input */
+    color: #e0e0e0;
+    border-right: none;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
-textarea {
-    width: 100%;
-    height: 100px;
-    background-color: #0e1117;
-    color: #cfd6e1;
-    border: 1px solid #00bfff;
-    padding: 0.5rem;
-    border-radius: 6px;
-    resize: none;
+#objectiveInput::placeholder {
+    color: #757575;
 }
 
-button {
-    margin-top: 0.5rem;
+#objectiveInput:focus {
+    background: #2c2c2c;
+    border-color: #64b5f6;
+}
+
+.send-btn {
+    background: #333;
+    color: #b0b0b0;
+    border: 1px solid #333;
+    border-left: none;
+    border-radius: 0 5px 5px 0;
+    font-size: 1.25rem;
+    padding: 0 14px;
+    cursor: pointer;
+    height: 36px; /* Match input height (padding + font + border) */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.send-btn:hover {
+    background: #64b5f6;
+    color: #121212;
+}
+
+.right-panel {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    background-color: #121212; /* Match body */
+}
+
+.spatial-title {
+    font-size: 1.25rem; /* 20px */
+    font-weight: 500;
+    margin-bottom: 15px;
+    color: #e0e0e0;
+    flex-shrink: 0;
+}
+
+.screenshot-container {
+    flex-grow: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 1px solid #2d2d2d;
+    border-radius: 5px;
+    overflow: hidden;
+    background-color: #000; /* Black background for screenshot */
+    min-height: 250px;
+    margin-bottom: 15px; /* Space before operation row */
+}
+
+.screenshot-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block; /* Remove extra space below image */
+}
+
+.operation-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     width: 100%;
+    margin-top: auto; /* Push to bottom of right panel if space */
+    padding-top: 15px;
+    border-top: 1px solid #2d2d2d;
+    flex-shrink: 0;
+}
+
+.operation-block {
+    font-size: 0.8125rem; /* 13px */
+    color: #9e9e9e;
+}
+
+.operation-label {
+    font-weight: 500;
+    margin-right: 5px;
+}
+
+#pastOperation, #currentOperation {
+    color: #c0c0c0;
+    background-color: #212121; /* Subtle background for ops */
+    padding: 2px 5px;
+    border-radius: 3px;
+}
+
+.pause-btn {
+    background: transparent;
+    border: 2px solid #757575; /* Muted border */
+    border-radius: 50%;
+    width: 40px; /* Smaller pause button */
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 0.2s ease, opacity 0.2s ease;
+}
+
+.pause-btn img {
+    width: 18px; /* Smaller icon */
+    height: 18px;
+    object-fit: contain;
+    filter: grayscale(1) brightness(1.5); /* Make it white-ish */
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+}
+
+.pause-btn:hover {
+    border-color: #64b5f6;
+}
+
+.pause-btn:hover img {
+    opacity: 1;
+}
+
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: #1f1f1f;
+}
+::-webkit-scrollbar-thumb {
+    background: #424242;
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
 }

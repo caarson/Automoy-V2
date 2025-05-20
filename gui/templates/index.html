@@ -1,38 +1,309 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Automoy Control Center</title>
-    <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-    <div class="container">
-        <h1 class="title">Automoy</h1>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Automoy</title>
 
-        <div class="control-panel">
-            <button id="startBtn" class="glow-button">Start</button>
-            <button id="pauseBtn" class="glow-button">Pause</button>
-            <input type="range" min="0" max="1" step="0.01" id="temperatureSlider">
-            <label for="temperatureSlider" id="tempLabel">Temperature: 0.50</label>
-        </div>
+    <!-- modern font & basic reset  -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
 
-        <div class="chat-section">
-            <div class="chat-box">
-                <h2>Main Command</h2>
-                <textarea id="mainCommand" placeholder="e.g., Open Google Chrome..."></textarea>
-                <button onclick="sendMainCommand()">Send</button>
-            </div>
+    <style>
+      /* -------  GLOBAL  ------- */
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        font-family: "Inter", sans-serif;
+        background: #000; /* full‑black like the mock‑up */
+        color: #fff;
+      }
 
-            <div class="chat-box">
-                <h2>Correction Chat</h2>
-                <textarea id="correctionMsg" placeholder="e.g., Wait, do it differently..."></textarea>
-                <button onclick="sendCorrection()">Send</button>
-            </div>
-        </div>
+      /* top nav  */
+      .top-nav {
+        display: flex;
+        gap: 32px;
+        padding: 12px 32px;
+        border-bottom: 1px solid #222;
+        font-size: 14px;
+        letter-spacing: 0.02em;
+      }
+      .top-nav span {
+        cursor: pointer;
+        transition: color 0.2s;
+      }
+      .top-nav span:hover {
+        color: #50a7ff;
+      }
 
-        <div id="statusOutput"></div>
+      /* main grid  */
+      .main-flex {
+        display: flex;
+        height: calc(100% - 49px); /* subtract nav */
+      }
+
+      /* ---- left column ---- */
+      .left-panel {
+        width: 380px;
+        display: flex;
+        flex-direction: column;
+        padding: 32px 28px;
+        border-right: 1px solid #222;
+      }
+      .logo-title-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 32px;
+      }
+      .logo-img {
+        width: 34px;
+        height: 34px;
+        object-fit: contain;
+      }
+      .title-separator {
+        font-size: 30px;
+        line-height: 1;
+        font-weight: 200;
+        color: #fff;
+      }
+      .main-title {
+        font-size: 28px;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+      }
+      .objective-display {
+        font-size: 15px;
+        margin-bottom: 24px;
+        color: #50a7ff;
+      }
+
+      /* reasoning blocks */
+      .reasoning-block {
+        flex: 1;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+        padding-right: 8px; /* scrollbar room */
+      }
+      .reasoning-label {
+        font-weight: 600;
+        font-size: 15px;
+        margin-bottom: 6px;
+      }
+      .reasoning-section span:not(.reasoning-label) {
+        font-size: 15px;
+        line-height: 1.6;
+      }
+
+      /* objective input */
+      .objective-form {
+        display: flex;
+        gap: 0;
+        border-top: 1px solid #222;
+        padding-top: 18px;
+      }
+      #objectiveInput {
+        flex: 1;
+        font-size: 15px;
+        padding: 10px 14px;
+        border: none;
+        border-radius: 4px 0 0 4px;
+        background: #111;
+        color: #fff;
+      }
+      #objectiveInput::placeholder {
+        color: #666;
+      }
+      .send-btn {
+        width: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        border: none;
+        border-radius: 0 4px 4px 0;
+        background: #222;
+        color: #fff;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .send-btn:hover {
+        background: #50a7ff;
+      }
+
+      /* coords display */
+      .coords-display {
+        font-size: 15px;
+        color: #666;
+        margin-top: 8px;
+      }
+
+      /* ---- right column ---- */
+      .right-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 32px 28px;
+      }
+      .spatial-title {
+        font-size: 28px;
+        font-weight: 600;
+        margin-bottom: 24px;
+      }
+      .screenshot-container {
+        flex: 1;
+        border: 1px solid #333;
+        border-radius: 6px;
+        background: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 24px;
+        overflow: hidden;
+      }
+      .screenshot-img {
+        max-width: 100%;
+        max-height: 100%;
+      }
+
+      /* operations row */
+      .operation-row {
+        display: flex;
+        align-items: center;
+        gap: 40px;
+        border-top: 1px solid #222;
+        padding-top: 18px;
+      }
+      .operation-label {
+        font-weight: 600;
+        margin-right: 6px;
+      }
+      .pause-btn {
+        margin-left: auto;
+        width: 50px;
+        height: 50px;
+        border: 4px solid #fff;
+        border-radius: 50%;
+        background: transparent;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: opacity 0.2s;
+      }
+      .pause-btn img {
+        width: 20px;
+        height: 20px;
+        filter: invert(1);
+      }
+      .pause-btn:hover {
+        opacity: 0.7;
+      }
+
+      /* scrollbar (webkit) */
+      ::-webkit-scrollbar {
+        width: 10px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #444;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- ========= NAV ========= -->
+    <div class="top-nav">
+      <span>Help</span><span>Configuration</span><span>Settings</span>
     </div>
 
+    <!-- ========= LAYOUT ========= -->
+    <div class="main-flex">
+      <!-- LEFT PANEL -->
+      <div class="left-panel">
+        <!-- branding -->
+        <div class="logo-title-row">
+          <img src="/static/imgs/logo.png" alt="Automoy Logo" class="logo-img" />
+          <span class="title-separator">|</span>
+          <span class="main-title">Automoy</span>
+        </div>
+        <div id="objectiveDisplay" class="objective-display">Objective: --</div>
+
+        <!-- reasoning blocks -->
+        <div class="reasoning-block">
+          <div class="reasoning-section">
+            <span class="reasoning-label">Thinking:</span>
+            <span id="thinkingText"
+              >The user has requested that Google Chrome be opened. I will open Google
+              Chrome.</span
+            >
+          </div>
+          <div class="reasoning-section">
+            <span class="reasoning-label">Visual:</span>
+            <span id="visualText"
+              >Okay, I saw an image of Google Chrome in the lower‑left corner.</span
+            >
+          </div>
+          <div class="reasoning-section">
+            <span class="reasoning-label">Steps:</span>
+            <span id="stepsText"
+              >I will move the cursor to the lower‑left corner and click to open
+              Google Chrome.</span
+            >
+          </div>
+        </div>
+
+        <!-- objective input -->
+        <form id="objectiveForm" class="objective-form" autocomplete="off">
+          <input
+            type="text"
+            id="objectiveInput"
+            placeholder="Open Google Chrome."
+            autocomplete="off"
+          />
+          <button type="submit" class="send-btn">&#8593;</button>
+        </form>
+
+        <!-- coords display -->
+        <div id="coordsDisplay" class="coords-display" style="display:none;"></div>
+        <!-- last action display -->
+        <div id="lastActionDisplay" class="coords-display" style="display:none; margin-top:8px;"></div>
+      </div>
+
+      <!-- RIGHT PANEL -->
+      <div class="right-panel">
+        <div class="spatial-title">Spatial Analysis</div>        <div class="screenshot-container">
+          <img
+            src="/static/processed_screenshot.png"
+            alt="Screenshot"
+            class="screenshot-img"
+            id="screenshotImg"
+            onload="console.log('Screenshot loaded')"
+            onerror="console.error('Screenshot failed to load')"
+          />
+        </div>
+
+        <div class="operation-row">
+          <div class="operation-block">
+            <span class="operation-label">Past Operation:</span>
+            <span id="pastOperation">{operation "mouse", moveto(X Y)}</span>
+          </div>
+          <div class="operation-block">
+            <span class="operation-label">Current Operation:</span>
+            <span id="currentOperation">{operation "click"}</span>
+          </div>
+          <button id="pauseBtn" class="pause-btn">
+            <img src="/static/imgs/pause_button.png" alt="Pause" />
+          </button>
+        </div>      </div>
+    </div>
     <script src="/static/script.js"></script>
-</body>
+  </body>
 </html>

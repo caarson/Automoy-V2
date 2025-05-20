@@ -9,12 +9,19 @@ import pathlib
 import string
 import subprocess
 import requests
+import socket
+import psutil
 
-from utils.operating_system.os_interface import OSInterface
-from utils.omniparser.omniparser_interface import OmniParserInterface
-from utils.vmware.vmware_interface import VMWareInterface
-from utils.web_scraping.webscrape_interface import WebScrapeInterface
-from utils.region.mapper import map_elements_to_coords
+# Ensure the project root is added to the Python path
+import os, sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+
+# Adjust imports to use absolute paths consistently
+from core.utils.omniparser.omniparser_interface import OmniParserInterface
+from core.utils.operating_system.os_interface import OSInterface
+from core.utils.vmware.vmware_interface import VMWareInterface
+from core.utils.web_scraping.webscrape_interface import WebScrapeInterface
+from core.utils.region.mapper import map_elements_to_coords
 from core.prompts.prompts import get_system_prompt
 
 # 👉 Integrated LLM interface (merged MainInterface + handle_llm_response)
@@ -23,6 +30,19 @@ from core.environmental.anchor.desktop_anchor_point import show_desktop
 
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[1] / "config"))
 from config import Config
+
+
+# Function to check if a port is in use
+def is_port_in_use(port):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(('127.0.0.1', port)) == 0
+
+# Function to check if a process with a specific name is running
+def is_process_running(process_name):
+    for proc in psutil.process_iter(['name']):
+        if proc.info['name'] == process_name:
+            return True
+    return False
 
 
 class AutomoyOperator:
@@ -63,23 +83,23 @@ class AutomoyOperator:
 
         # --- Launch GUI if not already running ---
         try:
-            # Try to connect to GUI; if fails, launch it
-            requests.get("http://127.0.0.1:8000/gui_state", timeout=1)
-            print("[GUI] Web GUI already running.")
-        except Exception:
-            print("[GUI] Launching Web GUI on http://127.0.0.1:8000 ...")
-            subprocess.Popen([sys.executable, os.path.join("gui", "gui.py")])
-            # Wait up to 30 seconds for GUI to start
-            for _ in range(30):
-                try:
-                    requests.get("http://127.0.0.1:8000/gui_state", timeout=1)
-                    print("[GUI] Web GUI is now running.")
-                    break
-                except Exception:
+            if not is_port_in_use(8000) and not is_process_running("python.exe"):
+                print("[GUI] Launching Web GUI on http://127.0.0.1:8000 ...")
+                subprocess.Popen([sys.executable, os.path.join("gui", "gui.py")])
+                # Wait up to 30 seconds for GUI to start
+                for _ in range(30):
+                    if is_port_in_use(8000):
+                        print("[GUI] Web GUI is now running.")
+                        break
                     await asyncio.sleep(1)
+                else:
+                    print("[GUI] ERROR: GUI did not start in time. Exiting Automoy.")
+                    sys.exit(1)
             else:
-                print("[GUI] ERROR: GUI did not start in time. Exiting Automoy.")
-                sys.exit(1)
+                print("[GUI] Web GUI already running.")
+        except Exception as e:
+            print(f"[GUI] ERROR: {e}")
+            sys.exit(1)
 
         if not self.omniparser._check_server_ready():
             print("❌ OmniParser server is not running! Attempting to start it…")
