@@ -110,9 +110,6 @@ def apply_gpu_patches() -> None:
     else:
         print("⚠️  No binary wheels – skipping xformers / flash-attn")
 
-    # Import torch now that it’s installed
-    import torch  # noqa: E402
-
     def insert_cleanup(src: str) -> str:
         """Inject cache-clear before every `return`."""
         if "torch.cuda.empty_cache()" in src:
@@ -123,7 +120,7 @@ def apply_gpu_patches() -> None:
             src
         )
 
-    # 3a️⃣ Patch routers/parse.py
+    # 3a️⃣ Patch routers/parse.py .
     router = OMNIPARSER_DIR / "omnitool" / "omniparserserver" / "routers" / "parse.py"
     if router.exists():
         txt = router.read_text("utf-8")
