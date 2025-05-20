@@ -32,7 +32,12 @@ class AutomoyOperator:
         self.llm = MainInterface()
 
         self.config = Config()
-        self.model = self.config.get("MODEL", "gpt-4")
+        # Use the correct model for the selected API source
+        try:
+            self.model = self.config.get_model()
+        except Exception as e:
+            print(f"[ERROR] Could not determine model from config: {e}")
+            self.model = "gpt-4"  # fallback
         self.objective = objective
         self.desktop_anchor_point = self.config.get("DESKTOP_ANCHOR_POINT", False)
         self.prompt_anchor_point = self.config.get("PROMPT_ANCHOR_POINT", False)
@@ -94,7 +99,8 @@ class AutomoyOperator:
                     print("🧠 Parsed UI Coord Map:", json.dumps(self.coords, indent=2))
 
                 # ─── Build conversation for the LLM ───────────────────
-                ui_json = json.dumps(self.coords, indent=2)
+                # ui_json = json.dumps(self.coords, indent=2)
+                ui_json = "[Screen parsed data omitted for debug streaming test]"
 
                 # Only display the current screen state description if any anchor point config is enabled, and only on first run
                 if self.last_action is None:
