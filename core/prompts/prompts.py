@@ -121,6 +121,22 @@ Your objective is: {objective}
 
 """
 
+# Add placeholders for Thinking, Visual, and Steps integration
+THINKING_TAB_PROMPT = """
+### THINKING
+- After the colon (:), include what the LLM reasoned (anything not in the operation text section).
+"""
+
+VISUAL_TAB_PROMPT = """
+### VISUAL
+- After the colon (:), include what the Visual LLM parsed.
+"""
+
+STEPS_TAB_PROMPT = """
+### STEPS
+- Integrate the same LLM with new context. Its only task is to provide steps given the Visual and Thinking information.
+"""
+
 ###############################################################################
 # get_system_prompt function - returns the correct system prompt based on model
 ###############################################################################

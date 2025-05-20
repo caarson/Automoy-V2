@@ -106,6 +106,10 @@ class WebScrapeInterface:
             self.driver.quit()
             self.driver = None
 
+    def is_ready(self):
+        """Check if the browser driver is initialized and ready."""
+        return self.driver is not None
+
 
 # Interactive CLI
 if __name__ == "__main__":

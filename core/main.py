@@ -7,6 +7,7 @@ import requests
 import threading
 import atexit
 import signal
+import pygetwindow as gw
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -52,10 +53,56 @@ signal.signal(signal.SIGINT, lambda sig, frame: sys.exit(0))
 signal.signal(signal.SIGTERM, lambda sig, frame: sys.exit(0))
 
 # --- Run Automoy ---
+# Launch the GUI by running gui.py
 if __name__ == "__main__":
     if launched:
+        import subprocess
+        print("✅ OmniParser launched. Starting GUI...")
+        gui_process = subprocess.Popen([sys.executable, str(PROJECT_ROOT / "gui" / "gui.py")])
+
+        # Ensure the GUI process is terminated when the main program exits
+        atexit.register(gui_process.terminate)
+
         import asyncio
-        print("✅ OmniParser launched. Running Automoy...")
+
+        async def wait_for_objective():
+            retries = 0
+            max_retries = 5
+            while retries < max_retries:
+                try:
+                    # Attempt to fetch the objective from the GUI
+                    response = requests.get("http://127.0.0.1:8000/health", timeout=5)
+                    if response.status_code == 200:
+                        print("[INFO] GUI is healthy. Waiting for objectives...")
+                        return
+                except requests.exceptions.RequestException as e:
+                    retries += 1
+                    print(f"[WARNING] GUI not reachable. Retry attempt {retries}/{max_retries}...")
+                    time.sleep(2)  # Wait before retrying
+
+            print("[ERROR] GUI is not reachable after multiple attempts. Exiting...")
+            exit(1)
+
+        async def manage_gui_window(action):
+            """Manage the GUI window state (minimize or restore)."""
+            try:
+                windows = gw.getWindowsWithTitle("Automoy GUI")
+                if windows:
+                    gui_window = windows[0]
+                    if action == "hide":
+                        gui_window.minimize()
+                        print("[INFO] GUI window minimized for screenshot.")
+                    elif action == "show":
+                        gui_window.restore()
+                        gui_window.moveTo(0, 0)
+                        print("[INFO] GUI window restored at top-left.")
+            except Exception as e:
+                print(f"[ERROR] Failed to manage GUI window: {e}")
+
+        asyncio.run(wait_for_objective())
+        asyncio.run(manage_gui_window("hide"))
+        # Take screenshot logic here
+        asyncio.run(manage_gui_window("show"))
         asyncio.run(operate_loop(objective=args.objective))
     else:
         print("❌ OmniParser server failed to launch.")

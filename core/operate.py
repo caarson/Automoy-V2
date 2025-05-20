@@ -11,6 +11,7 @@ import subprocess
 import requests
 import socket
 import psutil
+import pygetwindow as gw  # New import for window management
 
 # Ensure the project root is added to the Python path
 import os, sys
@@ -119,12 +120,11 @@ class AutomoyOperator:
         await self.startup_sequence()
         print("🔥 Entering Automoy Autonomous Operation Mode!")
 
-        if not self.objective:
-            try:
-                self.objective = input("🎯 Enter your automation objective: ")
-            except EOFError:
-                self.objective = "Default objective – Automate screen flow"
-                print("⚠️ No input received. Using default objective.")
+        # Wait for the objective to be set by the GUI
+        while not self.objective:
+            print("[WAIT] Waiting for objective from GUI...")
+            await asyncio.sleep(1)
+        print(f"[INFO] Objective received from GUI: {self.objective}")
 
         first_run = True
         while True:
@@ -144,6 +144,18 @@ class AutomoyOperator:
                             print(f"[GUI] Could not show GUI: {e}")
                         first_run = False
                     self.current_screenshot = self.os_interface.take_screenshot("automoy_current.png")
+
+                    # Restore GUI window after screenshot completed
+                    try:
+                        windows = gw.getWindowsWithTitle("Automoy")
+                        if windows:
+                            win = windows[0]
+                            win.restore()
+                            win.moveTo(0, 0)
+                            print("[INFO] GUI window restored at top-left after screenshot.")
+                    except Exception as e:
+                        print(f"[ERROR] Failed to restore GUI window: {e}")
+
                     ui_data = self.omniparser.parse_screenshot(self.current_screenshot)
 
                     # --- Write OmniParser output to debug log ---

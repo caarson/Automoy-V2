@@ -1,21 +1,26 @@
-import os, sys
+import os
+import sys
+import webbrowser
+import threading
+
+# Add the parent directory to sys.path to resolve imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from pathlib import Path
 import socket
-
-# Dynamically compute the project root and add it to the Python path
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(PROJECT_ROOT))
-
 from fastapi import FastAPI, Request, Form, BackgroundTasks
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from core.operate import AutomoyOperator
 import subprocess
-import threading
 import time
 import shutil
 import asyncio
+
+# Dynamically compute the project root and add it to the Python path
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
 
 # Define base directory (where this script lives)
 BASE_DIR = os.path.dirname(__file__)
@@ -183,6 +188,21 @@ async def get_operator_state():
         "coords": operator.coords,
     }
 
+# Add an endpoint to set the objective
+@app.post("/set_objective")
+async def set_objective(data: dict):
+    objective = data.get("objective")
+    if objective:
+        operator.objective = objective
+        print(f"[INFO] Objective set to: {objective}")
+        return {"status": "success", "objective": objective}
+    return {"status": "error", "message": "No objective provided"}
+
+# Health check endpoint to confirm GUI is running
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
 # Function to check if the GUI is already running
 def is_gui_running():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -198,7 +218,15 @@ if is_gui_running():
     print("[GUI] Web GUI is already running. Exiting...")
     sys.exit(0)
 
+# Launch the Flask app in a borderless fullscreen browser window
+def launch_gui():
+    def open_browser():
+        webbrowser.open("http://127.0.0.1:8000", new=0)
+
+    threading.Timer(1, open_browser).start()
+
 # Ensure no browser is launched when the server starts
 if __name__ == "__main__":
+    launch_gui()
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=False, log_level="info")

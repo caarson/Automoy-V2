@@ -232,7 +232,7 @@
         <div class="logo-title-row">
           <img src="/static/imgs/logo.png" alt="Automoy Logo" class="logo-img" />
           <span class="title-separator">|</span>
-          <span class="main-title">Automoy</span>
+          <span class="main-title">Awaiting Objective...</span>
         </div>
         <div id="objectiveDisplay" class="objective-display">Objective: --</div>
 
@@ -265,7 +265,7 @@
           <input
             type="text"
             id="objectiveInput"
-            placeholder="Open Google Chrome."
+            placeholder="Enter a goal here"
             autocomplete="off"
           />
           <button type="submit" class="send-btn">&#8593;</button>
@@ -305,5 +305,49 @@
         </div>      </div>
     </div>
     <script src="/static/script.js"></script>
+    <script>
+          // Automatically set the objective from the first prompt
+          document.addEventListener("DOMContentLoaded", () => {
+            const objectiveInput = document.getElementById("objectiveInput");
+            const objectiveDisplay = document.getElementById("objectiveDisplay");
+
+            // const defaultObjective = "Open Google Chrome."; // Default prompt - REMOVED
+            // objectiveInput.value = defaultObjective; // REMOVED
+            // objectiveDisplay.textContent = `Objective: ${defaultObjective}`; // REMOVED
+          });
+        </script>
+    <script>
+          // Handle objective submission
+          document.addEventListener("DOMContentLoaded", () => {
+            const objectiveForm = document.getElementById("objectiveForm");
+            const objectiveInput = document.getElementById("objectiveInput");
+            const objectiveDisplay = document.getElementById("objectiveDisplay");
+
+            objectiveForm.addEventListener("submit", async (event) => {
+              event.preventDefault();
+              const objective = objectiveInput.value;
+
+              // Update the display
+              objectiveDisplay.textContent = `Objective: ${objective}`;
+
+              // Send the objective to the backend
+              try {
+                const response = await fetch("/set_objective", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({ objective }),
+                });
+
+                if (!response.ok) {
+                  console.error("Failed to set objective");
+                }
+              } catch (error) {
+                console.error("Error setting objective:", error);
+              }
+            });
+          });
+        </script>
   </body>
 </html>
