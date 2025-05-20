@@ -29,6 +29,7 @@ DEFINE_REGION: False
 TEMPERATURE: 0.7
 
 #### OpenAI Settings
+
 OPENAI: False                        # Enable OpenAI as the LLM backend.
 OPENAI_API_KEY:                      # Insert your OpenAI API key here
 OPENAI_MODEL: gpt-4o                 # Specify which OpenAI model to use
