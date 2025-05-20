@@ -36,7 +36,7 @@ OPENAI_MODEL: gpt-4o                 # Specify which OpenAI model to use
 #### LMStudio Settings
 
 LMSTUDIO: True                      # Set to True to use LMStudio as the LLM backend.
-LMSTUDIO_API_URL: https://smaller-chorus-reserves-cables.trycloudflare.com/   # Insert your LMStudio API URL here
+LMSTUDIO_API_URL: https://brunei-affiliation-cathedral-riverside.trycloudflare.com/   # Insert your LMStudio API URL here
 LMSTUDIO_MODEL: deepseek-r1-distill-qwen-7b   # Specify which LMStudio model to use
 
 #########################

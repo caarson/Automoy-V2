@@ -7,6 +7,8 @@ from datetime import datetime
 import shutil
 import pathlib
 import string
+import subprocess
+import requests
 
 from utils.operating_system.os_interface import OSInterface
 from utils.omniparser.omniparser_interface import OmniParserInterface
@@ -59,6 +61,26 @@ class AutomoyOperator:
         print("🚀 Automoy Starting Up…")
         print(f"Detected OS: {self.os_interface.os_type}")
 
+        # --- Launch GUI if not already running ---
+        try:
+            # Try to connect to GUI; if fails, launch it
+            requests.get("http://127.0.0.1:8000/gui_state", timeout=1)
+            print("[GUI] Web GUI already running.")
+        except Exception:
+            print("[GUI] Launching Web GUI on http://127.0.0.1:8000 ...")
+            subprocess.Popen([sys.executable, os.path.join("gui", "gui.py")])
+            # Wait up to 30 seconds for GUI to start
+            for _ in range(30):
+                try:
+                    requests.get("http://127.0.0.1:8000/gui_state", timeout=1)
+                    print("[GUI] Web GUI is now running.")
+                    break
+                except Exception:
+                    await asyncio.sleep(1)
+            else:
+                print("[GUI] ERROR: GUI did not start in time. Exiting Automoy.")
+                sys.exit(1)
+
         if not self.omniparser._check_server_ready():
             print("❌ OmniParser server is not running! Attempting to start it…")
             self.omniparser.launch_server()
@@ -94,6 +116,12 @@ class AutomoyOperator:
                         print("[ANCHOR] Showing desktop (desktop anchor enabled)...")
                         show_desktop()
                         await asyncio.sleep(1)  # Give time for UI to update
+                        # --- Show GUI after anchor point ---
+                        try:
+                            requests.get("http://127.0.0.1:8000/show_gui", timeout=1)
+                            print("[GUI] GUI shown after anchor point.")
+                        except Exception as e:
+                            print(f"[GUI] Could not show GUI: {e}")
                         first_run = False
                     self.current_screenshot = self.os_interface.take_screenshot("automoy_current.png")
                     ui_data = self.omniparser.parse_screenshot(self.current_screenshot)
