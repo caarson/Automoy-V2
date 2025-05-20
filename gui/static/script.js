@@ -1,6 +1,14 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing UI');
     
+    // Animated ellipsis for placeholder
+    let ellipsisCount = 0;
+    const placeholderEl = document.getElementById('screenshotPlaceholder');
+    setInterval(() => {
+        ellipsisCount = (ellipsisCount + 1) % 4;
+        placeholderEl.textContent = 'Waiting for frame' + '.'.repeat(ellipsisCount);
+    }, 500);
+
     // Initial screenshot load 
     setTimeout(refreshScreenshot, 500); // Short delay to ensure everything is loaded
     
@@ -52,23 +60,20 @@ document.addEventListener('DOMContentLoaded', function() {
 function refreshScreenshot() {
     console.log('Refreshing screenshot...');
     fetch('/get_latest_screenshot')
-        .then(response => {
-            console.log('Screenshot response:', response);
-            return response.json();
-        })
+        .then(response => response.json())
         .then(data => {
-            console.log('Screenshot data:', data);
+            const imgElement = document.getElementById('screenshotImg');
+            const placeholderEl = document.getElementById('screenshotPlaceholder');
             if (data.status === 'success') {
-                const imgElement = document.getElementById('screenshotImg');
-                imgElement.src = data.screenshotUrl;
-                console.log('Screenshot refreshed:', data.screenshotUrl);
-                // Force reload by setting a random parameter if image doesn't load
-                imgElement.onerror = () => {
-                    console.error('Image failed to load, trying with cache buster');
-                    imgElement.src = data.screenshotUrl + '&nocache=' + new Date().getTime();
-                };
+                placeholderEl.style.display = 'none';
+                imgElement.style.display = 'block';
+                const url = data.screenshotUrl + '?_=' + new Date().getTime();
+                imgElement.src = url;
+                console.log('Screenshot refreshed:', url);
             } else {
-                console.error('Error refreshing screenshot:', data.message);
+                imgElement.style.display = 'none';
+                placeholderEl.style.display = 'flex';
+                console.log('No screenshot available');
             }
         })
         .catch(error => {

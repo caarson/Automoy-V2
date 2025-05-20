@@ -124,50 +124,12 @@ LOCAL_SCREENSHOT_PATH = os.path.join(BASE_DIR, "static", "processed_screenshot.p
 
 @app.get("/get_latest_screenshot")
 async def get_latest_screenshot():
-    """Get the latest processed screenshot from OmniParser"""
-    try:
-        # Debug information
-        print(f"Looking for screenshot at: {OMNIPARSER_SCREENSHOT_PATH}")
-        print(f"Will save to: {LOCAL_SCREENSHOT_PATH}")
-        
-        # Check if the OmniParser screenshot exists
-        if os.path.exists(OMNIPARSER_SCREENSHOT_PATH):
-            # Get file stats for debugging
-            stats = os.stat(OMNIPARSER_SCREENSHOT_PATH)
-            size = stats.st_size
-            last_modified = os.path.getmtime(OMNIPARSER_SCREENSHOT_PATH)
-            print(f"Found screenshot: {size} bytes, last modified: {last_modified}")
-            
-            # Make sure target directory exists
-            os.makedirs(os.path.dirname(LOCAL_SCREENSHOT_PATH), exist_ok=True)
-            
-            # Copy the file to static for serving
-            shutil.copy2(OMNIPARSER_SCREENSHOT_PATH, LOCAL_SCREENSHOT_PATH)
-            print(f"Screenshot copied to {LOCAL_SCREENSHOT_PATH}")
-            
-            # Verify the copy worked
-            if os.path.exists(LOCAL_SCREENSHOT_PATH):
-                copy_size = os.stat(LOCAL_SCREENSHOT_PATH).st_size
-                print(f"Copy verified: {copy_size} bytes")
-                
-                # Return the path to the screenshot with a cache-busting query string
-                screenshot_url = f"/static/processed_screenshot.png?t={last_modified}"
-                print(f"Returning URL: {screenshot_url}")
-                return {"status": "success", "screenshotUrl": screenshot_url}
-            else:
-                print("Copy failed: Destination file not found")
-                return {"status": "error", "message": "Screenshot copy failed"}
-        else:
-            print(f"Screenshot not found at {OMNIPARSER_SCREENSHOT_PATH}")
-            # As a fallback, check if we have a previous copy in static
-            if os.path.exists(LOCAL_SCREENSHOT_PATH):
-                print("Using previously saved screenshot instead")
-                last_modified = os.path.getmtime(LOCAL_SCREENSHOT_PATH)
-                return {"status": "success", "screenshotUrl": f"/static/processed_screenshot.png?t={last_modified}"}
-            return {"status": "error", "message": "Screenshot not found"}
-    except Exception as e:
-        print(f"Error in get_latest_screenshot: {str(e)}")
-        return {"status": "error", "message": str(e)}
+    """Return the latest processed screenshot URL or indicate no screenshot."""
+    file_path = PROJECT_ROOT / "core" / "utils" / "omniparser" / "processed_screenshot.png"
+    if file_path.exists():
+        return JSONResponse({"status": "success", "screenshotUrl": "/processed_screenshot.png"})
+    else:
+        return JSONResponse({"status": "no_screenshot", "message": "No screenshot available"}, status_code=200)
 
 # Create and start the AutomoyOperator in background
 operator = AutomoyOperator()
@@ -230,3 +192,9 @@ if __name__ == "__main__":
     launch_gui()
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=False, log_level="info")
+
+@app.get("/processed_screenshot.png")
+async def processed_screenshot():
+    """Serve the latest processed screenshot from the OmniParser utils directory."""
+    file_path = PROJECT_ROOT / "core" / "utils" / "omniparser" / "processed_screenshot.png"
+    return FileResponse(str(file_path), media_type="image/png")

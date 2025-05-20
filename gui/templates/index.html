@@ -232,31 +232,23 @@
         <div class="logo-title-row">
           <img src="/static/imgs/logo.png" alt="Automoy Logo" class="logo-img" />
           <span class="title-separator">|</span>
-          <span class="main-title">Awaiting Objective...</span>
+          <span class="main-title">Automoy</span>
         </div>
-        <div id="objectiveDisplay" class="objective-display">Objective: --</div>
+        <div id="objectiveDisplay" class="objective-display">Awaiting Objective...</div>
 
         <!-- reasoning blocks -->
         <div class="reasoning-block">
           <div class="reasoning-section">
             <span class="reasoning-label">Thinking:</span>
-            <span id="thinkingText"
-              >The user has requested that Google Chrome be opened. I will open Google
-              Chrome.</span
-            >
+            <span id="thinkingText"></span>
           </div>
           <div class="reasoning-section">
             <span class="reasoning-label">Visual:</span>
-            <span id="visualText"
-              >Okay, I saw an image of Google Chrome in the lower‑left corner.</span
-            >
+            <span id="visualText"></span>
           </div>
           <div class="reasoning-section">
             <span class="reasoning-label">Steps:</span>
-            <span id="stepsText"
-              >I will move the cursor to the lower‑left corner and click to open
-              Google Chrome.</span
-            >
+            <span id="stepsText"></span>
           </div>
         </div>
 
@@ -279,12 +271,21 @@
 
       <!-- RIGHT PANEL -->
       <div class="right-panel">
-        <div class="spatial-title">Spatial Analysis</div>        <div class="screenshot-container">
+        <div class="spatial-title">Spatial Analysis</div>
+        <div class="screenshot-container">
+          <div
+            id="screenshotPlaceholder"
+            class="coords-display"
+            style="display:flex;align-items:center;justify-content:center;flex:1;color:#666;font-size:18px;"
+          >
+            Waiting for frame
+          </div>
           <img
-            src="/static/processed_screenshot.png"
-            alt="Screenshot"
+            src="/processed_screenshot.png"
+            alt="Processed Screenshot"
             class="screenshot-img"
             id="screenshotImg"
+            style="display:none;max-width:100%;max-height:100%;"
             onload="console.log('Screenshot loaded')"
             onerror="console.error('Screenshot failed to load')"
           />
@@ -302,20 +303,20 @@
           <button id="pauseBtn" class="pause-btn">
             <img src="/static/imgs/pause_button.png" alt="Pause" />
           </button>
-        </div>      </div>
+        </div>
+      </div>
     </div>
     <script src="/static/script.js"></script>
     <script>
-          // Automatically set the objective from the first prompt
-          document.addEventListener("DOMContentLoaded", () => {
-            const objectiveInput = document.getElementById("objectiveInput");
-            const objectiveDisplay = document.getElementById("objectiveDisplay");
+      document.addEventListener("DOMContentLoaded", () => {
+        const objectiveInput = document.getElementById("objectiveInput");
+        const objectiveDisplay = document.getElementById("objectiveDisplay");
 
-            // const defaultObjective = "Open Google Chrome."; // Default prompt - REMOVED
-            // objectiveInput.value = defaultObjective; // REMOVED
-            // objectiveDisplay.textContent = `Objective: ${defaultObjective}`; // REMOVED
-          });
-        </script>
+        // On initial load, clear input and show awaiting status
+        objectiveInput.value = "";
+        objectiveDisplay.textContent = "Awaiting Objective...";
+      });
+    </script>
     <script>
           // Handle objective submission
           document.addEventListener("DOMContentLoaded", () => {
