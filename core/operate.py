@@ -6,6 +6,7 @@ import json
 from datetime import datetime
 import shutil
 import pathlib
+import string
 
 from utils.operating_system.os_interface import OSInterface
 from utils.omniparser.omniparser_interface import OmniParserInterface
@@ -16,6 +17,7 @@ from core.prompts.prompts import get_system_prompt
 
 # 👉 Integrated LLM interface (merged MainInterface + handle_llm_response)
 from core.lm.lm_interface import MainInterface, handle_llm_response
+from core.environmental.anchor.desktop_anchor_point import show_desktop
 
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[1] / "config"))
 from config import Config
@@ -82,25 +84,59 @@ class AutomoyOperator:
                 self.objective = "Default objective – Automate screen flow"
                 print("⚠️ No input received. Using default objective.")
 
+        first_run = True
         while True:
             try:
                 # ─── Take initial screenshot & parse UI once ────────────
                 if self.coords is None:
+                    # If desktop anchor is enabled, show desktop before screenshot
+                    if self.desktop_anchor_point and first_run:
+                        print("[ANCHOR] Showing desktop (desktop anchor enabled)...")
+                        show_desktop()
+                        await asyncio.sleep(1)  # Give time for UI to update
+                        first_run = False
                     self.current_screenshot = self.os_interface.take_screenshot("automoy_current.png")
                     ui_data = self.omniparser.parse_screenshot(self.current_screenshot)
+
+                    # --- Write OmniParser output to debug log ---
+                    try:
+                        logs_dir = pathlib.Path("debug/logs/omniparser/output")
+                        logs_dir.mkdir(parents=True, exist_ok=True)
+                        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        log_path = logs_dir / f"omniparser_{ts}.txt"
+                        with open(log_path, "w", encoding="utf-8") as f:
+                            f.write(json.dumps(ui_data, indent=2, ensure_ascii=False))
+                        print(f"[DEBUG] OmniParser output written to {log_path}")
+                    except Exception as e:
+                        print(f"[ERROR] Could not write OmniParser output log: {e}")
 
                     if ui_data is None:  # Guard against parse failures
                         print("❌ parse_screenshot failed (HTTP 500). Retrying…")
                         await asyncio.sleep(1)
                         continue
 
-                    self.coords = map_elements_to_coords(ui_data, self.current_screenshot)
+                    # --- Clean the OmniParser output for LLM ---
+                    BASE64_RE = re.compile(r'^[A-Za-z0-9+/=\s]{100,}$')
+                    def clean_json(obj):
+                        if isinstance(obj, dict):
+                            return {k: clean_json(v) for k, v in obj.items() if not (isinstance(v, str) and (len(v) > 200 and BASE64_RE.match(v)))}
+                        elif isinstance(obj, list):
+                            return [clean_json(x) for x in obj]
+                        elif isinstance(obj, str):
+                            # Remove non-printable and non-ASCII characters
+                            return ''.join(c for c in obj if c in string.printable and ord(c) < 128)
+                        else:
+                            return obj
+                    cleaned_ui_data = clean_json(ui_data)
+
+                    self.coords = map_elements_to_coords(cleaned_ui_data, self.current_screenshot)
                     print("📸 Initial screenshot taken & UI parsed.")
                     print("🧠 Parsed UI Coord Map:", json.dumps(self.coords, indent=2))
 
-                # ─── Build conversation for the LLM ───────────────────
-                # ui_json = json.dumps(self.coords, indent=2)
-                ui_json = "[Screen parsed data omitted for debug streaming test]"
+                # ─── Get general screen description from LLM ───────────
+                ui_json = json.dumps(self.coords, indent=2)
+                screen_description = await self.get_screen_description(ui_json)
+                print("[DEBUG] Screen description for prompt:", screen_description)
 
                 # Only display the current screen state description if any anchor point config is enabled, and only on first run
                 if self.last_action is None:
@@ -126,8 +162,8 @@ class AutomoyOperator:
                     screen_state_section = ""
 
                 user_content = (
-                    "Here is the current UI context (parsed icons, text, coords):\n"
-                    f"```\n{ui_json}\n```\n"
+                    "Here is a high-level description of the current UI context, as interpreted by an expert:\n"
+                    f"{screen_description}\n"
                     f"{screen_state_section}"
                     "Analyze this UI and suggest the next step (use only one JSON action)."
                 )
@@ -220,6 +256,40 @@ class AutomoyOperator:
             except KeyboardInterrupt:
                 print("\n🛑 Automoy Operation Halted.")
                 break
+
+    async def get_screen_description(self, ui_json):
+        """Send parsed UI JSON and anchor point info to the LLM for a general screen description."""
+        anchor_lines = []
+        if self.desktop_anchor_point:
+            anchor_lines.append("The screen is at the Windows desktop. No windows are open or focused.")
+        if self.prompt_anchor_point:
+            anchor_lines.append("The screen is in the state described by the following prompt.")
+        if self.vllm_anchor_point:
+            anchor_lines.append("The screen is in a virtualized environment anchor state.")
+        if self.anchor_prompt:
+            anchor_lines.append(f"Screen state description: {self.anchor_prompt.strip()}")
+        anchor_context = "\n".join(anchor_lines)
+
+        prompt = (
+            "You are an expert at interpreting Windows UI layouts. "
+            "Given the following parsed UI JSON and anchor point context, "
+            "write a concise, high-level description of the current screen. "
+            "Focus on visible windows, main UI elements, and anything interactive. "
+            "Do NOT repeat the raw JSON.\n\n"
+            f"Anchor point context:\n{anchor_context}\n\n"
+            f"Parsed UI JSON:\n{ui_json}\n"
+        )
+        messages = [
+            {"role": "user", "content": prompt}
+        ]
+        description, _, _ = await self.llm.get_next_action(
+            model=self.model,
+            messages=messages,
+            objective="Describe the current Windows screen for Automoy context.",
+            session_id="automoy-screen-desc",
+            screenshot_path=self.current_screenshot,
+        )
+        return description.strip()
 
 
 # ───────────────────────────── Entrypoint ───────────────────────────
