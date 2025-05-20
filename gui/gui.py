@@ -20,6 +20,8 @@ import time
 import asyncio
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+import uvicorn  # add uvicorn import
+import webview  # for borderless GUI window
 
 # Add the parent directory to sys.path to resolve imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -31,7 +33,11 @@ CONFIG_PATH = os.path.join(BASE_DIR, "config.txt")
 app = FastAPI()
 
 # Mount static files (CSS/JS) and HTML templates
-app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
+app.mount(
+    "/static",
+    StaticFiles(directory=os.path.join(BASE_DIR, "static"), html=False, check_dir=True),
+    name="static",
+)
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
 @app.get("/", response_class=HTMLResponse)
@@ -132,7 +138,12 @@ async def processed_screenshot():  # corrected signature
     print(f"[DEBUG] processed_screenshot endpoint called. Path: {file_path}, exists: {exists}")
     if exists:
         print("[DEBUG] Serving updated processed_screenshot.png")
-        return FileResponse(str(file_path), media_type="image/png")
+        # Prevent caching to ensure fresh frames
+        return FileResponse(
+            str(file_path),
+            media_type="image/png",
+            headers={"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"},
+        )
     else:
         return JSONResponse({"status": "not_found"}, status_code=404)
 
@@ -196,12 +207,41 @@ if is_gui_running():
     print("[GUI] Web GUI is already running. Exiting...")
     sys.exit(0)
 
-# Launch the Flask app in a borderless fullscreen browser window
-def launch_gui():
-    def open_browser():
-        webbrowser.open("http://127.0.0.1:8000", new=0)
+# Helper to get local LAN IP for display in borderless window
+def _get_local_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        return s.getsockname()[0]
+    except Exception:
+        return "127.0.0.1"
+    finally:
+        s.close()
 
-    threading.Timer(1, open_browser).start()
+# Server binds to all interfaces; display window uses the LAN IP
+SERVER_HOST = "0.0.0.0"
+DISPLAY_HOST = _get_local_ip()
+
+# Launch server and open a frameless desktop window via PyWebView
+def launch_gui():
+    # Start Uvicorn server on all interfaces
+    def start_server():
+        uvicorn.run(app, host="0.0.0.0", port=8000, reload=False, log_level="info")
+    threading.Thread(target=start_server, daemon=True).start()
+    # Wait for server to be ready
+    import requests
+    while True:
+        try:
+            resp = requests.get("http://127.0.0.1:8000/health", timeout=1)
+            if resp.status_code == 200:
+                break
+        except Exception:
+            time.sleep(0.5)
+    # Build URL using local IP so the same server is reachable remotely
+    url = f"http://{DISPLAY_HOST}:8000"
+    print(f"[GUI] Opening borderless window on: {url}")
+    webview.create_window("Automoy", url, frameless=True, easy_drag=True)
+    webview.start()
 
 # Watcher to sync processed_screenshot into GUI static folder
 class ScreenshotEventHandler(FileSystemEventHandler):
@@ -224,5 +264,3 @@ observer.start()
 # Ensure no browser is launched when the server starts
 if __name__ == "__main__":
     launch_gui()
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False, log_level="info")

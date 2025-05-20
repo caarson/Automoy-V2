@@ -220,8 +220,8 @@ body {
     background: transparent;
     border: 2px solid #757575; /* Muted border */
     border-radius: 50%;
-    width: 40px; /* Smaller pause button */
-    height: 40px;
+    width: 48px; /* Slightly larger for better tap area */
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -230,8 +230,10 @@ body {
 }
 
 .pause-btn img {
-    width: 18px; /* Smaller icon */
-    height: 18px;
+    max-width: 60%;
+    max-height: 60%;
+    width: auto;
+    height: auto;
     object-fit: contain;
     filter: grayscale(1) brightness(1.5); /* Make it white-ish */
     opacity: 0.7;

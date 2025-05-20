@@ -58,20 +58,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Function to refresh the screenshot from the processed_screenshot endpoint
 function refreshScreenshot() {
+    console.log('refreshScreenshot(): fetching processed_screenshot.png');
     const imgElement = document.getElementById('screenshotImg');
     const placeholderEl = document.getElementById('screenshotPlaceholder');
-    const url = '/processed_screenshot.png?_=' + Date.now();
-    console.log('Fetching processed screenshot from:', url);
-    fetch(url)
+    fetch('/processed_screenshot.png?_=' + Date.now(), {cache: 'no-store'})
         .then(res => {
-            if (res.ok) {
-                return res.blob();
-            } else {
-                throw new Error('No frame available');
-            }
+            if (!res.ok) throw new Error('No frame available');
+            return res.blob();
         })
         .then(blob => {
-            console.log('Received new frame, updating image');
+            console.log('New frame fetched, updating image');
+            if (imgElement.src.startsWith('blob:')) URL.revokeObjectURL(imgElement.src);
             imgElement.src = URL.createObjectURL(blob);
             imgElement.style.display = 'block';
             placeholderEl.style.display = 'none';

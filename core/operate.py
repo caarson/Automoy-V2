@@ -120,9 +120,12 @@ class AutomoyOperator:
         await self.startup_sequence()
         print("🔥 Entering Automoy Autonomous Operation Mode!")
 
-        # Wait for the objective to be set by the GUI
+        # Wait for the objective to be set by the GUI (log only once)
+        waiting_logged = False
         while not self.objective:
-            print("[WAIT] Waiting for objective from GUI...")
+            if not waiting_logged:
+                print("[WAIT] Waiting for objective from GUI...")
+                waiting_logged = True
             await asyncio.sleep(1)
         print(f"[INFO] Objective received from GUI: {self.objective}")
 
