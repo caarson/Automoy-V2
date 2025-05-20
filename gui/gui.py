@@ -6,7 +6,7 @@ import socket
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from fastapi import FastAPI, Request, Form, BackgroundTasks, Lifespan
+from fastapi import FastAPI, Request, Form, BackgroundTasks
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -21,7 +21,7 @@ import asyncio
 BASE_DIR = os.path.dirname(__file__)
 CONFIG_PATH = os.path.join(BASE_DIR, "config.txt")
 
-app = FastAPI(lifespan=Lifespan())
+app = FastAPI()
 
 # Mount static files (CSS/JS) and HTML templates
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
@@ -198,7 +198,7 @@ if is_gui_running():
     print("[GUI] Web GUI is already running. Exiting...")
     sys.exit(0)
 
-# Update the host binding to 0.0.0.0 for broader accessibility
+# Ensure no browser is launched when the server starts
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False, log_level="info")

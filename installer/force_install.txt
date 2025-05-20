@@ -6,3 +6,4 @@ keyboard
 selenium
 undetected-chromedriver
 beautifulsoup4
+fastapi
