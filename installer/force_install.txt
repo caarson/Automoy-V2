@@ -3,3 +3,6 @@ pyautogui
 pyvmomi
 tiktoken
 keyboard
+selenium
+undetected-chromedriver
+beautifulsoup4
