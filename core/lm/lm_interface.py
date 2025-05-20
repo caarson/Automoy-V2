@@ -2,8 +2,12 @@ import json
 import re
 import pathlib
 import sys
+import os
 
-from utils.region.mapper import map_elements_to_coords
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
+
+# Adjust imports to use absolute paths consistently
+from core.utils.region.mapper import map_elements_to_coords
 from .handlers.openai_handler import call_openai_model
 from .handlers.lmstudio_handler import call_lmstudio_model
 

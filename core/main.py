@@ -8,6 +8,8 @@ import threading
 import atexit
 import signal
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 REQUIRED_ENV_NAME = "automoy_env"
 
 # --- Parse command-line arguments ---
@@ -22,7 +24,7 @@ if os.environ.get("CONDA_DEFAULT_ENV") != REQUIRED_ENV_NAME:
     sys.exit(1)
 
 # --- Project imports ---
-from operate import operate_loop
+from core.operate import operate_loop
 from utils.omniparser.omniparser_interface import OmniParserInterface
 
 # --- Compute the project root ---
