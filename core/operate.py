@@ -120,20 +120,19 @@ class AutomoyOperator:
         await self.startup_sequence()
         print("🔥 Entering Automoy Autonomous Operation Mode!")
 
-        # Wait for the objective to be set by the GUI (log only once)
-        waiting_logged = False
+        # Wait for the objective to be set by the GUI
         while not self.objective:
-            if not waiting_logged:
-                print("[WAIT] Waiting for objective from GUI...")
-                waiting_logged = True
+            print("[WAIT] Waiting for objective from GUI...")
             await asyncio.sleep(1)
         print(f"[INFO] Objective received from GUI: {self.objective}")
 
         first_run = True
+        print(f"[DEBUG] desktop_anchor_point={self.desktop_anchor_point}, prompt_anchor_point={self.prompt_anchor_point}, vllm_anchor_point={self.vllm_anchor_point}")
         while True:
             try:
                 # ─── Take initial screenshot & parse UI once ────────────
                 if self.coords is None:
+                    print(f"[DEBUG] coords=None and first_run={first_run}")
                     # If desktop anchor is enabled, show desktop before screenshot
                     if self.desktop_anchor_point and first_run:
                         print("[ANCHOR] Showing desktop (desktop anchor enabled)...")
@@ -147,17 +146,6 @@ class AutomoyOperator:
                             print(f"[GUI] Could not show GUI: {e}")
                         first_run = False
                     self.current_screenshot = self.os_interface.take_screenshot("automoy_current.png")
-
-                    # Restore GUI window after screenshot completed
-                    try:
-                        windows = gw.getWindowsWithTitle("Automoy")
-                        if windows:
-                            win = windows[0]
-                            win.restore()
-                            win.moveTo(0, 0)
-                            print("[INFO] GUI window restored at top-left after screenshot.")
-                    except Exception as e:
-                        print(f"[ERROR] Failed to restore GUI window: {e}")
 
                     ui_data = self.omniparser.parse_screenshot(self.current_screenshot)
 

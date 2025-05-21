@@ -28,6 +28,11 @@ DEFINE_REGION: False
 
 TEMPERATURE: 0.7
 
+#########################
+# Anchor Settings
+#########################
+DESKTOP_ANCHOR_POINT: True        # Show desktop before initial screenshot
+
 #### OpenAI Settings
 
 OPENAI: False                        # Enable OpenAI as the LLM backend.

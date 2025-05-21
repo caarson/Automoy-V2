@@ -240,8 +240,31 @@ def launch_gui():
     # Build URL using local IP so the same server is reachable remotely
     url = f"http://{DISPLAY_HOST}:8000"
     print(f"[GUI] Opening borderless window on: {url}")
-    webview.create_window("Automoy", url, frameless=True, easy_drag=True)
-    webview.start()
+    # Create a PyWebView window
+    # Assign the created window to a variable that on_loaded can access
+    created_window_ref = webview.create_window(
+        "Automoy",
+        "http://127.0.0.1:8000",
+        width=1024,  # Reduced from 1280
+        height=576,  # Reduced from 720
+        frameless=True,
+        easy_drag=True,
+        text_select=True
+    )
+
+    def on_loaded():
+        print("[INFO] Webview DOM loaded. Applying zoom...")
+        # Now created_window_ref should be accessible here
+        if created_window_ref: 
+            created_window_ref.evaluate_js("document.body.style.zoom = '70%'")
+
+    if created_window_ref: 
+        created_window_ref.events.loaded += on_loaded
+
+    webview.start(debug=False)  # Changed debug to False
+
+if __name__ == "__main__":
+    launch_gui()
 
 # Watcher to sync processed_screenshot into GUI static folder
 class ScreenshotEventHandler(FileSystemEventHandler):
