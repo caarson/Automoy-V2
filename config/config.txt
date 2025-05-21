@@ -28,11 +28,6 @@ DEFINE_REGION: False
 
 TEMPERATURE: 0.7
 
-#########################
-# Anchor Settings
-#########################
-DESKTOP_ANCHOR_POINT: True        # Show desktop before initial screenshot
-
 #### OpenAI Settings
 
 OPENAI: False                        # Enable OpenAI as the LLM backend.
@@ -42,7 +37,7 @@ OPENAI_MODEL: gpt-4o                 # Specify which OpenAI model to use
 #### LMStudio Settings
 
 LMSTUDIO: True                      # Set to True to use LMStudio as the LLM backend.
-LMSTUDIO_API_URL: https://assumptions-def-processor-terrain.trycloudflare.com   # Insert your LMStudio API URL here
+LMSTUDIO_API_URL: https://stop-cafe-mall-generations.trycloudflare.com/   # Insert your LMStudio API URL here
 LMSTUDIO_MODEL: deepseek-r1-distill-qwen-7b   # Specify which LMStudio model to use
 
 #########################

@@ -10,10 +10,13 @@ import threading
 import shutil
 from pathlib import Path
 import socket
-from fastapi import FastAPI, Request, Form, BackgroundTasks
+from fastapi import FastAPI, Request, Form, BackgroundTasks, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import List, Dict, Any
 from core.operate import AutomoyOperator
 import subprocess
 import time
@@ -32,17 +35,140 @@ CONFIG_PATH = os.path.join(BASE_DIR, "config.txt")
 
 app = FastAPI()
 
-# Mount static files (CSS/JS) and HTML templates
-app.mount(
-    "/static",
-    StaticFiles(directory=os.path.join(BASE_DIR, "static"), html=False, check_dir=True),
-    name="static",
+# --- CORS Middleware ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
+
+# --- Mount static files and templates ---
+app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static"), html=False, check_dir=True), name="static")
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
-@app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+# --- Global state for Automoy GUI ---
+current_objective: str = ""
+operator_status: str = "Idle" # Idle, Running, Paused, Error
+gui_log_messages: List[str] = [] # For general logs in GUI
+
+# New state variables for multi-stage reasoning display
+current_visual_analysis: str = "Waiting for visual analysis..."
+current_thinking_process: str = "Waiting for thinking process..."
+current_steps_generated: List[str] = [] # Store as a list of strings
+current_operation_display: str = "No operation active."
+past_operation_display: str = "No past operations yet."
+processed_screenshot_available: bool = False
+
+
+class ObjectiveData(BaseModel):
+    objective: str
+
+class LogMessage(BaseModel):
+    message: str
+
+class StateUpdateText(BaseModel):
+    text: str
+
+class StateUpdateSteps(BaseModel):
+    steps: List[str]
+
+@app.post("/set_objective")
+async def set_objective_endpoint(data: ObjectiveData):
+    global current_objective, operator_status
+    global current_visual_analysis, current_thinking_process, current_steps_generated
+    global current_operation_display, past_operation_display, processed_screenshot_available
+
+    current_objective = data.objective
+    operator_status = "Running" # Assume it starts running once objective is set
+    
+    # Clear previous state when a new objective is set
+    current_visual_analysis = "Processing new objective..."
+    current_thinking_process = ""
+    current_steps_generated = []
+    current_operation_display = "Initiating..."
+    past_operation_display = "" # Clear past operations for new objective
+    processed_screenshot_available = False # Reset screenshot status
+
+    print(f"[GUI] Objective received: {current_objective}")
+    return {"message": "Objective set and state cleared", "objective": current_objective}
+
+@app.post("/state/visual")
+async def update_visual_state(data: StateUpdateText):
+    global current_visual_analysis
+    current_visual_analysis = data.text
+    return {"message": "Visual analysis updated"}
+
+@app.post("/state/thinking")
+async def update_thinking_state(data: StateUpdateText):
+    global current_thinking_process
+    current_thinking_process = data.text
+    return {"message": "Thinking process updated"}
+
+@app.post("/state/steps")
+async def update_steps_state(data: StateUpdateSteps):
+    global current_steps_generated
+    current_steps_generated = data.steps
+    return {"message": "Steps updated"}
+
+@app.post("/state/current_operation")
+async def update_current_operation_state(data: StateUpdateText):
+    global current_operation_display, past_operation_display
+    # When a new current operation comes in, the old current becomes the new past.
+    past_operation_display = current_operation_display 
+    current_operation_display = data.text
+    return {"message": "Current and past operations updated"}
+
+# This specific endpoint for past_operation might be redundant if current_operation updates past_operation.
+# However, keeping it allows explicit setting of past_operation if needed for some reason.
+@app.post("/state/past_operation")
+async def update_past_operation_state(data: StateUpdateText):
+    global past_operation_display
+    past_operation_display = data.text
+    return {"message": "Past operation updated"}
+
+@app.post("/state/screenshot_processed")
+async def screenshot_processed_notification():
+    global processed_screenshot_available
+    processed_screenshot_available = True
+    return {"message": "Screenshot processed and available"}
+
+@app.post("/state/clear_all_operational_data")
+async def clear_all_operational_data():
+    global current_visual_analysis, current_thinking_process, current_steps_generated
+    global current_operation_display, past_operation_display, processed_screenshot_available
+    current_visual_analysis = "Waiting for visual analysis..."
+    current_thinking_process = "Waiting for thinking process..."
+    current_steps_generated = []
+    current_operation_display = "No operation active."
+    past_operation_display = "No past operations yet."
+    processed_screenshot_available = False
+    # current_objective and operator_status might be preserved or reset based on desired logic
+    # For now, this focuses on the operational display fields.
+    return {"message": "Operational display data cleared"}
+
+
+@app.get("/operator_state")
+async def get_operator_state():
+    global processed_screenshot_available
+    screenshot_path = os.path.join(BASE_DIR, "static", "processed_screenshot.png")
+    if os.path.exists(screenshot_path) and os.path.getsize(screenshot_path) > 0:
+        processed_screenshot_available = True
+    else:
+        processed_screenshot_available = False
+        
+    return {
+        "objective": current_objective,
+        "status": operator_status,
+        "log_messages": gui_log_messages[-20:],  # Return last 20 log messages
+        "visual_analysis": current_visual_analysis,
+        "thinking_process": current_thinking_process,
+        "steps_generated": current_steps_generated,
+        "current_operation": current_operation_display,
+        "past_operation": past_operation_display,
+        "screenshot_available": processed_screenshot_available
+    }
 
 @app.post("/command")
 async def main_command(command: str = Form(...)):
@@ -177,76 +303,50 @@ async def get_operator_state():
         "coords": operator.coords,
     }
 
-# Add an endpoint to set the objective
-@app.post("/set_objective")
-async def set_objective(data: dict):
-    objective = data.get("objective")
-    if objective:
-        operator.objective = objective
-        print(f"[INFO] Objective set to: {objective}")
-        return {"status": "success", "objective": objective}
-    return {"status": "error", "message": "No objective provided"}
-
 # Health check endpoint to confirm GUI is running
 @app.get("/health")
-async def health():
-    return {"status": "ok"}
+async def health_check():
+    return {"status": "healthy"}
 
-# Function to check if the GUI is already running
-def is_gui_running():
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        result = s.connect_ex(('127.0.0.1', 8000))
-        if result == 0:
-            print("[DEBUG] Port 8000 is already in use.")
-        else:
-            print("[DEBUG] Port 8000 is free.")
-        return result == 0
+# Serve index.html
+@app.get("/")
+async def serve_index(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
-# Prevent reinitialization if the GUI is already running
-if is_gui_running():
-    print("[GUI] Web GUI is already running. Exiting...")
-    sys.exit(0)
-
-# Helper to get local LAN IP for display in borderless window
-def _get_local_ip():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+def get_local_ip():
+    """Attempt to get the local IP address."""
     try:
-        s.connect(("8.8.8.8", 80))
-        return s.getsockname()[0]
-    except Exception:
-        return "127.0.0.1"
-    finally:
+        # Connect to an external host (doesn't actually send data)
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(0)
+        s.connect(("8.8.8.8", 80)) # Google DNS
+        ip = s.getsockname()[0]
         s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1" # Fallback
 
-# Server binds to all interfaces; display window uses the LAN IP
-SERVER_HOST = "0.0.0.0"
-DISPLAY_HOST = _get_local_ip()
+# Store the window reference globally so on_loaded can access it
+created_window_ref = None
 
-# Launch server and open a frameless desktop window via PyWebView
-def launch_gui():
-    # Start Uvicorn server on all interfaces
-    def start_server():
-        uvicorn.run(app, host="0.0.0.0", port=8000, reload=False, log_level="info")
-    threading.Thread(target=start_server, daemon=True).start()
-    # Wait for server to be ready
-    import requests
-    while True:
-        try:
-            resp = requests.get("http://127.0.0.1:8000/health", timeout=1)
-            if resp.status_code == 200:
-                break
-        except Exception:
-            time.sleep(0.5)
-    # Build URL using local IP so the same server is reachable remotely
-    url = f"http://{DISPLAY_HOST}:8000"
-    print(f"[GUI] Opening borderless window on: {url}")
-    # Create a PyWebView window
-    # Assign the created window to a variable that on_loaded can access
+def run_server():
+    config = uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="info")
+    server = uvicorn.Server(config)
+    server.run()
+
+def start_gui():
+    global created_window_ref
+    local_ip = get_local_ip()
+    window_title = f"Automoy - Access via http://{local_ip}:8000 or http://127.0.0.1:8000"
+
+    uvicorn_thread = threading.Thread(target=run_server, daemon=True)
+    uvicorn_thread.start()
+
     created_window_ref = webview.create_window(
-        "Automoy",
-        "http://127.0.0.1:8000",
-        width=1024,  # Reduced from 1280
-        height=576,  # Reduced from 720
+        window_title, # Use dynamic title
+        "http://127.0.0.1:8000", # PyWebView always targets local server instance
+        width=1024,
+        height=576,
         frameless=True,
         easy_drag=True,
         text_select=True
@@ -254,17 +354,13 @@ def launch_gui():
 
     def on_loaded():
         print("[INFO] Webview DOM loaded. Applying zoom...")
-        # Now created_window_ref should be accessible here
-        if created_window_ref: 
+        if created_window_ref:
             created_window_ref.evaluate_js("document.body.style.zoom = '70%'")
 
-    if created_window_ref: 
+    if created_window_ref:
         created_window_ref.events.loaded += on_loaded
 
-    webview.start(debug=False)  # Changed debug to False
-
-if __name__ == "__main__":
-    launch_gui()
+    webview.start(debug=False)
 
 # Watcher to sync processed_screenshot into GUI static folder
 class ScreenshotEventHandler(FileSystemEventHandler):
@@ -284,6 +380,93 @@ observer.schedule(ScreenshotEventHandler(), path=str(watch_dir), recursive=False
 observer.daemon = True
 observer.start()
 
-# Ensure no browser is launched when the server starts
+# Ensure this is the only call to start_gui when script is run directly
 if __name__ == "__main__":
-    launch_gui()
+    start_gui()
+
+async def manage_gui_window(action: str):
+    """Hide or show the PyWebView window using PyWebView's methods."""
+    print(f"[GUI_MANAGE_INTERNAL] Attempting to {action} Automoy GUI window via PyWebView.")
+    
+    pywebview_window = None
+    if not hasattr(webview, 'windows') or not webview.windows:
+        print("[GUI_MANAGE_INTERNAL][WARNING] webview.windows is not available or empty. Cannot manage GUI window.")
+        return False # Indicate failure
+
+    # Assuming the main Automoy GUI is the first window, or find by title
+    found_window = False
+    for w in webview.windows:
+        try:
+            # CORRECTED TITLE CHECK:
+            if hasattr(w, 'title') and w.title and w.title.startswith("Automoy - Access via"):
+                pywebview_window = w
+                found_window = True
+                break
+        except Exception as e:
+            print(f"[GUI_MANAGE_INTERNAL][ERROR] Error accessing window title: {e}")
+            continue
+    
+    if not found_window and webview.windows: # Fallback if title match fails but windows exist
+        print("[GUI_MANAGE_INTERNAL][WARNING] Automoy GUI window not found by title, attempting to use first window.")
+        pywebview_window = webview.windows[0] # Less reliable, but a fallback
+    elif not webview.windows:
+        print(f"[GUI_MANAGE_INTERNAL][WARNING] No PyWebView windows found. Action '{action}' skipped.")
+        return False
+
+
+    if not pywebview_window:
+        print(f"[GUI_MANAGE_INTERNAL][WARNING] Automoy GUI window object could not be obtained. Action '{action}' skipped.")
+        if hasattr(webview, 'windows') and webview.windows:
+            try:
+                titles = [str(getattr(win, 'title', 'N/A')) for win in webview.windows]
+                print(f"[GUI_MANAGE_INTERNAL][DEBUG] Available window titles: {titles}")
+            except Exception as e:
+                print(f"[GUI_MANAGE_INTERNAL][DEBUG] Error listing window titles: {e}")
+        return False
+
+    try:
+        current_title = getattr(pywebview_window, 'title', 'Unknown Title')
+        if action == "hide":
+            print(f"[GUI_MANAGE_INTERNAL] Hiding window: {current_title}")
+            pywebview_window.hide()
+            print(f"[GUI_MANAGE_INTERNAL] Window '{current_title}' hide() called via PyWebView.")
+        elif action == "show":
+            print(f"[GUI_MANAGE_INTERNAL] Showing window: {current_title}")
+            pywebview_window.show()
+            # PyWebView's show should make it visible. Activation/positioning handled by main.py's pygetwindow part.
+            print(f"[GUI_MANAGE_INTERNAL] Window '{current_title}' show() called via PyWebView.")
+        return True # Indicate success
+    except Exception as e:
+        print(f"[GUI_MANAGE_INTERNAL][ERROR] Error during PyWebView window action '{action}' on '{current_title}': {e}")
+        return False
+
+@app.post("/control/window/{action}")
+async def control_window_endpoint(action: str):
+    print(f"[GUI_API] Received request to {action} window.")
+    if action not in ["hide", "show"]:
+        raise HTTPException(status_code=400, detail="Invalid action. Must be 'hide' or 'show'.")
+    
+    # Ensure webview has been started and windows are available
+    # The manage_gui_window function checks webview.windows
+    if not (hasattr(webview, 'windows') and webview.windows):
+        # This might indicate the window isn't fully initialized yet or pywebview hasn't started.
+        # Schedule the task if webview is available but windows list is empty (might be too early)
+        if hasattr(webview, 'create_window') and not webview.windows: # webview object exists but no windows yet
+             print("[GUI_API][WARNING] webview.windows is empty. Deferring action slightly.")
+             await asyncio.sleep(0.5) # Brief delay and retry, hoping window initializes
+
+    success = await manage_gui_window(action)
+    if success:
+        return JSONResponse(content={"status": f"action '{action}' processed for Automoy GUI."}, status_code=200)
+    else:
+        # If manage_gui_window returned False, it means it couldn't perform the action.
+        # It would have printed its own warnings/errors.
+        raise HTTPException(status_code=500, detail=f"Failed to execute '{action}' on Automoy GUI window. Check GUI logs.")
+
+# ... existing FastAPI app setup, routes, and webview.start() call ...
+# Make sure 'webview' is the global instance used by pywebview.start()
+# Example:
+# if __name__ == "__main__":
+#     # ... setup api, app ...
+#     window = webview.create_window("Automoy GUI...", app, ...)
+#     webview.start(debug=True) # Or however it's started
