@@ -235,10 +235,14 @@
           <span class="title-separator">|</span>
           <span class="main-title">Automoy</span>
         </div>
-        <div id="objectiveDisplay" class="objective-display">Awaiting Objective...</div>
+        <div id="objectiveDisplay" class="objective-display">Objective: Waiting...</div>
 
         <!-- reasoning blocks -->
         <div class="reasoning-block">
+          <div class="reasoning-section">
+            <span class="reasoning-label">LLM Stream:</span>
+            <span id="llmStreamContent">Waiting for LLM stream...</span>
+          </div>
           <div class="reasoning-section">
             <span class="reasoning-label">Visual Analysis:</span>
             <span id="visualText">Waiting for visual analysis...</span>
@@ -248,7 +252,7 @@
             <span id="thinkingText">Waiting for thinking process...</span>
           </div>
           <div class="reasoning-section">
-            <span class="reasoning-label">Generated Steps:</span>
+            <span class="reasoning-label">Steps:</span>
             <span id="stepsText">Waiting for steps...</span>
           </div>
         </div>
@@ -258,16 +262,16 @@
           <input
             type="text"
             id="objectiveInput"
-            placeholder="Enter a goal here"
+            placeholder="Enter your objective..."
             autocomplete="off"
           />
-          <button type="submit" class="send-btn">&#8593;</button>
+          <button type="submit" class="send-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
         </form>
 
         <!-- coords display -->
-        <div id="coordsDisplay" class="coords-display" style="display:none;"></div>
-        <!-- last action display -->
-        <div id="lastActionDisplay" class="coords-display" style="display:none; margin-top:8px;"></div>
+        <div id="coordsDisplay" class="coords-display">Coords: N/A</div>
       </div>
 
       <!-- RIGHT PANEL -->
@@ -308,48 +312,5 @@
       </div>
     </div>
     <script src="/static/script.js"></script>
-    <script>
-      document.addEventListener("DOMContentLoaded", () => {
-        const objectiveInput = document.getElementById("objectiveInput");
-        const objectiveDisplay = document.getElementById("objectiveDisplay");
-
-        // On initial load, clear input and show awaiting status
-        objectiveInput.value = "";
-        objectiveDisplay.textContent = "Awaiting Objective...";
-      });
-    </script>
-    <script>
-          // Handle objective submission
-          document.addEventListener("DOMContentLoaded", () => {
-            const objectiveForm = document.getElementById("objectiveForm");
-            const objectiveInput = document.getElementById("objectiveInput");
-            const objectiveDisplay = document.getElementById("objectiveDisplay");
-
-            objectiveForm.addEventListener("submit", async (event) => {
-              event.preventDefault();
-              const objective = objectiveInput.value;
-
-              // Update the display
-              objectiveDisplay.textContent = `Objective: ${objective}`;
-
-              // Send the objective to the backend
-              try {
-                const response = await fetch("/set_objective", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({ objective }),
-                });
-
-                if (!response.ok) {
-                  console.error("Failed to set objective");
-                }
-              } catch (error) {
-                console.error("Error setting objective:", error);
-              }
-            });
-          });
-        </script>
   </body>
 </html>

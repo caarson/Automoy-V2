@@ -15,7 +15,7 @@ import shutil
 from pathlib import Path
 import socket
 from fastapi import FastAPI, Request, Form, BackgroundTasks, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,7 +24,7 @@ from typing import List, Dict, Any
 # from core.operate import AutomoyOperator 
 import subprocess
 import time
-import asyncio
+import asyncio # Ensure asyncio is imported
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import uvicorn  # add uvicorn import
@@ -134,7 +134,8 @@ async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 # --- Global state for Automoy GUI ---
-current_objective: str = ""
+current_user_goal: str = "" # Renamed from current_objective
+current_formulated_objective: str = "" # New state for LLM formulated objective
 operator_status: str = "Idle" # Idle, Running, Paused, Error
 gui_log_messages: List[str] = [] # For general logs in GUI
 
@@ -147,8 +148,14 @@ past_operation_display: str = "No past operations yet."
 processed_screenshot_available: bool = False
 llm_stream_content: str = "" # New global variable for LLM stream
 
+# Queue for SSE LLM stream updates
+llm_stream_queue = asyncio.Queue()
 
-class ObjectiveData(BaseModel):
+
+class GoalData(BaseModel): # Renamed from ObjectiveData
+    goal: str
+
+class ObjectiveData(BaseModel): # For internal objective setting by LLM perhaps
     objective: str
 
 class LogMessage(BaseModel):
@@ -163,25 +170,45 @@ class StateUpdateSteps(BaseModel):
 class LLMStreamChunk(BaseModel):
     chunk: str
 
-@app.post("/set_objective")
-async def set_objective_endpoint(data: ObjectiveData):
-    global current_objective, operator_status
+@app.post("/set_goal") # Renamed from /set_objective
+async def set_goal_endpoint(data: GoalData):
+    global current_user_goal, current_formulated_objective, operator_status
     global current_visual_analysis, current_thinking_process, current_steps_generated
-    global current_operation_display, past_operation_display, processed_screenshot_available
+    global current_operation_display, past_operation_display, processed_screenshot_available, llm_stream_content
 
-    current_objective = data.objective
-    operator_status = "Running" # Assume it starts running once objective is set
+    current_user_goal = data.goal
+    current_formulated_objective = "Thinking about the goal..." # Initial placeholder
+    operator_status = "ProcessingGoal" # New status
     
-    # Clear previous state when a new objective is set
-    current_visual_analysis = "Processing new objective..."
+    # Clear previous operational state when a new goal is set
+    current_visual_analysis = "Waiting for objective formulation..."
     current_thinking_process = ""
     current_steps_generated = []
-    current_operation_display = "Initiating..."
-    past_operation_display = "" # Clear past operations for new objective
-    processed_screenshot_available = False # Reset screenshot status
+    current_operation_display = "Formulating objective..."
+    past_operation_display = "" 
+    processed_screenshot_available = False
+    llm_stream_content = "" # Clear LLM stream for new goal processing
 
-    print(f"[GUI] Objective received: {current_objective}")
-    return {"message": "Objective set and state cleared", "objective": current_objective}
+    print(f"[GUI] Goal received: {current_user_goal}")
+    # In a real scenario, this is where you would trigger the LLM to formulate the objective.
+    # For now, we'll simulate it or let main.py handle it.
+    # We won't directly set current_formulated_objective here from the LLM yet.
+    # That will be updated by a call from the backend (e.g., main.py or operate.py)
+    # via a new endpoint or an existing state update mechanism.
+
+    return {"message": "Goal set, awaiting objective formulation", "goal": current_user_goal}
+
+# New endpoint for the backend to update the formulated objective
+@app.post("/state/formulated_objective")
+async def update_formulated_objective_state(data: ObjectiveData):
+    global current_formulated_objective, operator_status
+    current_formulated_objective = data.objective
+    # Potentially change status if formulation is complete
+    if operator_status == "ProcessingGoal" and current_formulated_objective:
+        operator_status = "Idle" # Or "ReadyToRun" or similar, awaiting user confirmation or auto-start
+        # If auto-starting, main.py would now pick up this formulated objective.
+    print(f"[GUI] Formulated objective updated: {current_formulated_objective}")
+    return {"message": "Formulated objective updated"}
 
 @app.post("/state/visual")
 async def update_visual_state(data: StateUpdateText):
@@ -252,15 +279,57 @@ async def clear_all_operational_data():
 @app.post("/state/llm_stream_chunk")
 async def receive_llm_stream_chunk(data: LLMStreamChunk):
     global llm_stream_content
+    chunk_to_send = data.chunk
+
     if data.chunk == "__STREAM_START__":
         llm_stream_content = "" # Clear previous stream
+        # Send __STREAM_START__ to SSE queue
     elif data.chunk == "__STREAM_END__":
         # Optionally, do something when stream ends, like final processing
         # For now, the content is already accumulated.
+        # Send __STREAM_END__ to SSE queue
         pass
     else:
         llm_stream_content += data.chunk
-    return {"message": "LLM stream chunk received"}
+    
+    # Put the original chunk (could be data or signal) onto the SSE queue
+    await llm_stream_queue.put(chunk_to_send)
+    return {"message": "LLM stream chunk received and queued for SSE"}
+
+@app.get("/llm_stream_updates")
+async def stream_llm_updates(request: Request):
+    async def event_generator():
+        while True:
+            # Wait for a new message in the queue
+            try:
+                # Check for client disconnect
+                if await request.is_disconnected():
+                    print("[GUI SSE] Client disconnected from LLM stream.")
+                    break
+                
+                chunk = await llm_stream_queue.get()
+                if chunk == "__STREAM_END__":
+                    yield f"data: {chunk}\\n\\n"
+                    # Optionally, break or continue listening for new streams
+                    # For now, let's assume a stream end means this particular stream is done.
+                    # A new stream would start with __STREAM_START__ again.
+                elif chunk == "__STREAM_START__":
+                    yield f"data: {chunk}\\n\\n"
+                else:
+                    # Escape newlines in the chunk for proper SSE formatting if chunk contains them
+                    formatted_chunk = chunk.replace("\\n", "\\\\n") # Escape backslashes then newlines
+                    yield f"data: {formatted_chunk}\\n\\n"
+                
+                llm_stream_queue.task_done() # Notify queue that item processing is complete
+            except asyncio.CancelledError:
+                print("[GUI SSE] LLM stream event_generator cancelled.")
+                break
+            except Exception as e:
+                print(f"[GUI SSE][ERROR] Error in LLM stream event_generator: {e}")
+                # Decide if to break or continue based on error type
+                break 
+    
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @app.get("/health")
 async def health_check():
@@ -269,7 +338,7 @@ async def health_check():
 
 @app.get("/operator_state")
 async def get_operator_state_endpoint(): 
-    global processed_screenshot_available, current_objective, operator_status, gui_log_messages
+    global processed_screenshot_available, current_user_goal, current_formulated_objective, operator_status, gui_log_messages
     global current_visual_analysis, current_thinking_process, current_steps_generated
     global current_operation_display, past_operation_display, llm_stream_content
 
@@ -280,7 +349,8 @@ async def get_operator_state_endpoint():
         processed_screenshot_available = False
             
     return {
-        "objective": current_objective,
+        "user_goal": current_user_goal, # Changed from objective
+        "formulated_objective": current_formulated_objective, # Added
         "status": operator_status,
         "log_messages": gui_log_messages[-20:], 
         "visual_analysis": current_visual_analysis,
@@ -289,7 +359,7 @@ async def get_operator_state_endpoint():
         "current_operation": current_operation_display,
         "past_operation": past_operation_display,
         "screenshot_available": processed_screenshot_available,
-        "llm_stream_content": llm_stream_content, # Add stream content to state
+        "llm_stream_content": llm_stream_content, 
     }
 
 @app.post("/command")
