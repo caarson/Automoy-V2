@@ -176,9 +176,15 @@ async def async_manage_automoy_gui_visibility(action: str, window_title: str = A
     normalized = action.lower()
     if normalized in ('hide', 'minimize'):
         print(f"[MAIN_GUI_CTRL] Minimizing Automoy GUI ('{window_title}') via pygetwindow.")
-        window = find_automoy_gui_window()
+        # Wait for the window to be created (up to 3s)
+        window = None
+        for _ in range(10):  # 10 x 0.3s = 3s
+            window = find_automoy_gui_window()
+            if window:
+                break
+            await asyncio.sleep(0.3)
         if not window:
-            print(f"[MAIN_GUI_CTRL] No GUI window found with prefix '{window_title}' to minimize.")
+            print(f"[MAIN_GUI_CTRL] Timeout: No GUI window found with prefix '{window_title}' to minimize.")
             return False
         window.minimize()
         await asyncio.sleep(1.0)  # ensure window is hidden
@@ -320,17 +326,35 @@ async def main():
         print("[MAIN] OmniParser server is already running or started successfully.")
 
     # Start GUI
-    gui_process = start_gui_subprocess() 
-    if not gui_process:
-        print("[MAIN][ERROR] GUI process failed to start. Exiting.")
-        cleanup_processes() 
-        if hasattr(omniparser_manager, 'stop_server'): omniparser_manager.stop_server()
-        return
+    gui_process = start_gui_subprocess()  
+    if not gui_process:  
+        print("[MAIN][ERROR] GUI process failed to start. Exiting.")  
+        cleanup_processes()   
+        if hasattr(omniparser_manager, 'stop_server'): omniparser_manager.stop_server()  
+        return  
+
+    # Wait for the user to set the objective via the GUI
+    print("[MAIN] Waiting for user to set the objective via the GUI...")
+    user_objective = None
+    while True:
+        try:
+            resp = requests.get("http://127.0.0.1:8000/operator_state", timeout=2)
+            if resp.status_code == 200:
+                state = resp.json()
+                obj = state.get("objective", "")
+                if obj and obj.strip():
+                    user_objective = obj.strip()
+                    break
+        except Exception:
+            pass
+        time.sleep(1)
+    print(f"[MAIN] Objective received from GUI: {user_objective}")
+    initial_objective = user_objective  # override default with user-provided goal
 
     operator = AutomoyOperator(
         objective=initial_objective,
         manage_gui_window_func=functools.partial(async_manage_automoy_gui_visibility, window_title=AUTOMOY_GUI_TITLE_PREFIX),
-        omniparser=omniparser_manager.get_interface() 
+        omniparser=omniparser_manager.get_interface()  
     )
 
     if config.get("DESKTOP_ANCHOR_POINT", False):

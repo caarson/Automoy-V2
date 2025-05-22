@@ -15,28 +15,24 @@ document.addEventListener('DOMContentLoaded', function() {
     // Setup periodic refresh (every 3 seconds)
     setInterval(refreshScreenshot, 3000);
     
-    // Setup form submission
+    // Setup objective form submission
     document.getElementById('objectiveForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        const command = document.getElementById('objectiveInput').value;
-        
-        // Send command to backend
-        fetch('/command', {
+        const objective = document.getElementById('objectiveInput').value.trim();
+        if (!objective) return;
+        fetch('/set_objective', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: new URLSearchParams({
-                'command': command
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ objective })
         })
         .then(response => response.json())
         .then(data => {
-            console.log('Command sent:', data);
+            console.log('Objective set:', data);
             document.getElementById('objectiveInput').value = '';
+            refreshOperatorState(); // update UI with new objective
         })
         .catch(error => {
-            console.error('Error sending command:', error);
+            console.error('Error setting objective:', error);
         });
     });
     
@@ -159,4 +155,73 @@ function updateOperatorStateDisplay(data) {
     } else if (coordsEl) {
         coordsEl.textContent = 'Coords: N/A';
     }
+
+    // Update LLM Stream Content Display
+    const llmStreamEl = document.getElementById('llmStreamContent'); // Assuming you have an element with this ID
+    if (data.llm_stream_content !== undefined && llmStreamEl) {
+        // Sanitize HTML content before inserting, or use textContent if no HTML is expected.
+        // For simplicity, using textContent here. If LLM can output HTML, use a sanitizer.
+        llmStreamEl.textContent = data.llm_stream_content;
+    } else if (llmStreamEl) {
+        llmStreamEl.textContent = 'LLM Stream: Waiting for content...';
+    }
+
+    // Update Visual Analysis, Thinking Process, Steps, Current/Past Operations
+    const visualEl = document.getElementById('visualText');
+    if (data.visual_analysis !== undefined && visualEl) {
+        visualEl.textContent = data.visual_analysis;
+    } else if (visualEl) {
+        visualEl.textContent = 'Waiting for visual analysis...';
+    }
+
+    const thinkingEl = document.getElementById('thinkingText');
+    if (data.thinking_process !== undefined && thinkingEl) {
+        thinkingEl.textContent = data.thinking_process;
+    } else if (thinkingEl) {
+        thinkingEl.textContent = 'Waiting for thinking process...';
+    }
+
+    const stepsEl = document.getElementById('stepsText');
+    if (data.steps_generated && Array.isArray(data.steps_generated) && stepsEl) {
+        if (data.steps_generated.length > 0) {
+            stepsEl.innerHTML = data.steps_generated.map((step, index) => `${index + 1}. ${escapeHtml(step)}`).join('<br>');
+        } else {
+            stepsEl.textContent = 'No steps generated yet.';
+        }
+    } else if (stepsEl) {
+        stepsEl.textContent = 'Waiting for steps...';
+    }
+
+    const currentOpEl = document.getElementById('currentOperation');
+    if (data.current_operation !== undefined && currentOpEl) {
+        currentOpEl.textContent = data.current_operation;
+    } else if (currentOpEl) {
+        currentOpEl.textContent = '{No current operation}';
+    }
+
+    const pastOpEl = document.getElementById('pastOperation');
+    if (data.past_operation !== undefined && pastOpEl) {
+        pastOpEl.textContent = data.past_operation;
+    } else if (pastOpEl) {
+        pastOpEl.textContent = '{No past operation}';
+    }
+
+    // Screenshot availability (already handled by refreshScreenshot, but can be synced here too)
+    if (data.screenshot_available) {
+        // refreshScreenshot(); // Call if direct refresh from state is desired
+    } else {
+        const imgElement = document.getElementById('screenshotImg');
+        const placeholderEl = document.getElementById('screenshotPlaceholder');
+        if (imgElement) imgElement.style.display = 'none';
+        if (placeholderEl) placeholderEl.style.display = 'flex';
+    }
 }
+
+function escapeHtml(unsafe) {
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+ }

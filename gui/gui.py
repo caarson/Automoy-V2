@@ -145,6 +145,7 @@ current_steps_generated: List[str] = [] # Store as a list of strings
 current_operation_display: str = "No operation active."
 past_operation_display: str = "No past operations yet."
 processed_screenshot_available: bool = False
+llm_stream_content: str = "" # New global variable for LLM stream
 
 
 class ObjectiveData(BaseModel):
@@ -158,6 +159,9 @@ class StateUpdateText(BaseModel):
 
 class StateUpdateSteps(BaseModel):
     steps: List[str]
+
+class LLMStreamChunk(BaseModel):
+    chunk: str
 
 @app.post("/set_objective")
 async def set_objective_endpoint(data: ObjectiveData):
@@ -245,6 +249,18 @@ async def clear_all_operational_data():
     # For now, this focuses on the operational display fields.
     return {"message": "Operational display data cleared"}
 
+@app.post("/state/llm_stream_chunk")
+async def receive_llm_stream_chunk(data: LLMStreamChunk):
+    global llm_stream_content
+    if data.chunk == "__STREAM_START__":
+        llm_stream_content = "" # Clear previous stream
+    elif data.chunk == "__STREAM_END__":
+        # Optionally, do something when stream ends, like final processing
+        # For now, the content is already accumulated.
+        pass
+    else:
+        llm_stream_content += data.chunk
+    return {"message": "LLM stream chunk received"}
 
 @app.get("/health")
 async def health_check():
@@ -255,7 +271,7 @@ async def health_check():
 async def get_operator_state_endpoint(): 
     global processed_screenshot_available, current_objective, operator_status, gui_log_messages
     global current_visual_analysis, current_thinking_process, current_steps_generated
-    global current_operation_display, past_operation_display
+    global current_operation_display, past_operation_display, llm_stream_content
 
     screenshot_path = os.path.join(BASE_DIR, "static", "processed_screenshot.png")
     if os.path.exists(screenshot_path) and os.path.getsize(screenshot_path) > 0:
@@ -273,6 +289,7 @@ async def get_operator_state_endpoint():
         "current_operation": current_operation_display,
         "past_operation": past_operation_display,
         "screenshot_available": processed_screenshot_available,
+        "llm_stream_content": llm_stream_content, # Add stream content to state
     }
 
 @app.post("/command")

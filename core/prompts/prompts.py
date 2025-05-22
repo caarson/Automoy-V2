@@ -141,19 +141,24 @@ STEPS_TAB_PROMPT = """
 # Context-Specific Prompts for Multi-Stage Reasoning
 ###############################################################################
 
-VISUAL_ANALYSIS_PROMPT = """
+VISUAL_ANALYSIS_SYSTEM_PROMPT = """\
 You are an expert UI analyst. Your task is to describe the provided visual information of a computer screen.
-Based on the following UI elements and layout (provided as JSON), and potentially a screenshot, generate a concise, high-level textual description of what is currently visible on the screen.
 Focus on:
 - The active application or window and its title.
 - Key interactive elements (buttons, input fields, menus, important text).
 - The overall state or purpose of the current view (e.g., "User is on the login page of example.com", "File Explorer showing the Documents folder").
 Do NOT suggest actions or try to interpret user intent. Only describe what you see.
+"""
+
+VISUAL_ANALYSIS_USER_PROMPT_TEMPLATE = """\
+{initial_objective_context}
+
+Based on the following UI elements and layout (provided as JSON), and potentially a screenshot, generate a concise, high-level textual description of what is currently visible on the screen.
 
 UI JSON:
 {ui_json}
 
-{screenshot_context} # This will be replaced by "A screenshot is also available for context." or be an empty string.
+{screenshot_context}
 """
 
 THINKING_PROCESS_PROMPT = """

@@ -27,12 +27,11 @@ from core.lm.lm_interface import MainInterface, handle_llm_response
 from core.environmental.anchor.desktop_anchor_point import show_desktop
 from core.utils.operating_system.desktop_utils import DesktopUtils # Added
 
-# Corrected import path for prompts assuming 'prompts' is a module in 'core'
 from core.prompts.prompts import (
-    VISUAL_ANALYSIS_PROMPT,
+    VISUAL_ANALYSIS_SYSTEM_PROMPT, # <-- Updated
+    VISUAL_ANALYSIS_USER_PROMPT_TEMPLATE, # <-- Added
     THINKING_PROCESS_PROMPT,
     STEPS_GENERATION_PROMPT,
-    get_system_prompt # DEFAULT_PROMPT is used by get_system_prompt
 )
 
 # Config import - ensure this path is robust
@@ -254,19 +253,46 @@ class AutomoyOperator:
                 # 2. VISUAL ANALYSIS STAGE
                 await _update_gui_state("/state/current_operation", {"text": "Analyzing screen (Visual)..."})
                 print("[LLM] Performing Visual Analysis...")
+                
                 screenshot_context_for_llm = "A screenshot is also available for context." if self.current_screenshot else ""
-                visual_prompt = VISUAL_ANALYSIS_PROMPT.format(
+                initial_objective_context_for_llm = ""
+
+                if first_cycle_for_anchors:
+                    anchor_context_lines = []
+                    # Include the main objective only on the first cycle for visual analysis
+                    initial_objective_context_for_llm = f"The user's main objective is: {self.objective}.\nDescribe the screen in the context of this objective, but do not suggest actions yet."
+                    
+                    if self.desktop_anchor_point:
+                        anchor_context_lines.append("The screen was initially at the Windows desktop (desktop anchor was applied).")
+                    if self.prompt_anchor_point and self.anchor_prompt:
+                        anchor_context_lines.append(f"An initial prompt anchor was set: '{self.anchor_prompt.strip()}'")
+                    if self.vllm_anchor_point:
+                        anchor_context_lines.append("The system started in a VLLM-specific anchor state.")
+                    
+                    if anchor_context_lines:
+                        initial_objective_context_for_llm += "\n\nInitial Anchor Context (first cycle only):\n" + "\n".join(anchor_context_lines)
+                
+                visual_user_prompt = VISUAL_ANALYSIS_USER_PROMPT_TEMPLATE.format(
+                    initial_objective_context=initial_objective_context_for_llm.strip(),
                     ui_json=ui_json_for_llm,
                     screenshot_context=screenshot_context_for_llm
                 )
-                messages_visual = [{"role": "user", "content": visual_prompt}]
+                
+                messages_visual = [
+                    {"role": "system", "content": VISUAL_ANALYSIS_SYSTEM_PROMPT},
+                    {"role": "user", "content": visual_user_prompt}
+                ]
+                
+                # Perform visual analysis via get_next_action
                 self.visual_analysis_output, _, _ = await self.llm.get_next_action(
-                    model=self.model, messages=messages_visual, objective="Describe the current screen.",
-                    session_id="automoy-visual", screenshot_path=self.current_screenshot
+                    model=self.model,
+                    messages=messages_visual,
+                    objective="Describe the current screen based on the provided context.", # Generic objective for this call
+                    session_id="automoy-visual",
+                    screenshot_path=self.current_screenshot
                 )
                 self.visual_analysis_output = self.visual_analysis_output.strip()
                 await _update_gui_state("/state/visual", {"text": self.visual_analysis_output})
-                print(f"[VISUAL] LLM Screen Description: {self.visual_analysis_output}")
 
                 # 3. THINKING PROCESS STAGE
                 await _update_gui_state("/state/current_operation", {"text": "Formulating plan (Thinking)..."})
@@ -326,18 +352,16 @@ class AutomoyOperator:
                     print(f"[ACTION] {current_operation_text}")
                     await _update_gui_state("/state/current_operation", {"text": current_operation_text})
                     
-                    action_system_prompt = get_system_prompt(self.model, current_step_objective)
-                    
+                    # Prepare action request for LLM
                     action_user_content = (
-                        "Current UI Description (from Visual Analysis):\\n"
-                        f"{self.visual_analysis_output}\\n\\n" # Use the stored visual analysis
-                        "Objective for this specific step:\\n"
-                        f"{current_step_objective}\\n\\n"
+                        "Current UI Description (from Visual Analysis):\n"
+                        f"{self.visual_analysis_output}\n\n"
+                        "Objective for this specific step:\n"
+                        f"{current_step_objective}\n\n"
                         "Provide a single JSON action to achieve this step based on the UI description."
                     )
                     messages_action = [
-                        {"role": "user", "content": action_user_content},
-                        {"role": "system", "content": action_system_prompt},
+                        {"role": "user", "content": action_user_content}
                     ]
 
                     action_response_text, _, _ = await self.llm.get_next_action(
@@ -409,10 +433,25 @@ class AutomoyOperator:
                             ui_json_for_llm_refresh = json.dumps(self.coords, indent=2)
                             
                             await _update_gui_state("/state/current_operation", {"text": "Re-analyzing screen after new screenshot..."})
-                            visual_prompt_refresh = VISUAL_ANALYSIS_PROMPT.format(ui_json=ui_json_for_llm_refresh, screenshot_context="A screenshot is also available for context.")
-                            messages_visual_refresh = [{"role": "user", "content": visual_prompt_refresh}]
                             
-                            self.visual_analysis_output, _, _ = await self.llm.get_next_action( model=self.model, messages=messages_visual_refresh, objective="Describe the current screen (refresh).", session_id="automoy-visual-refresh", screenshot_path=self.current_screenshot)
+                            # For refresh, we don't need initial objective or anchor context.
+                            visual_user_prompt_refresh = VISUAL_ANALYSIS_USER_PROMPT_TEMPLATE.format(
+                                initial_objective_context="Describe the current screen.", # Generic context for refresh
+                                ui_json=ui_json_for_llm_refresh,
+                                screenshot_context="A screenshot is also available for context."
+                            )
+                            messages_visual_refresh = [
+                                {"role": "system", "content": VISUAL_ANALYSIS_SYSTEM_PROMPT},
+                                {"role": "user", "content": visual_user_prompt_refresh}
+                            ]
+                            
+                            self.visual_analysis_output, _, _ = await self.llm.get_next_action(
+                                model=self.model, 
+                                messages=messages_visual_refresh, 
+                                objective="Describe the current screen (refresh).", 
+                                session_id="automoy-visual-refresh", 
+                                screenshot_path=self.current_screenshot
+                            )
                             self.visual_analysis_output = self.visual_analysis_output.strip() 
                             await _update_gui_state("/state/visual", {"text": self.visual_analysis_output}) # Update GUI with new visual analysis
                             print(f"[VISUAL REFRESH] Screen Description Updated: {self.visual_analysis_output}")

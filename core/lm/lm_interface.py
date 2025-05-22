@@ -105,9 +105,18 @@ class MainInterface:
         api_source, _ = config.get_api_source()
 
         if api_source == "openai":
-            response = await call_openai_model(messages, objective, model)
-            print(f"[DEBUG] OpenAI Response: {response}")
-            return (response, session_id, None)
+            # call_openai_model now returns a string (either JSON string for actions, or plain text for other stages)
+            response_str = await call_openai_model(messages, objective, model)
+            
+            # For visual, thinking, steps stages, the response_str is the direct text.
+            # For action stage, response_str is a JSON string that handle_llm_response will parse.
+            # The `get_next_action` in `operate.py` for non-action stages directly uses the first element of the tuple.
+            # The `handle_llm_response` in `operate.py` for action stage expects the JSON to be parsed from the string.
+
+            # No change needed here if call_openai_model returns a string as expected by callers.
+            # The `DEBUG` print might show a JSON string or plain text.
+            print(f"[DEBUG] OpenAI Response String: {response_str}") 
+            return (response_str, session_id, None)
         elif api_source == "lmstudio":
             response = await call_lmstudio_model(messages, objective, model)
             print(f"[DEBUG] LMStudio Response: {response}")

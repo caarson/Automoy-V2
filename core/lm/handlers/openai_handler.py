@@ -4,6 +4,7 @@ import json
 import traceback
 import re
 import tiktoken
+import httpx # Add httpx for sending updates to GUI
 
 # Load Config
 sys.path.append(str(pathlib.Path(__file__).parent.parent.parent.parent / "config"))
@@ -54,13 +55,25 @@ def transform_operations(response_list):
             print(f"[WARNING] Unexpected operation format: {item}")
     return transformed
 
+async def _update_gui_with_stream_chunk(chunk_text: str):
+    """Helper to send a chunk of streamed LLM output to the GUI."""
+    try:
+        # Assuming a specific endpoint for LLM stream updates, e.g., /state/llm_stream
+        url = "http://127.0.0.1:8000/state/llm_stream_chunk" 
+        async with httpx.AsyncClient() as client:
+            await client.post(url, json={"chunk": chunk_text}, timeout=2)
+    except Exception as e:
+        # Avoid flooding logs if GUI is not responsive or endpoint is wrong
+        # print(f"[STREAM_GUI_UPDATE_ERROR] Failed to send chunk to GUI: {e}")
+        pass
+
 async def call_openai_model(messages, objective, model_name=None):
     try:
         model_name = model_name or config.get_model()
         temperature = config.get_temperature()
 
         if config.get("DEBUG", False):
-            print(f"[DEBUG] Raw messages:\n{json.dumps(messages, indent=2)}")
+            print(f"[DEBUG] Raw messages:\\n{json.dumps(messages, indent=2)}")
 
         content = messages[-1]["content"] if messages and "content" in messages[-1] else ""
 
@@ -92,20 +105,54 @@ async def call_openai_model(messages, objective, model_name=None):
         )
 
         collected_content = ""
+        # Clear previous stream content on GUI if applicable
+        await _update_gui_with_stream_chunk("__STREAM_START__") # Signal stream start
+
         for chunk in stream:
             delta = getattr(chunk.choices[0].delta, "content", None)
             if delta:
                 if config.get("DEBUG", False):
                     print(delta, end="", flush=True)
                 collected_content += delta
+                await _update_gui_with_stream_chunk(delta) # Send chunk to GUI
+
+        await _update_gui_with_stream_chunk("__STREAM_END__") # Signal stream end
 
         if config.get("DEBUG", False):
             print(f"\n[DEBUG] Raw GPT Response Content (streamed):\n{repr(collected_content)}")
 
-        raw_json = extract_json_from_text(collected_content)
-        parsed = fix_json_format(raw_json)
-        transformed = transform_operations(parsed)
-        return transformed if isinstance(transformed, list) else []
+        raw_json_text = extract_json_from_text(collected_content)
+        
+        # If extract_json_from_text returns the raw content because no JSON block was found,
+        # we should not try to parse it as JSON.
+        # Instead, the raw text (which is `collected_content` in this case) should be returned.
+        # The `get_next_action` in `lm_interface` expects a string response for visual/thinking/steps,
+        # and a JSON string (that it will parse) for actions.
+
+        # Let's adjust the return. If a JSON block is found and extracted, `raw_json_text` will be that.
+        # If not, `raw_json_text` will be `collected_content`.
+        # The `handle_llm_response` function (or other callers) will attempt to parse it.
+        # For non-action stages (visual, thinking, steps), they expect raw text.
+        # For action stage, it expects JSON.
+
+        # The `transform_operations` and `fix_json_format` are specifically for action JSON.
+        # We should only apply them if we expect a JSON action.
+        # The `objective` parameter might give a hint, or we can rely on the prompt structure.
+
+        # For now, let's assume if a JSON block is found, it's an action.
+        # Otherwise, it's a text response for other stages.
+        
+        json_match = re.search(r"```json\\s*(.*?)\\s*```", collected_content, re.DOTALL)
+        if json_match:
+            # It's likely an action response
+            parsed_json_actions = fix_json_format(raw_json_text) # raw_json_text is the extracted JSON part
+            transformed_actions = transform_operations(parsed_json_actions if isinstance(parsed_json_actions, list) else [parsed_json_actions])
+            # Return the JSON string of the transformed actions
+            return json.dumps(transformed_actions) if transformed_actions else "[]" # Ensure it's a JSON string
+        else:
+            # It's likely a text response (visual analysis, thinking, steps)
+            return collected_content.strip()
+
 
     except Exception as e:
         print(f"[ERROR] Exception in call_openai_model: {e}")
