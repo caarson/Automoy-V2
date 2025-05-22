@@ -289,7 +289,7 @@ class AutomoyOperator:
                 messages_thinking = [{"role": "user", "content": thinking_prompt}]
                 self.thinking_process_output, _, _ = await self.llm.get_next_action(
                     model=self.model, messages=messages_thinking, objective="Reason about the user\'s objective and current screen.",
-                    session_id="automoy-thinking"
+                    session_id="automoy-thinking", screenshot_path=self.current_screenshot # Added missing screenshot_path
                 )
                 self.thinking_process_output = self.thinking_process_output.strip()
                 await _update_gui_state("/state/thinking", {"text": self.thinking_process_output})
@@ -304,7 +304,7 @@ class AutomoyOperator:
                 messages_steps = [{"role": "user", "content": steps_prompt}]
                 steps_raw_output, _, _ = await self.llm.get_next_action(
                     model=self.model, messages=messages_steps, objective="Generate actionable steps.",
-                    session_id="automoy-steps"
+                    session_id="automoy-steps", screenshot_path=self.current_screenshot # Added missing screenshot_path
                 )
                 self.generated_steps_output = [step.strip() for step in re.findall(r"^\\d+\\.\\s*(.*)", steps_raw_output, re.MULTILINE)]
                 if not self.generated_steps_output and steps_raw_output.strip(): 
