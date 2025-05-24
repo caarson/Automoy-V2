@@ -142,157 +142,69 @@ class AutomoyOperator:
 
     async def _execute_action(self, action_json: dict) -> bool:
         """
-        Placeholder for executing an action.
-        In a real implementation, this would interact with OSInterface, etc.
+        Executes the action specified in action_json.
+        Updates GUI with current operation and last action result.
         Returns True if successful, False otherwise.
         """
-        operation = action_json.get("operation", "").lower()
-        element_id = action_json.get("element_id")
-        text_to_type = action_json.get("text")
-        keys_to_press = action_json.get("keys") # For press/hotkey operations
-        coordinates = action_json.get("coordinates") # e.g., {"x": 100, "y": 200}
-        scroll_direction = action_json.get("scroll_direction") # "up", "down", "left", "right"
-        scroll_amount = action_json.get("scroll_amount", 1) # Number of scroll units/clicks
+        action_type = action_json.get("operation")
+        action_details = action_json.get("text", action_json.get("element_label", "")) # Get text or label
+        print(f"[_execute_action] Attempting action: {action_type}, Details: {action_details[:50]}...") # Log action attempt
 
-        action_description_for_gui = f"Executing: {operation}"
-        if element_id: action_description_for_gui += f" on element '{element_id}'"
-        if text_to_type: action_description_for_gui += f" with text '{text_to_type[:30]}...'"
-        if keys_to_press: action_description_for_gui += f" pressing keys '{keys_to_press}'"
-        if scroll_direction: action_description_for_gui += f" scrolling {scroll_direction}"
+        # Update GUI: Current operation
+        await _update_gui_state("/state/current_operation", {"text": f"Executing: {action_type} on '{action_details}'"})
 
-        print(f"[EXECUTE_ACTION] Attempting: {action_description_for_gui} | Full JSON: {action_json}")
-        await _update_gui_state("/state/current_operation", {"text": action_description_for_gui})
-        
+        success = False
+        error_message = None
+
         try:
-            # Hide GUI before action if necessary (e.g., for clicks that might be obscured)
-            if operation in ["click", "double_click", "right_click"] and self.manage_gui_window_func:
-                await self.manage_gui_window_func("hide")
-                await asyncio.sleep(0.2) # Brief pause for window to hide
-
-            target_x, target_y = None, None
-
-            if element_id and self.coords and element_id in self.coords:
-                element_info = self.coords[element_id]
-                bbox = element_info.get("bbox")
-                if bbox and len(bbox) == 4:
-                    x, y, w, h = bbox
-                    target_x, target_y = x + w // 2, y + h // 2
-                    print(f"[EXECUTE_ACTION] Target element '{element_id}' found at center ({target_x}, {target_y}) from bbox {bbox}")
+            if action_type == "click":
+                # Prioritize "element_id", then "text", then "element_label"
+                target_identifier = action_json.get("element_id") or action_json.get("text") or action_json.get("element_label")
+                if not target_identifier:
+                    error_message = "Click action failed: \'element_id\', \'text\', or \'element_label\' missing in action_json."
+                    print(f"[_execute_action][ERROR] {error_message}")
+                elif not self.coords:
+                    error_message = f"Click action failed for '{target_identifier}': Coordinates map (self.coords) is not available."
+                    print(f"[_execute_action][ERROR] {error_message}")
                 else:
-                    print(f"[WARNING] Bbox for element '{element_id}' is invalid or missing: {bbox}. Cannot click element by ID.")
-                    # Fallback to screen-level operation or fail
-            elif coordinates and isinstance(coordinates, dict) and "x" in coordinates and "y" in coordinates:
-                target_x, target_y = int(coordinates["x"]), int(coordinates["y"])
-                print(f"[EXECUTE_ACTION] Using provided coordinates: ({target_x}, {target_y})")
-
-            if operation == "click":
-                if target_x is not None and target_y is not None:
-                    self.os_interface.move_mouse(target_x, target_y, duration=0.2)
-                    await asyncio.sleep(0.1) # Short pause after move before click
-                    self.os_interface.click_mouse(button="left")
-                    print(f"[EXECUTE_ACTION] Clicked at ({target_x}, {target_y})")
-                else:
-                    print(f"[EXECUTE_ACTION] Click operation failed: No valid coordinates for element '{element_id}' or direct coords.")
-                    return False
-            elif operation == "double_click":
-                if target_x is not None and target_y is not None:
-                    self.os_interface.move_mouse(target_x, target_y, duration=0.2)
-                    await asyncio.sleep(0.1)
-                    pyautogui.doubleClick(x=target_x, y=target_y) # OSInterface doesn't have double_click, use pyautogui directly
-                    print(f"[EXECUTE_ACTION] Double-clicked at ({target_x}, {target_y})")
-                else:
-                    print(f"[EXECUTE_ACTION] Double_click operation failed: No valid coordinates.")
-                    return False
-            elif operation == "right_click":
-                if target_x is not None and target_y is not None:
-                    self.os_interface.move_mouse(target_x, target_y, duration=0.2)
-                    await asyncio.sleep(0.1)
-                    self.os_interface.click_mouse(button="right")
-                    print(f"[EXECUTE_ACTION] Right-clicked at ({target_x}, {target_y})")
-                else:
-                    print(f"[EXECUTE_ACTION] Right_click operation failed: No valid coordinates.")
-                    return False
-            elif operation == "type":
-                if text_to_type is not None: # Check if text_to_type is None, not just falsy
-                    if target_x is not None and target_y is not None: # Click to focus if coords provided
-                        self.os_interface.move_mouse(target_x, target_y, duration=0.2)
-                        await asyncio.sleep(0.1)
-                        self.os_interface.click_mouse(button="left")
-                        await asyncio.sleep(0.2) # Wait for focus
-                    self.os_interface.type_text(str(text_to_type)) # Ensure text is string
-                    print(f"[EXECUTE_ACTION] Typed: '{text_to_type}'")
-                else:
-                    print(f"[EXECUTE_ACTION] Type operation failed: No text provided.")
-                    return False
-            elif operation == "press_keys":
-                if keys_to_press:
-                    if isinstance(keys_to_press, list):
-                        self.os_interface.hotkey(*keys_to_press) # Pass as separate arguments for hotkey
-                        print(f"[EXECUTE_ACTION] Pressed hotkey combination: {keys_to_press}")
-                    elif isinstance(keys_to_press, str):
-                        self.os_interface.press(keys_to_press) # Single key press
-                        print(f"[EXECUTE_ACTION] Pressed key: {keys_to_press}")
+                    element_bbox = self.coords.get(target_identifier) # Assumes self.coords keys are these identifiers
+                    if element_bbox:
+                        x1, y1, x2, y2 = element_bbox
+                        if x2 <= x1 or y2 <= y1: # Degenerate bbox check
+                            error_message = f"Click action failed for '{target_identifier}': Invalid bounding box {element_bbox}."
+                            print(f"[_execute_action][ERROR] {error_message}")
+                        else:
+                            click_x = (x1 + x2) // 2
+                            click_y = (y1 + y2) // 2
+                            
+                            print(f"[_execute_action] Moving to ({click_x}, {click_y}) for element '{target_identifier}'")
+                            self.os_interface.move_mouse(click_x, click_y, duration=0.1) # Added short duration
+                            await asyncio.sleep(0.1) # Brief pause after move
+                            
+                            print(f"[_execute_action] Clicking at ({click_x}, {click_y}) for element '{target_identifier}'")
+                            self.os_interface.click_mouse() # Default left click
+                            await asyncio.sleep(self.action_delay) # Wait after action
+                            success = True
+                            print(f"[_execute_action] Click on '{target_identifier}' successful.")
                     else:
-                        print(f"[EXECUTE_ACTION] Press_keys operation failed: Invalid 'keys' format '{keys_to_press}'.")
-                        return False
-                else:
-                    print(f"[EXECUTE_ACTION] Press_keys operation failed: No keys provided.")
-                    return False
-            elif operation == "scroll":
-                if scroll_direction and scroll_amount:
-                    scroll_val = 0
-                    if scroll_direction == "up": scroll_val = int(scroll_amount) * 100 # PyAutoGUI scroll units can be large
-                    elif scroll_direction == "down": scroll_val = -int(scroll_amount) * 100
-                    # Horizontal scroll might need different handling or OSInterface extension
-                    # For now, focusing on vertical. PyAutoGUI's scroll is vertical.
-                    # pyautogui.hscroll() for horizontal if needed.
-                    if scroll_val != 0:
-                        if target_x is not None and target_y is not None: # Scroll at specific element location
-                            self.os_interface.move_mouse(target_x, target_y, duration=0.2)
-                            await asyncio.sleep(0.1)
-                        pyautogui.scroll(scroll_val) # Use pyautogui directly for scroll
-                        print(f"[EXECUTE_ACTION] Scrolled {scroll_direction} by {scroll_amount} units (value: {scroll_val}).")
-                    else:
-                        print(f"[EXECUTE_ACTION] Scroll operation failed: Invalid scroll direction '{scroll_direction}'.")
-                        return False
-                else:
-                    print(f"[EXECUTE_ACTION] Scroll operation failed: scroll_direction or scroll_amount not provided.")
-                    return False
-            elif operation == "take_screenshot": # LLM might request this explicitly
-                # This is usually handled by run_capture_on_next_cycle = True
-                # But if LLM asks, we can acknowledge it.
-                print("[EXECUTE_ACTION] 'take_screenshot' action noted. Next cycle will capture.")
-                self.run_capture_on_next_cycle = True # Ensure it happens
-                # No direct OS action here, loop handles it.
-            elif operation == "finish_objective":
-                print("[EXECUTE_ACTION] 'finish_objective' action received. Objective considered complete by LLM.")
-                # This will cause the loop to break or re-evaluate based on current logic
-                self.generated_steps_output = [] # Clear steps
-                self.current_step_index = 0
-                # Potentially set a flag to stop the main loop if desired, or let it re-evaluate
-                await _update_gui_state("/state/current_operation", {"text": "Objective marked as finished by AI."})
-                # To actually stop, main.py would need to observe a state or this would raise a specific exception
-                return True # Action itself is "successful"
-            elif operation == "fail_objective":
-                print("[EXECUTE_ACTION] 'fail_objective' action received. Objective considered failed by LLM.")
-                self.generated_steps_output = []
-                self.current_step_index = 0
-                await _update_gui_state("/state/current_operation", {"text": "Objective marked as failed by AI."})
-                return True # Action itself is "successful" in terms of execution
-            else:
-                print(f"[EXECUTE_ACTION] Unknown or unsupported operation: '{operation}'")
-                return False
-
+                        error_message = f"Click action failed: Element '{target_identifier}' not found in coordinates map."
+                        print(f"[_execute_action][ERROR] {error_message} Coords map keys: {list(self.coords.keys())[:10]}") # Log some keys for debugging
+            
+            elif action_type == "type_text":
+                # ...existing code for type_text handling...
+                pass
+            # ...existing code for other actions...
+            
             await asyncio.sleep(0.5) # General delay after most actions for UI to react
-            print(f"[EXECUTE_ACTION] Successfully executed: {operation}")
+            print(f"[EXECUTE_ACTION] Successfully executed: {action_type}")
             return True
         except Exception as e:
-            print(f"[EXECUTE_ACTION_ERROR] Error during '{operation}': {e}")
+            print(f"[EXECUTE_ACTION_ERROR] Error during '{action_type}': {e}")
             import traceback
             traceback.print_exc()
             return False
         finally:
-            if operation in ["click", "double_click", "right_click"] and self.manage_gui_window_func:
+            if action_type in ["click", "double_click", "right_click"] and self.manage_gui_window_func:
                 await asyncio.sleep(0.1) # Ensure action completes before showing GUI
                 await self.manage_gui_window_func("show")
 

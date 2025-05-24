@@ -10,6 +10,7 @@ from contextlib import contextmanager
 import shutil # Add this import
 import pygetwindow as gw
 import functools
+import re # Add re module for regex operations
 
 # Define the prefix for the Automoy GUI window title
 AUTOMOY_GUI_TITLE_PREFIX = "Automoy - Access via"
@@ -420,27 +421,36 @@ async def main():
                         response_text, _, _ = await llm_interface.get_next_action(
                             model=model_for_formulation,
                             messages=formulation_messages,
-                            objective="Formulate a detailed objective from the user's goal.",
+                            objective="Formulate a detailed objective from the user\'s goal.",
                             session_id="automoy-objective-formulation",
                             screenshot_path=None
                         )
-                        formulated_objective = response_text.strip()
-                        if not formulated_objective:
-                            print("[MAIN][ERROR] AI failed to formulate an objective. Using a fallback.")
-                            formulated_objective = f"Fallback objective: Complete user goal '{user_goal}'"
+                        # Strip <think> tags and content before sending it to the GUI and using it for the operator
+                        raw_formulated_objective = response_text.strip()
+                        # Use re.DOTALL flag to make . match newlines
+                        formulated_objective_for_gui = re.sub(r"<think>.*?</think>", "", raw_formulated_objective, flags=re.DOTALL).strip()
+                        
+                        if not formulated_objective_for_gui: # Check if stripping resulted in empty string
+                            print("[MAIN][ERROR] AI failed to formulate a valid objective after stripping tags. Using a fallback.")
+                            formulated_objective_for_gui = f"Fallback objective: Complete user goal \'{user_goal}\'"
+                        
+                        # Log the version that will be used by the operator (could be with or without think tags, depending on choice)
+                        # For now, let's assume the operator should also get the cleaned version.
+                        formulated_objective = formulated_objective_for_gui
+
                     except Exception as e_formulate:
                         print(f"[MAIN][ERROR] Error during AI objective formulation: {e_formulate}")
-                        formulated_objective = f"Error fallback objective for: {user_goal}"
+                        formulated_objective = f"Error fallback objective for: {user_goal}" # This will be sent to GUI
 
-                    print(f"[MAIN] AI Formulated Objective: {formulated_objective}")
+                    print(f"[MAIN] AI Formulated Objective (for GUI): {formulated_objective}")
                     
                     async with httpx.AsyncClient() as client_post_obj: # Use a different name for this client
                         await client_post_obj.post("http://127.0.0.1:8000/state/formulated_objective", 
-                                          json={"objective": formulated_objective}, timeout=5)
+                                          json={"objective": formulated_objective}, timeout=5) # Send the cleaned version
                 
                 if user_goal and formulated_objective and current_gui_formulated_objective == formulated_objective and operator_status == "ObjectiveFormulated":
-                    initial_objective_for_operator = formulated_objective
-                    print(f"[MAIN] Confirmed AI formulated objective: {initial_objective_for_operator}")
+                    initial_objective_for_operator = formulated_objective # Use the cleaned version for the operator too
+                    print(f"[MAIN] Confirmed AI formulated objective (for operator): {initial_objective_for_operator}")
                     break # Exit loop once objective is formulated and confirmed
 
         except httpx.RequestError: # Catch httpx specific errors

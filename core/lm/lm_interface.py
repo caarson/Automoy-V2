@@ -120,8 +120,16 @@ class MainInterface:
             print(f"[DEBUG] OpenAI Response String: {response_str}") 
             return (response_str, session_id, None)
         elif self.api_source == "lmstudio":
-            response = await call_lmstudio_model(messages, objective, model)
-            print(f"[DEBUG] LMStudio Response: {response}")
+            raw_response = await call_lmstudio_model(messages, objective, model)
+            print(f"[DEBUG] Raw LMStudio Response: {raw_response}")
+            # Strip <think> tags from LMStudio response as well
+            response = re.sub(r"<think>.*?</think>", "", raw_response, flags=re.DOTALL).strip()
+            # Attempt to extract JSON part if it's still embedded after stripping think tags
+            # This is a common pattern if the LLM still wraps JSON in text
+            json_match = re.search(r"{\s*\"operation\":.*?}\s*$", response, re.DOTALL)
+            if json_match:
+                response = json_match.group(0)
+            print(f"[DEBUG] Cleaned LMStudio Response: {response}")
             return (response, session_id, None)
 
         raise ModelNotRecognizedException(model)
