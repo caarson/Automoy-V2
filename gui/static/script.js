@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const llmStreamContent = document.getElementById('llmStreamContent');
     const visualAnalysisDisplay = document.getElementById('visualAnalysisDisplay'); // Added
     const thinkingProcessDisplay = document.getElementById('thinkingProcessDisplay'); // Added
-    const stepsGeneratedDisplay = document.getElementById('stepsGeneratedDisplay'); // Added
+    const stepsGeneratedDisplay = document.getElementById('stepsGeneratedList'); // Corrected ID
     const operationsGeneratedDisplay = document.getElementById('operationsGeneratedText'); // Added for new section
     const currentOperationDisplay = document.getElementById('currentOperationDisplay');
     const llmQueryDisplay = document.getElementById('llmQueryDisplay');
@@ -214,7 +214,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 pauseIcon.alt = 'Resume';
                 pauseButton.title = 'Resume Automoy';
             } else {
-                pauseIcon.src = '/static/imgs/pause_icon.png';
+                pauseIcon.src = '/static/imgs/pause_button.png'; // Corrected to pause_button.png
                 pauseIcon.alt = 'Pause';
                 pauseButton.title = 'Pause Automoy';
             }

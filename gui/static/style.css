@@ -111,8 +111,8 @@ body {
 
 #objectiveInput {
     flex: 1;
-    font-size: 0.9rem; /* Increased from 0.8rem */
-    padding: 12px 14px; /* Increased padding */
+    font-size: 0.85rem; /* Slightly reduced font size */
+    padding: 12px 5px; /* Further reduced horizontal padding */
     border-radius: 5px 0 0 5px; /* Softer radius */
     border: 1px solid #333;
     outline: none;
@@ -138,15 +138,17 @@ body {
     border: 1px solid #333;
     border-left: none;
     border-radius: 0 5px 5px 0;
-    font-size: 1.2rem; /* Increased to match input */
-    padding: 0 16px; /* Increased padding */
+    font-size: 1.7rem; /* Slightly reduced font size */
+    padding: 0 10px; /* Further reduced horizontal padding */
     cursor: pointer;
     height: auto; /* Auto height to align with input */
-    min-height: 40px; /* Match input's min-height */
+    min-height: 48px; /* Increased min-height */
     display: flex;
     align-items: center;
     justify-content: center;
     transition: background 0.2s ease, color 0.2s ease;
+    flex-grow: 0; /* Do not allow button to grow */
+    flex-shrink: 0; /* Do not allow button to shrink */
 }
 
 .send-btn:hover {
