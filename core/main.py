@@ -1,3 +1,4 @@
+print("[MAIN_PY_DEBUG] Script execution started.")
 import asyncio
 import os
 import signal
@@ -30,10 +31,13 @@ from core.utils.operating_system.desktop_utils import DesktopUtils
 from core.utils.omniparser.omniparser_server_manager import OmniParserServerManager
 from core.operate import AutomoyOperator, _update_gui_state 
 from config import Config
-
+# Import necessary for LLM call
+from core.lm.lm_interface import MainInterface
+from core.prompts.prompts import FORMULATE_OBJECTIVE_SYSTEM_PROMPT, FORMULATE_OBJECTIVE_USER_PROMPT_TEMPLATE
 
 gui_process = None
 omniparser_server_process = None # To keep track of the OmniParser server process
+pause_event = asyncio.Event() # Create a global pause event
 
 # Function to find the Automoy GUI window (using the corrected title prefix)
 def find_automoy_gui_window():
@@ -155,7 +159,7 @@ async def _control_gui_window_api(action: str, retries=3, delay=1) -> bool:
 
 def _pygetwindow_show_and_position(window):
     if window:
-        print(f"[MAIN_GUI_CTRL] pygetwindow: Restoring, resizing, and moving window '{window.title}'.")
+        print(f"[MAIN_GUI_CTRL] pygetwindow: Restoring and activating window '{window.title}'.") # Modified log
         if window.isMinimized:
             window.restore()
         
@@ -164,10 +168,9 @@ def _pygetwindow_show_and_position(window):
             print(f"[MAIN_GUI_CTRL] pygetwindow: Window '{window.title}' was not visible, called show().")
          
         window.activate()
-        window.resizeTo(1228, 691) 
-        window.moveTo(0, 0)        
-        window.activate()
-        print(f"[MAIN_GUI_CTRL] pygetwindow: Window '{window.title}' shown and positioned at (0,0) with size 1228x691.")
+        # window.resizeTo(1228, 691) # Removed resize
+        # window.moveTo(0, 0)        # Removed move
+        print(f"[MAIN_GUI_CTRL] pygetwindow: Window '{window.title}' shown and activated.") # Modified log
     else:
         print("[MAIN_GUI_CTRL] pygetwindow: Window not provided for show_and_position.")
 
@@ -302,11 +305,51 @@ def cleanup_processes():
     print("[CLEANUP] Process cleanup finished.")
 
 
+async def manage_pause_event_concurrently(pause_event_ref: asyncio.Event):
+    """Polls GUI for pause state and updates the pause_event accordingly. Runs concurrently."""
+    print("[PAUSE_MANAGER_TASK] Started.")
+    while True:
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get("http://127.0.0.1:8000/operator_state", timeout=2)
+
+            if resp.status_code == 200:
+                state = resp.json()
+                is_gui_paused = state.get("is_paused", False)
+
+                # Minimal logging to reduce noise, can be enabled for deep debugging
+                # print(f"[PAUSE_MANAGER_TASK] GUI says: {{'is_paused': {is_paused}}}. Event is_set: {pause_event_ref.is_set()}")
+
+                if is_gui_paused: # GUI wants to pause
+                    if pause_event_ref.is_set(): # Operator is currently running
+                        print("[PAUSE_MANAGER_TASK] GUI requests PAUSE. Clearing asyncio.Event (pausing operator).", flush=True) # Log
+                        pause_event_ref.clear()
+                    # else: # Operator already paused, GUI agrees
+                        # print("[PAUSE_MANAGER_TASK] GUI confirms PAUSE. Event already clear.", flush=True) # Log - can be noisy
+                else: # GUI wants to run (not paused)
+                    if not pause_event_ref.is_set(): # Operator is currently paused
+                        print("[PAUSE_MANAGER_TASK] GUI requests RESUME. Setting asyncio.Event (resuming operator).", flush=True) # Log
+                        pause_event_ref.set()
+                    # else: # Operator already running, GUI agrees
+                        # print("[PAUSE_MANAGER_TASK] GUI confirms RESUME. Event already set.", flush=True) # Log - can be noisy
+            else: # Optional: log if GUI state cannot be fetched
+                print(f"[PAUSE_MANAGER_TASK] Warning: Could not get operator_state from GUI (status: {resp.status_code}). Retrying.", flush=True) # Log
+
+        except httpx.RequestError as e_httpx: # More specific exception for network issues with httpx
+            print(f"[PAUSE_MANAGER_TASK] HTTP Error polling GUI state: {e_httpx}. Retrying.", flush=True) # Log
+            pass
+        except Exception as e: # Catch other unexpected errors
+            print(f"[PAUSE_MANAGER_TASK] Unexpected error: {e}. Retrying.", flush=True) # Log
+        
+        await asyncio.sleep(0.2) # Poll interval (e.g., 0.2 seconds)
+
 async def main():
-    global gui_process, omniparser_server_process 
+    print("[MAIN_PY_DEBUG] main() coroutine entered.")
+    global gui_process, omniparser_server_process, pause_event 
     config = Config()
-    initial_objective = config.get("DEFAULT_OBJECTIVE", "No objective set in environment.txt")
-    print(f"Initial Objective: {initial_objective}")
+    # Default objective is not used initially, user goal is primary
+    # initial_objective = config.get("DEFAULT_OBJECTIVE", "No objective set in environment.txt")
+    # print(f"Initial Objective: {initial_objective}")
 
     # Initialize DesktopUtils
     desktop_utils = DesktopUtils() 
@@ -333,93 +376,118 @@ async def main():
         if hasattr(omniparser_manager, 'stop_server'): omniparser_manager.stop_server()  
         return  
 
-    # Wait for the user to set the objective via the GUI
-    print("[MAIN] Waiting for user to set the objective via the GUI...")
-    user_objective = None
+    pause_event.set() # Ensure Automoy is not paused by default when starting
+
+    # Start the concurrent task for managing the pause event
+    # This task will run alongside the objective formulation and operator loop
+    pause_manager_task = asyncio.create_task(manage_pause_event_concurrently(pause_event))
+
+    # Wait for the user to set a goal via the GUI
+    print("[MAIN] Waiting for user to set a goal via the GUI...")
+    user_goal = None
+    formulated_objective = None
+    initial_objective_for_operator = None
+    
+    # This loop is now only for objective formulation, not pause management.
     while True:
         try:
-            resp = requests.get("http://127.0.0.1:8000/operator_state", timeout=2)
+            # Use httpx for async GET request
+            async with httpx.AsyncClient() as client:
+                resp = await client.get("http://127.0.0.1:8000/operator_state", timeout=2)
+
             if resp.status_code == 200:
                 state = resp.json()
-                obj = state.get("objective", "")
-                if obj and obj.strip():
-                    user_objective = obj.strip()
-                    break
-        except Exception:
-            pass
-        time.sleep(1)
-    print(f"[MAIN] Objective received from GUI: {user_objective}")
-    initial_objective = user_objective  # override default with user-provided goal
+                current_gui_goal = state.get("user_goal", "").strip()
+                current_gui_formulated_objective = state.get("formulated_objective", "").strip()
+                operator_status = state.get("operator_status", "Idle")
+                # is_gui_paused = state.get("is_paused", False) # Pause state is handled by pause_manager_task
+
+                # REMOVED PAUSE LOGIC and [MAIN_PAUSE_DEBUG] logs from this loop
+
+                if current_gui_goal and not user_goal:
+                    user_goal = current_gui_goal
+                    print(f"[MAIN] User Goal received from GUI: {user_goal}")
+                    
+                    print(f"[MAIN] Requesting AI to formulate objective for goal: {user_goal}")
+                    llm_interface = MainInterface()
+                    formulation_messages = [
+                        {"role": "system", "content": FORMULATE_OBJECTIVE_SYSTEM_PROMPT},
+                        {"role": "user", "content": FORMULATE_OBJECTIVE_USER_PROMPT_TEMPLATE.format(user_goal=user_goal)}
+                    ]
+                    try:
+                        cfg = Config() # Ensure Config is instantiated if used here
+                        model_for_formulation = cfg.get_model()
+                        response_text, _, _ = await llm_interface.get_next_action(
+                            model=model_for_formulation,
+                            messages=formulation_messages,
+                            objective="Formulate a detailed objective from the user's goal.",
+                            session_id="automoy-objective-formulation",
+                            screenshot_path=None
+                        )
+                        formulated_objective = response_text.strip()
+                        if not formulated_objective:
+                            print("[MAIN][ERROR] AI failed to formulate an objective. Using a fallback.")
+                            formulated_objective = f"Fallback objective: Complete user goal '{user_goal}'"
+                    except Exception as e_formulate:
+                        print(f"[MAIN][ERROR] Error during AI objective formulation: {e_formulate}")
+                        formulated_objective = f"Error fallback objective for: {user_goal}"
+
+                    print(f"[MAIN] AI Formulated Objective: {formulated_objective}")
+                    
+                    async with httpx.AsyncClient() as client_post_obj: # Use a different name for this client
+                        await client_post_obj.post("http://127.0.0.1:8000/state/formulated_objective", 
+                                          json={"objective": formulated_objective}, timeout=5)
+                
+                if user_goal and formulated_objective and current_gui_formulated_objective == formulated_objective and operator_status == "ObjectiveFormulated":
+                    initial_objective_for_operator = formulated_objective
+                    print(f"[MAIN] Confirmed AI formulated objective: {initial_objective_for_operator}")
+                    break # Exit loop once objective is formulated and confirmed
+
+        except httpx.RequestError: # Catch httpx specific errors
+            # print(f"[MAIN] Error polling GUI state during objective setup: {e_httpx_obj}") # Can be noisy
+            pass 
+        except Exception as e_obj_loop: # Catch other errors in this loop
+            print(f"[MAIN] Unexpected error polling GUI state during objective setup: {e_obj_loop}")
+        await asyncio.sleep(0.1) # Poll every 0.1 seconds for objective setup
+    
+    print(f"[MAIN] Proceeding with AI Formulated Objective: {initial_objective_for_operator}")
 
     operator = AutomoyOperator(
-        objective=initial_objective,
+        objective=initial_objective_for_operator, 
         manage_gui_window_func=functools.partial(async_manage_automoy_gui_visibility, window_title=AUTOMOY_GUI_TITLE_PREFIX),
-        omniparser=omniparser_manager.get_interface()  
+        omniparser=omniparser_manager.get_interface(),
+        pause_event=pause_event 
     )
 
-    if config.get("DESKTOP_ANCHOR_POINT", False):
-        print("[MAIN] Applying desktop anchor point...")
-        from core.environmental.anchor.desktop_anchor_point import show_desktop
-        show_desktop() 
-        await asyncio.sleep(0.5)
-
-    # Initial screenshot and parse sequence
-    try:
-        print("[MAIN] Performing initial screen capture and parse.")
-        await _update_gui_state("objective", {"text": initial_objective}) 
-        await _update_gui_state("current_operation", {"text": "Initializing... Taking first screenshot."}) 
-        await hide_gui_for_screenshot(AUTOMOY_GUI_TITLE_PREFIX)
-
-        desktop_utils.set_desktop_background_solid_color(0, 0, 0) 
-        await asyncio.sleep(0.2)
-
-        initial_screenshot_path = operator.os_interface.take_screenshot("initial_automoy_screenshot.png")
-        print(f"[MAIN] Initial screenshot saved to {initial_screenshot_path}")
-
-    except Exception as e:
-        print(f"[MAIN][ERROR] Error during initial screenshot sequence: {e}")
-        await _update_gui_state("current_operation", {"text": f"Error during init: {e}"})
-    finally:
-        desktop_utils.restore_desktop_background_settings()
-        await show_gui_after_screenshot(AUTOMOY_GUI_TITLE_PREFIX)
-        print("[MAIN] Initial screenshot process complete. Desktop and GUI restored.")
-
-    # Start the main operation loop
+    print(f"[MAIN] Starting operator with objective: {initial_objective_for_operator}")
     try:
         await operator.operate_loop()
-    except KeyboardInterrupt:
-        print("[MAIN] KeyboardInterrupt received. Shutting down...")
-    except Exception as e:
-        print(f"[MAIN][ERROR] Unhandled exception in operator.operate_loop: {e}")
     finally:
-        print("[MAIN] Main operation loop finished or interrupted. Cleaning up...")
-        if hasattr(omniparser_manager, 'stop_server'): omniparser_manager.stop_server()
-        cleanup_processes() # This will also try to clean up GUI and any other OmniParser processes
-        print("[MAIN] Automoy has shut down.")
+        # Clean up the pause manager task when operate_loop finishes or if an error occurs
+        print("[MAIN] Operator loop finished or an error occurred. Cancelling pause manager task.")
+        if pause_manager_task and not pause_manager_task.done():
+            pause_manager_task.cancel()
+            try:
+                await pause_manager_task
+            except asyncio.CancelledError:
+                print("[MAIN] Pause manager task successfully cancelled.")
+            except Exception as e_task_cleanup:
+                print(f"[MAIN][ERROR] Exception during pause manager task cleanup: {e_task_cleanup}")
+        else:
+            print("[MAIN] Pause manager task was already done or not initialized.")
+
 
 if __name__ == "__main__":
-    # Setup signal handlers for graceful shutdown on SIGINT/SIGTERM
-    # Note: Windows handles SIGINT (Ctrl+C) differently for console apps vs subprocesses.
-    # This setup is more common for Unix-like systems but good practice.
-    # The primary KeyboardInterrupt handling is within main() and the asyncio.run() wrapper.
-    
-    # loop = asyncio.get_event_loop()
-    # signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
-    # for s in signals:
-    #     loop.add_signal_handler(
-    #         s, lambda s=s: asyncio.create_task(shutdown(s, loop))
-    #     )
-
+    print("[MAIN_PY_DEBUG] Inside __main__ block, before asyncio.run.")
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("[MAIN_ASYNC_RUNNER] KeyboardInterrupt received at top level. Ensuring cleanup...")
-    # No specific handling for other exceptions here, as main() should handle its own.
+        print("[MAIN] Process interrupted by user (Ctrl+C).")
+    except Exception as e:
+        print(f"[MAIN][CRITICAL] An unhandled exception occurred at the top level: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
-        # This final cleanup is a last resort.
-        # It's crucial that `main()` and `cleanup_processes()` are robust.
-        print("[MAIN_ASYNC_RUNNER] Ensuring final cleanup...")
-        # Call cleanup_processes directly, as the loop might be stopped.
-        # It's important that cleanup_processes is synchronous or manages its own async tasks carefully if any.
-        cleanup_processes() # Ensure this is robust and handles already cleaned states.
-        print("[MAIN_ASYNC_RUNNER] Final cleanup attempt complete. Exiting.")
+        print("[MAIN] Starting final cleanup...")
+        cleanup_processes()
+        print("[MAIN] Application shutdown complete.")

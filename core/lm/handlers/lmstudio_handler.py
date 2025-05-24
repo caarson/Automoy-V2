@@ -4,6 +4,7 @@ import pathlib
 import requests
 import json
 import asyncio
+import re  # Add re import for regex search
 
 sys.path.append(str(pathlib.Path(__file__).parent.parent.parent.parent / "config"))
 from config import Config
@@ -125,6 +126,34 @@ async def call_lmstudio_model(messages, objective, model):
                 else:
                     print(f"[LMStudio stream] {decoded_line}")
             print("\n[DEBUG] Full Response Received:", full_response)
+            
+            # --- Attempt to extract and parse JSON action --- 
+            if full_response:
+                # Try to find a JSON code block
+                match = re.search(r"```json\s*([\s\S]*?)\s*```", full_response)
+                if match:
+                    json_str = match.group(1).strip()
+                    try:
+                        parsed_json = json.loads(json_str)
+                        # Check if it's a list of actions (as per DEFAULT_PROMPT)
+                        if isinstance(parsed_json, list) and len(parsed_json) > 0:
+                            # Return the first action object as a JSON string
+                            # This makes it consistent with how openai_handler might return a string to be parsed later
+                            action_to_return = parsed_json[0]
+                            print(f"[DEBUG] Extracted JSON action from LMStudio: {action_to_return}")
+                            return json.dumps([action_to_return]) # Return as a JSON string list
+                        # Check if it's a single action object (less ideal but possible)
+                        elif isinstance(parsed_json, dict) and "operation" in parsed_json:
+                            print(f"[DEBUG] Extracted single JSON action object from LMStudio: {parsed_json}")
+                            return json.dumps([parsed_json]) # Return as a JSON string list
+                        else:
+                            print("[DEBUG] Parsed JSON from LMStudio is not in the expected action format. Returning full response.")
+                    except json.JSONDecodeError as e:
+                        print(f"[ERROR] Failed to decode JSON from LMStudio response: {e}. Raw JSON string: {json_str}")
+                else:
+                    print("[DEBUG] No JSON code block found in LMStudio response. Returning full response.")
+            # --- End JSON extraction attempt ---
+
             return full_response if full_response.strip() else "[ERROR] No valid response from the model."
     except requests.RequestException as e:
         error_msg = f"[ERROR] API connection failed: {e}"

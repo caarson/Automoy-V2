@@ -10,38 +10,309 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 500);
 
     // Initial screenshot load 
-    setTimeout(refreshScreenshot, 500); // Short delay to ensure everything is loaded
+    // setTimeout(refreshScreenshot, 500); // No longer needed, will be triggered by notification
     
-    // Setup periodic refresh (every 3 seconds)
-    setInterval(refreshScreenshot, 3000);
+    // Setup periodic refresh (every 3 seconds) - Keep this as a fallback or for general updates
+    // setInterval(refreshScreenshot, 3000); // Commenting out to rely on notification primarily
+
+    const goalForm = document.getElementById('goalForm'); // Changed from objectiveForm
+    const goalInput = document.getElementById('goalInput'); // Changed from objectiveInput
+    const userGoalDisplay = document.getElementById('userGoalDisplay'); // New display element
+    const formulatedObjectiveDisplay = document.getElementById('formulatedObjectiveDisplay'); // New display element
     
-    // Setup objective form submission (reverted from goal form)
-    document.getElementById('objectiveForm').addEventListener('submit', function(e) { // Changed back to objectiveForm
-        e.preventDefault();
-        const objectiveValue = document.getElementById('objectiveInput').value.trim(); // Store user input value
-        if (!objectiveValue) return;
-        fetch('/set_objective', { // Changed back to /set_objective
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ objective: objectiveValue }) // Send as 'objective'
-        })
-        .then(response => response.json())
-        .then(data => { // data here is {message: "...", objective: "..."}
-            console.log('Objective set:', data);
-            document.getElementById('objectiveInput').value = ''; // Clear input
-            // Update UI immediately using the objective confirmed by the server
-            const objectiveEl = document.getElementById('objectiveDisplay');
-            if (objectiveEl && data.objective) { // Use data.objective from server response
-                objectiveEl.textContent = 'Objective: ' + data.objective;
-            }
-            // refreshOperatorState(); // This can be uncommented if preferred over immediate update, but immediate is good UX.
-        })
-        .catch(error => {
-            console.error('Error setting objective:', error);
+    const llmStreamContent = document.getElementById('llmStreamContent');
+    const visualAnalysisDisplay = document.getElementById('visualAnalysisDisplay'); // Added
+    const thinkingProcessDisplay = document.getElementById('thinkingProcessDisplay'); // Added
+    const stepsGeneratedDisplay = document.getElementById('stepsGeneratedDisplay'); // Added
+    const operationsGeneratedDisplay = document.getElementById('operationsGeneratedText'); // Added for new section
+    const currentOperationDisplay = document.getElementById('currentOperationDisplay');
+    const llmQueryDisplay = document.getElementById('llmQueryDisplay');
+    const llmResponseDisplay = document.getElementById('llmResponseDisplay');
+    const executionResultDisplay = document.getElementById('executionResultDisplay');
+    const historyLogDisplay = document.getElementById('historyLogDisplay');
+    
+    const pauseButton = document.getElementById('pauseButton');
+    const pauseIcon = document.getElementById('pauseIcon');
+    let isPaused = false; // Local state to track pause status for UI updates
+
+    if (goalForm && goalInput && userGoalDisplay && formulatedObjectiveDisplay) { // Updated condition
+        goalForm.addEventListener('submit', function(e) {
+            e.preventDefault(); 
+            const goalValue = goalInput.value;
+
+            fetch('/set_goal', { // Changed from /set_objective
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ goal: goalValue }) // Changed from objective
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { 
+                        throw new Error(`Server error: ${response.status} - ${text || 'No error message'}`); 
+                    });
+                }
+                return response.json();
+            })
+            .then(data => { // Corrected syntax: added parentheses around data
+                if (data.goal) {
+                    userGoalDisplay.textContent = data.goal;
+                    console.log('Goal set to:', data.goal);
+                }
+                if (data.formulated_objective) { // Update formulated objective display if available
+                    formulatedObjectiveDisplay.textContent = data.formulated_objective;
+                }
+                goalInput.value = ''; // Clear input after submission
+            })
+            .catch(error => {
+                console.error('Error setting goal:', error);
+                if(userGoalDisplay) userGoalDisplay.textContent = 'Error setting goal. Check console.';
+            });
         });
-    });
-    
-    // Initialize EventSource for LLM stream updates
+    } else {
+        console.error('Goal form elements not found. Check HTML IDs: goalForm, goalInput, userGoalDisplay, formulatedObjectiveDisplay.');
+        if (!goalForm) console.error('goalForm is missing.');
+        if (!goalInput) console.error('goalInput is missing.');
+        if (!userGoalDisplay) console.error('userGoalDisplay is missing.');
+        if (!formulatedObjectiveDisplay) console.error('formulatedObjectiveDisplay is missing.');
+    }
+
+    // SSE for LLM stream updates
+    if (llmStreamContent) {
+        const eventSourceLlmStream = new EventSource('/llm_stream_updates');
+        eventSourceLlmStream.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.signal === '__STREAM_START__') {
+                    llmStreamContent.textContent = ''; // Clear content on new stream start
+                    console.log("LLM Stream started.");
+                } else if (data.signal === '__STREAM_END__') {
+                    console.log("LLM Stream ended.");
+                    // Optionally, do something on stream end, like re-enable a button or fetch final state.
+                    // The current server-side implementation doesn't explicitly close the EventSource from server,
+                    // but client can choose to close if needed, or server can send a specific "close" signal.
+                } else if (data.chunk) {
+                    llmStreamContent.textContent += data.chunk;
+                    // Auto-scroll to bottom if content overflows
+                    // llmStreamContent.scrollTop = llmStreamContent.scrollHeight; 
+                }
+            } catch (e) {
+                console.error("Error parsing LLM stream data: ", e, "Raw data:", event.data);
+                // Fallback for non-JSON data, though server should always send JSON
+                // llmStreamContent.textContent += event.data;
+            }
+        };
+        eventSourceLlmStream.onerror = function(err) {
+            console.error('LLM EventSource failed:', err);
+            // Consider closing and attempting to reconnect after a delay, or notifying the user.
+            // eventSourceLlmStream.close(); 
+        };
+    } else {
+        console.warn('llmStreamContent element not found in the DOM.');
+    }
+
+    // Function to fetch and display the entire operator state
+    function fetchAndUpdateOperatorState() {
+        fetch('/operator_state')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Server error fetching state: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (userGoalDisplay && data.user_goal && userGoalDisplay.textContent !== data.user_goal) {
+                    userGoalDisplay.textContent = data.user_goal;
+                }
+                if (formulatedObjectiveDisplay && data.formulated_objective && formulatedObjectiveDisplay.textContent !== data.formulated_objective) {
+                    formulatedObjectiveDisplay.textContent = data.formulated_objective;
+                }
+                // Update current operation display, but be mindful of pause state
+                if (currentOperationDisplay && data.current_operation) {
+                    if (isPaused && !data.current_operation.toLowerCase().includes('paused')) {
+                        // If locally we think it's paused, but server says something else (and not already 'paused')
+                        // We keep the 'Paused by user' message from the click handler for immediate feedback.
+                        // Or, we can let the server state override:
+                        // currentOperationDisplay.textContent = data.current_operation;
+                    } else if (!isPaused) {
+                        currentOperationDisplay.textContent = data.current_operation;
+                    }
+                }
+
+                if (visualAnalysisDisplay && data.current_visual_analysis) {
+                    visualAnalysisDisplay.textContent = data.current_visual_analysis;
+                }
+                if (thinkingProcessDisplay && data.current_thinking_process) {
+                    thinkingProcessDisplay.textContent = data.current_thinking_process;
+                }
+                if (stepsGeneratedDisplay && data.current_steps_generated) {
+                    if (Array.isArray(data.current_steps_generated) && data.current_steps_generated.length > 0) {
+                        stepsGeneratedDisplay.innerHTML = data.current_steps_generated.map(step => `<li>${escapeHtml(step)}</li>`).join('');
+                    } else if (Array.isArray(data.current_steps_generated) && data.current_steps_generated.length === 0 && stepsGeneratedDisplay.innerHTML !== "<li>Waiting for steps...</li>") {
+                        stepsGeneratedDisplay.innerHTML = "<li>No steps generated yet.</li>";
+                    } else if (typeof data.current_steps_generated === 'string') { // Handle if it's a string by mistake
+                        stepsGeneratedDisplay.innerHTML = `<li>${escapeHtml(data.current_steps_generated)}</li>`;
+                    }
+                }
+                // Update for Operations Generated
+                if (operationsGeneratedDisplay && data.current_operations_generated) {
+                    // Assuming data.current_operations_generated will be a string (e.g., JSON string of the operation)
+                    // If it's an object, you might want to JSON.stringify it here with indentation
+                    if (typeof data.current_operations_generated === 'object') {
+                        operationsGeneratedDisplay.textContent = JSON.stringify(data.current_operations_generated, null, 2);
+                    } else {
+                        operationsGeneratedDisplay.textContent = data.current_operations_generated;
+                    }
+                } else if (operationsGeneratedDisplay) {
+                    // Clear or set to default if no operations data
+                    operationsGeneratedDisplay.textContent = 'Waiting for operations...'; // Set a default message
+                }
+                
+                // LLM Query, Response, Execution Result, History Log - not explicitly in current HTML focus
+                // if (llmQueryDisplay && data.llm_query) { ... }
+                // if (llmResponseDisplay && data.llm_response) { ... }
+                // if (executionResultDisplay && data.execution_result) { ... }
+                // if (historyLogDisplay && data.history_log) { ... }
+
+                // LLM Stream content is handled by SSE, but we can update from polling as a fallback
+                // or if SSE is not active. However, this might cause jumpy text if SSE is also working.
+                // For now, let SSE be the primary source for llmStreamContent.
+                // if (llmStreamContent && data.llm_stream_content && llmStreamContent.textContent !== data.llm_stream_content) {
+                //    llmStreamContent.textContent = data.llm_stream_content;
+                // }
+            })
+            .catch(error => console.error('Error fetching operator state:', error));
+    }
+
+    // Fetch initial state and then poll for updates
+    fetchAndUpdateOperatorState();
+    setInterval(fetchAndUpdateOperatorState, 1000); // Poll every 1 second for general state
+
+    // Pause Button Functionality
+    if (pauseButton && pauseIcon) {
+        pauseButton.addEventListener('click', function() {
+            fetch('/control/toggle_pause', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        isPaused = data.is_paused;
+                        updatePauseButtonIcon();
+                        console.log('Pause state toggled to:', isPaused ? 'Paused' : 'Running');
+                        // Optionally, update a status display elsewhere in the UI
+                        if (currentOperationDisplay) {
+                            currentOperationDisplay.textContent = isPaused ? 'Paused by user' : 'Running...';
+                        }
+                    } else {
+                        console.error('Failed to toggle pause state:', data.message);
+                    }
+                })
+                .catch(error => console.error('Error toggling pause state:', error));
+        });
+
+        function updatePauseButtonIcon() {
+            if (isPaused) {
+                pauseIcon.src = '/static/imgs/play_icon.png'; // Assuming you have a play_icon.png
+                pauseIcon.alt = 'Resume';
+                pauseButton.title = 'Resume Automoy';
+            } else {
+                pauseIcon.src = '/static/imgs/pause_icon.png';
+                pauseIcon.alt = 'Pause';
+                pauseButton.title = 'Pause Automoy';
+            }
+        }
+        // Initial icon update based on fetched state (will be covered by polling fetchAndUpdateOperatorState)
+    } else {
+        console.error('Pause button or icon element not found.');
+    }
+
+    // Update fetchAndUpdateOperatorState to also update local isPaused and pause button icon
+    function fetchAndUpdateOperatorState() {
+        fetch('/operator_state')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Server error fetching state: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (userGoalDisplay && data.user_goal && userGoalDisplay.textContent !== data.user_goal) {
+                    userGoalDisplay.textContent = data.user_goal;
+                }
+                if (formulatedObjectiveDisplay && data.formulated_objective && formulatedObjectiveDisplay.textContent !== data.formulated_objective) {
+                    formulatedObjectiveDisplay.textContent = data.formulated_objective;
+                }
+                // Update current operation display, but be mindful of pause state
+                if (currentOperationDisplay && data.current_operation) {
+                    if (isPaused && !data.current_operation.toLowerCase().includes('paused')) {
+                        // If locally we think it's paused, but server says something else (and not already 'paused')
+                        // We keep the 'Paused by user' message from the click handler for immediate feedback.
+                        // Or, we can let the server state override:
+                        // currentOperationDisplay.textContent = data.current_operation;
+                    } else if (!isPaused) {
+                        currentOperationDisplay.textContent = data.current_operation;
+                    }
+                }
+
+                if (visualAnalysisDisplay && data.current_visual_analysis) {
+                    visualAnalysisDisplay.textContent = data.current_visual_analysis;
+                }
+                if (thinkingProcessDisplay && data.current_thinking_process) {
+                    thinkingProcessDisplay.textContent = data.current_thinking_process;
+                }
+                if (stepsGeneratedDisplay && data.current_steps_generated) {
+                    if (Array.isArray(data.current_steps_generated) && data.current_steps_generated.length > 0) {
+                        stepsGeneratedDisplay.innerHTML = data.current_steps_generated.map(step => `<li>${escapeHtml(step)}</li>`).join('');
+                    } else if (Array.isArray(data.current_steps_generated) && data.current_steps_generated.length === 0 && stepsGeneratedDisplay.innerHTML !== "<li>Waiting for steps...</li>") {
+                        stepsGeneratedDisplay.innerHTML = "<li>No steps generated yet.</li>";
+                    } else if (typeof data.current_steps_generated === 'string') { // Handle if it's a string by mistake
+                        stepsGeneratedDisplay.innerHTML = `<li>${escapeHtml(data.current_steps_generated)}</li>`;
+                    }
+                }
+                // Update for Operations Generated
+                if (operationsGeneratedDisplay && data.current_operations_generated) {
+                    // Assuming data.current_operations_generated will be a string (e.g., JSON string of the operation)
+                    // If it's an object, you might want to JSON.stringify it here with indentation
+                    if (typeof data.current_operations_generated === 'object') {
+                        operationsGeneratedDisplay.textContent = JSON.stringify(data.current_operations_generated, null, 2);
+                    } else {
+                        operationsGeneratedDisplay.textContent = data.current_operations_generated;
+                    }
+                } else if (operationsGeneratedDisplay) {
+                    // Clear or set to default if no operations data
+                    operationsGeneratedDisplay.textContent = 'Waiting for operations...'; // Set a default message
+                }
+                
+                // LLM Query, Response, Execution Result, History Log - not explicitly in current HTML focus
+                // if (llmQueryDisplay && data.llm_query) { ... }
+                // if (llmResponseDisplay && data.llm_response) { ... }
+                // if (executionResultDisplay && data.execution_result) { ... }
+                // if (historyLogDisplay && data.history_log) { ... }
+
+                // LLM Stream content is handled by SSE, but we can update from polling as a fallback
+                // or if SSE is not active. However, this might cause jumpy text if SSE is also working.
+                // For now, let SSE be the primary source for llmStreamContent.
+                // if (llmStreamContent && data.llm_stream_content && llmStreamContent.textContent !== data.llm_stream_content) {
+                //    llmStreamContent.textContent = data.llm_stream_content;
+                // }
+
+                // Update pause state and button icon from polled data
+                if (typeof data.is_paused === 'boolean' && isPaused !== data.is_paused) {
+                    isPaused = data.is_paused;
+                    if (pauseButton && pauseIcon) updatePauseButtonIcon();
+                }
+                // If operator status is "Paused" and local state is not, update currentOperationDisplay
+                if (data.operator_status === "Paused" && !isPaused && currentOperationDisplay) {
+                     currentOperationDisplay.textContent = "Paused"; // Reflect server's explicit pause status
+                } else if (data.operator_status === "Running" && isPaused && currentOperationDisplay) {
+                    // If server says running but UI was showing paused due to click, update it
+                    // currentOperationDisplay.textContent = data.current_operation || "Running...";
+                }
+
+            })
+            .catch(error => console.error('Error fetching operator state:', error));
+    }
+
+    // REMOVE OLD EventSource for /stream_llm as it's replaced by /llm_stream_updates and polling
+    /*
     const eventSource = new EventSource('/stream_llm');
     eventSource.onmessage = function(event) {
         const data = JSON.parse(event.data);
@@ -63,55 +334,49 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('EventSource failed:', error);
         eventSource.close();
     };
+    */
 
-    // Function to refresh operator state and update objective and coords
-    function refreshOperatorState() {
-        fetch('/get_operator_state')
-            .then(response => response.json())
-            .then(data => {
-                console.log('Operator state:', data);
-                // Update objective display
-                const objectiveEl = document.getElementById('objectiveDisplay');
-                if (objectiveEl && data.objective) {
-                    objectiveEl.textContent = 'Objective: ' + data.objective;
-                }
-                // Update coordinates display
-                const coordsEl = document.getElementById('coordsDisplay');
-                if (coordsEl && data.coords) {
-                    coordsEl.textContent = 'Coords: ' + data.coords;
-                }
-                // Update other UI elements as needed
-            })
-            .catch(error => {
-                console.error('Error refreshing operator state:', error);
-            });
-    }
+    // REMOVE refreshOperatorState and updateUIFromState as their functionality
+    // is covered by fetchAndUpdateOperatorState and the new SSE stream logic.
+    /*
+    function refreshOperatorState() { ... }
+    function updateUIFromState(state) { ... }
+    */
 
-    // New function to consolidate UI updates from operator state
-    function updateUIFromState(state) {
-        console.log('Updating UI from state:', state);
-        // Objective update
-        const objectiveEl = document.getElementById('objectiveDisplay');
-        if (objectiveEl && state.objective) {
-            objectiveEl.textContent = 'Objective: ' + state.objective;
-        }
-        // Coordinates update
-        const coordsEl = document.getElementById('coordsDisplay');
-        if (coordsEl && state.coords) {
-            coordsEl.textContent = 'Coords: ' + state.coords;
-        }
-        // Screenshot update
+    // Function to refresh the screenshot
+    function refreshScreenshot() {
         const imgElement = document.getElementById('screenshotImage');
-        if (imgElement && state.screenshot) {
-            imgElement.src = 'data:image/png;base64,' + state.screenshot;
-            imgElement.style.display = 'block';
-            const placeholderEl = document.getElementById('screenshotPlaceholder');
-            placeholderEl.style.display = 'none';
+        const placeholder = document.getElementById('screenshotPlaceholder');
+        if (!imgElement || !placeholder) {
+            console.error('Screenshot image element or placeholder not found.');
+            return;
         }
-        // Update other UI elements as needed
+
+        // Add a cache-busting query parameter
+        const timestamp = new Date().getTime();
+        const screenshotUrl = `/automoy_current.png?t=${timestamp}`;
+        console.log("Refreshing screenshot from:", screenshotUrl);
+
+        imgElement.src = screenshotUrl; 
+
+        imgElement.onload = () => {
+            console.log("Screenshot loaded successfully.");
+            imgElement.style.display = 'block';
+            placeholder.style.display = 'none';
+        };
+        imgElement.onerror = () => {
+            console.error("Error loading screenshot. It might not be available yet or path is incorrect.");
+            imgElement.style.display = 'none';
+            placeholder.style.display = 'block';
+            // Optionally, try again after a short delay or revert to placeholder text
+            placeholder.textContent = 'Error loading screenshot. Waiting for next update...';
+        };
     }
 
-    // Escape HTML helper function
+    // Expose refreshScreenshot to global scope if not already (e.g., for pywebview evaluate_js)
+    window.refreshScreenshot = refreshScreenshot;
+
+    // Escape HTML helper function (keep if used, otherwise can be removed)
     function escapeHtml(unsafe) {
         return unsafe
             .replace(/&/g, "&amp;")

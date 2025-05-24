@@ -43,6 +43,9 @@ BASE_DIR = os.path.dirname(__file__)
 CONFIG_PATH = os.path.join(BASE_DIR, "config.txt")
 print(f"[GUI_LOAD] BASE_DIR: {BASE_DIR}", flush=True)
 
+# Define path for the processed screenshot, relative to project root
+PROCESSED_SCREENSHOT_PATH_FROM_ROOT = Path("core") / "utils" / "omniparser" / "processed_screenshot.png"
+
 # AutomoyOperator is NOT initialized or managed by gui.py
 # operator: AutomoyOperator | None = None # REMOVE THIS
 # Global variable to hold the window instance, initialized to None
@@ -134,8 +137,8 @@ async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 # --- Global state for Automoy GUI ---
-current_user_goal: str = "" # Renamed from current_objective
-current_formulated_objective: str = "" # New state for LLM formulated objective
+current_user_goal: str = "" # User's direct input
+current_formulated_objective: str = "" # LLM-generated objective
 operator_status: str = "Idle" # Idle, Running, Paused, Error
 gui_log_messages: List[str] = [] # For general logs in GUI
 
@@ -143,10 +146,14 @@ gui_log_messages: List[str] = [] # For general logs in GUI
 current_visual_analysis: str = "Waiting for visual analysis..."
 current_thinking_process: str = "Waiting for thinking process..."
 current_steps_generated: List[str] = [] # Store as a list of strings
+current_operations_generated: Dict[str, Any] = {} # For the new "Operations Generated" section
 current_operation_display: str = "No operation active."
 past_operation_display: str = "No past operations yet."
 processed_screenshot_available: bool = False
 llm_stream_content: str = "" # New global variable for LLM stream
+
+# Pause state
+is_paused: bool = False
 
 # Queue for SSE LLM stream updates
 llm_stream_queue = asyncio.Queue()
@@ -155,7 +162,7 @@ llm_stream_queue = asyncio.Queue()
 class GoalData(BaseModel): # Renamed from ObjectiveData
     goal: str
 
-class ObjectiveData(BaseModel): # For internal objective setting by LLM perhaps
+class ObjectiveData(BaseModel): # For LLM-formulated objective
     objective: str
 
 class LogMessage(BaseModel):
@@ -165,56 +172,141 @@ class StateUpdateText(BaseModel):
     text: str
 
 class StateUpdateSteps(BaseModel):
-    steps: List[str]
+    list: List[str] # Changed from steps to list to match operate.py
+
+class StateUpdateDict(BaseModel): # For operations generated
+    current_operations_generated: Dict[str, Any]
 
 class LLMStreamChunk(BaseModel):
     chunk: str
 
-@app.post("/set_goal") # Renamed from /set_objective
-async def set_goal_endpoint(data: GoalData):
+@app.post("/state/visual")
+async def update_visual_state(data: StateUpdateText):
+    global current_visual_analysis
+    print(f"[GUI /state/visual] Received visual analysis update: {data.text[:100]}...", flush=True)
+    current_visual_analysis = data.text
+    return {"message": "Visual analysis state updated"}
+
+@app.post("/state/thinking") # Added endpoint
+async def update_thinking_state(data: StateUpdateText):
+    global current_thinking_process
+    print(f"[GUI /state/thinking] Received thinking process update: {data.text[:100]}...", flush=True)
+    current_thinking_process = data.text
+    return {"message": "Thinking process state updated"}
+
+@app.post("/state/steps_generated") # Added endpoint
+async def update_steps_state(data: StateUpdateSteps):
+    global current_steps_generated
+    print(f"[GUI /state/steps_generated] Received steps update: {data.list}", flush=True)
+    current_steps_generated = data.list
+    return {"message": "Steps generated state updated"}
+
+@app.post("/state/operations_generated") # Added endpoint
+async def update_operations_state(data: StateUpdateDict): # Assuming StateUpdateDict is appropriate
+    global current_operations_generated
+    print(f"[GUI /state/operations_generated] Received operations update: {data.current_operations_generated}", flush=True)
+    current_operations_generated = data.current_operations_generated
+    return {"message": "Operations generated state updated"}
+
+@app.post("/state/current_operation") # Added endpoint
+async def update_current_operation_state(data: StateUpdateText):
+    global current_operation_display
+    print(f"[GUI /state/current_operation] Received current operation update: {data.text}", flush=True)
+    current_operation_display = data.text
+    return {"message": "Current operation state updated"}
+
+@app.post("/state/last_action_result") # Added endpoint
+async def update_last_action_result_state(data: StateUpdateText): # Assuming text, adjust if it's dict
+    global past_operation_display # Or a new variable if preferred
+    print(f"[GUI /state/last_action_result] Received last action result: {data.text}", flush=True)
+    past_operation_display = data.text # Update past_operation_display or a dedicated one
+    return {"message": "Last action result updated"}
+
+@app.post("/state/screenshot") # Added endpoint for screenshot path
+async def update_screenshot_state(payload: dict): # Generic dict payload
+    global processed_screenshot_available, window_global_ref # Added window_global_ref
+    # Path is expected in payload.get("path")
+    # Timestamp in payload.get("timestamp")
+    print(f"[GUI /state/screenshot] Received screenshot update notification: {payload}", flush=True)
+    new_screenshot_path = payload.get("path")
+    if new_screenshot_path: # Check if a path was provided in the payload
+        processed_screenshot_available = True
+        # The client-side script.js already handles refreshing the image src with a timestamp
+        # by calling refreshScreenshot(). We can also try to trigger it from here.
+        if window_global_ref:
+            try:
+                # Ensure the JS function refreshScreenshot() is called
+                js_command = "if (typeof refreshScreenshot === 'function') { refreshScreenshot(); console.log('[GUI /state/screenshot] JS refreshScreenshot called.'); } else { console.error('[GUI /state/screenshot] refreshScreenshot function not defined in JS.'); }"
+                window_global_ref.evaluate_js(js_command)
+                print(f"[GUI /state/screenshot] Executed JS command: {js_command}", flush=True)
+            except Exception as e:
+                print(f"[GUI /state/screenshot][ERROR] Failed to execute JS for screenshot refresh: {e}", flush=True)
+        else:
+            print("[GUI /state/screenshot][WARN] window_global_ref not available to trigger JS screenshot refresh.", flush=True)
+    else:
+        print("[GUI /state/screenshot] Screenshot update notification received, but no path provided in payload. Screenshot availability might not change.", flush=True)
+        # processed_screenshot_available might remain false or its previous state if no path is given
+        
+    return {"message": "Screenshot state updated and JS refresh attempted if path provided"}
+
+@app.post("/state/clear_all_operational_data")
+async def clear_all_operational_data_endpoint(_: Request): # Use _ if request not directly used
     global current_user_goal, current_formulated_objective, operator_status
+    global current_visual_analysis, current_thinking_process, current_steps_generated
+    global current_operations_generated, current_operation_display, past_operation_display
+    global processed_screenshot_available, llm_stream_content, is_paused
+
+    print("[GUI /state/clear_all_operational_data] Clearing all operational data.", flush=True)
+    # current_user_goal = "" # Keep user goal unless explicitly cleared by new goal submission
+    # current_formulated_objective = "" # Keep formulated objective until new one is made
+    # operator_status = "Idle" # Keep operator status, should be managed by main flow
+
+    current_visual_analysis = "Waiting for visual analysis..."
+    current_thinking_process = "Waiting for thinking process..."
+    current_steps_generated = []
+    current_operations_generated = {}
+    current_operation_display = "No operation active."
+    past_operation_display = "No past operations yet."
+    processed_screenshot_available = False
+    llm_stream_content = ""
+    # is_paused = False # Do not reset pause state here, it's user controlled
+
+    return {"message": "All operational display data cleared"}
+
+@app.post("/set_goal") # Renamed from /set_objective
+async def set_goal_endpoint(data: GoalData): # Was: set_objective_endpoint(data: ObjectiveData)
+    global current_user_goal, current_formulated_objective, operator_status 
     global current_visual_analysis, current_thinking_process, current_steps_generated
     global current_operation_display, past_operation_display, processed_screenshot_available, llm_stream_content
 
     current_user_goal = data.goal
-    current_formulated_objective = "Thinking about the goal..." # Initial placeholder
-    operator_status = "ProcessingGoal" # New status
+    current_formulated_objective = "AI is formulating the objective..." # Placeholder
+    operator_status = "ProcessingGoal" 
     
     # Clear previous operational state when a new goal is set
     current_visual_analysis = "Waiting for objective formulation..."
     current_thinking_process = ""
     current_steps_generated = []
-    current_operation_display = "Formulating objective..."
+    current_operation_display = "Formulating objective from goal..." 
     past_operation_display = "" 
     processed_screenshot_available = False
-    llm_stream_content = "" # Clear LLM stream for new goal processing
+    llm_stream_content = "" 
 
     print(f"[GUI] Goal received: {current_user_goal}")
-    # In a real scenario, this is where you would trigger the LLM to formulate the objective.
-    # For now, we'll simulate it or let main.py handle it.
-    # We won't directly set current_formulated_objective here from the LLM yet.
-    # That will be updated by a call from the backend (e.g., main.py or operate.py)
-    # via a new endpoint or an existing state update mechanism.
+    # The actual LLM call to formulate the objective will be triggered by main.py
+    # after it polls /operator_state and sees a new goal.
 
-    return {"message": "Goal set, awaiting objective formulation", "goal": current_user_goal}
+    return {"message": "Goal set, awaiting AI objective formulation", "goal": current_user_goal, "formulated_objective": current_formulated_objective}
 
-# New endpoint for the backend to update the formulated objective
+# New endpoint for the backend (main.py) to update the formulated objective
 @app.post("/state/formulated_objective")
 async def update_formulated_objective_state(data: ObjectiveData):
     global current_formulated_objective, operator_status
     current_formulated_objective = data.objective
-    # Potentially change status if formulation is complete
     if operator_status == "ProcessingGoal" and current_formulated_objective:
-        operator_status = "Idle" # Or "ReadyToRun" or similar, awaiting user confirmation or auto-start
-        # If auto-starting, main.py would now pick up this formulated objective.
-    print(f"[GUI] Formulated objective updated: {current_formulated_objective}")
-    return {"message": "Formulated objective updated"}
-
-@app.post("/state/visual")
-async def update_visual_state(data: StateUpdateText):
-    global current_visual_analysis
-    current_visual_analysis = data.text
-    return {"message": "Visual analysis updated"}
+        operator_status = "ObjectiveFormulated" # Or "ReadyToRun"
+    print(f"[GUI] Formulated objective updated by backend: {current_formulated_objective}", flush=True)
+    return {"message": "Formulated objective updated successfully", "formulated_objective": current_formulated_objective}
 
 @app.post("/state/thinking")
 async def update_thinking_state(data: StateUpdateText):
@@ -225,8 +317,15 @@ async def update_thinking_state(data: StateUpdateText):
 @app.post("/state/steps")
 async def update_steps_state(data: StateUpdateSteps):
     global current_steps_generated
-    current_steps_generated = data.steps
+    current_steps_generated = data.list # Changed from data.steps
     return {"message": "Steps updated"}
+
+@app.post("/state/operations_generated") # New endpoint
+async def update_operations_generated_state(data: StateUpdateDict):
+    global current_operations_generated
+    current_operations_generated = data.current_operations_generated
+    print(f"[GUI /state/operations_generated] Received operations: {current_operations_generated}", flush=True)
+    return {"message": "Operations generated updated"}
 
 @app.post("/state/current_operation")
 async def update_current_operation_state(data: StateUpdateText):
@@ -244,34 +343,47 @@ async def update_past_operation_state(data: StateUpdateText):
     past_operation_display = data.text
     return {"message": "Past operation updated"}
 
+@app.get("/automoy_current.png")
+async def get_current_screenshot(request: Request):
+    # Serve the processed screenshot that is copied to gui/static/
+    # This aligns with what operate.py sets as active_screenshot_for_llm_gui
+    # and what OmniParser is expected to copy.
+    processed_image_in_static_abs_path = PROJECT_ROOT / "gui" / "static" / "processed_screenshot.png"
+    print(f"[GUI_SCREENSHOT_ENDPOINT] Attempting to serve: {processed_image_in_static_abs_path}", flush=True)
+
+    if not processed_image_in_static_abs_path.exists():
+        print(f"[GUI_SCREENSHOT_ENDPOINT][ERROR] Processed screenshot not found at {processed_image_in_static_abs_path}", flush=True)
+        # Fallback: Try to serve the raw automoy_current.png from the project root if the processed one isn\'t there
+        # This fallback might be less relevant if the primary path is the one always updated.
+        fallback_path = PROJECT_ROOT / "automoy_current.png" # A raw capture, if it exists
+        if fallback_path.exists():
+            print(f"[GUI_SCREENSHOT_ENDPOINT][FALLBACK] Serving raw screenshot: {fallback_path}", flush=True)
+            return FileResponse(str(fallback_path), media_type="image/png")
+        raise HTTPException(status_code=404, detail="Processed screenshot (gui/static/processed_screenshot.png) not found.")
+    
+    return FileResponse(str(processed_image_in_static_abs_path), media_type="image/png")
+
 @app.post("/state/screenshot_processed")
 async def screenshot_processed_notification():
     global processed_screenshot_available, window_global_ref
     processed_screenshot_available = True
-    print("[GUI FastAPI] Screenshot processed notification received. Updating state and notifying client.", flush=True)
+    print("[GUI FastAPI] Screenshot processed notification received. Triggering JS refresh.", flush=True)
     if window_global_ref:
         try:
-            message_payload = {"type": "screenshot_processed", "data": {}}
-            # Ensure the message_payload is a valid JSON string for JS
-            js_command = f"if (typeof window.handleWsMessage === 'function') {{ window.handleWsMessage('{json.dumps(message_payload)}'); }} else {{ console.error('window.handleWsMessage not defined in JS'); }}"
+            # Directly call refreshScreenshot in JS
+            js_command = "if (typeof refreshScreenshot === 'function') { refreshScreenshot(); console.log('JS refreshScreenshot called.'); } else { console.error('refreshScreenshot function not defined in JS.'); }"
             window_global_ref.evaluate_js(js_command)
-            print(f"[GUI FastAPI] Sent screenshot_processed message to JS: {js_command}", flush=True)
+            print(f"[GUI FastAPI] Executed JS command: {js_command}", flush=True)
         except Exception as e:
-            print(f"[GUI FastAPI][ERROR] Failed to send screenshot_processed message to JS: {e}", flush=True)
+            print(f"[GUI FastAPI][ERROR] Failed to execute JS for screenshot refresh: {e}", flush=True)
     else:
-        print("[GUI FastAPI][WARN] window_global_ref not available to send JS message for screenshot_processed.", flush=True)
-    return {"message": "Screenshot processed and available"}
+        print("[GUI FastAPI][WARN] window_global_ref not available to trigger JS screenshot refresh.", flush=True)
+    return {"message": "Screenshot processed, JS refresh triggered"}
 
 @app.post("/state/clear_all_operational_data")
 async def clear_all_operational_data():
     global current_visual_analysis, current_thinking_process, current_steps_generated
     global current_operation_display, past_operation_display, processed_screenshot_available
-    current_visual_analysis = "Waiting for visual analysis..."
-    current_thinking_process = "Waiting for thinking process..."
-    current_steps_generated = []
-    current_operation_display = "No operation active."
-    past_operation_display = "No past operations yet."
-    processed_screenshot_available = False
     # current_objective and operator_status might be preserved or reset based on desired logic
     # For now, this focuses on the operational display fields.
     return {"message": "Operational display data cleared"}
@@ -300,35 +412,24 @@ async def receive_llm_stream_chunk(data: LLMStreamChunk):
 async def stream_llm_updates(request: Request):
     async def event_generator():
         while True:
-            # Wait for a new message in the queue
-            try:
-                # Check for client disconnect
-                if await request.is_disconnected():
-                    print("[GUI SSE] Client disconnected from LLM stream.")
-                    break
-                
-                chunk = await llm_stream_queue.get()
-                if chunk == "__STREAM_END__":
-                    yield f"data: {chunk}\\n\\n"
-                    # Optionally, break or continue listening for new streams
-                    # For now, let's assume a stream end means this particular stream is done.
-                    # A new stream would start with __STREAM_START__ again.
-                elif chunk == "__STREAM_START__":
-                    yield f"data: {chunk}\\n\\n"
-                else:
-                    # Escape newlines in the chunk for proper SSE formatting if chunk contains them
-                    formatted_chunk = chunk.replace("\\n", "\\\\n") # Escape backslashes then newlines
-                    yield f"data: {formatted_chunk}\\n\\n"
-                
-                llm_stream_queue.task_done() # Notify queue that item processing is complete
-            except asyncio.CancelledError:
-                print("[GUI SSE] LLM stream event_generator cancelled.")
+            # Wait for the next item from the queue.
+            item = await llm_stream_queue.get()
+            if item is None:  # A way to signal the end from the queue producer if needed
                 break
-            except Exception as e:
-                print(f"[GUI SSE][ERROR] Error in LLM stream event_generator: {e}")
-                # Decide if to break or continue based on error type
-                break 
-    
+            if await request.is_disconnected():
+                print("[SSE] Client disconnected from LLM stream.")
+                break
+            
+            # Send data strictly as JSON with a "chunk" key, or handle signals
+            if item == "__STREAM_START__":
+                yield f"data: {json.dumps({'signal': '__STREAM_START__'})}\\n\\n"
+            elif item == "__STREAM_END__":
+                yield f"data: {json.dumps({'signal': '__STREAM_END__'})}\\n\\n"
+                # Optionally, could send a close signal or the server could manage connection lifecycle.
+                # For now, just passing the signal.
+            else:
+                yield f"data: {json.dumps({'chunk': item})}\\n\\n"
+            await asyncio.sleep(0.01) # Small delay to prevent tight loop issues if queue is spammed
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @app.get("/health")
@@ -337,30 +438,35 @@ async def health_check():
     return {"status": "healthy", "message": "GUI server is responsive."}
 
 @app.get("/operator_state")
-async def get_operator_state_endpoint(): 
-    global processed_screenshot_available, current_user_goal, current_formulated_objective, operator_status, gui_log_messages
-    global current_visual_analysis, current_thinking_process, current_steps_generated
-    global current_operation_display, past_operation_display, llm_stream_content
-
-    screenshot_path = os.path.join(BASE_DIR, "static", "processed_screenshot.png")
-    if os.path.exists(screenshot_path) and os.path.getsize(screenshot_path) > 0:
-        processed_screenshot_available = True
-    else:
-        processed_screenshot_available = False
-            
+async def get_operator_state_endpoint(): # Ensure this endpoint exists and returns current_objective
     return {
-        "user_goal": current_user_goal, # Changed from objective
-        "formulated_objective": current_formulated_objective, # Added
-        "status": operator_status,
-        "log_messages": gui_log_messages[-20:], 
-        "visual_analysis": current_visual_analysis,
-        "thinking_process": current_thinking_process,
-        "steps_generated": current_steps_generated,
-        "current_operation": current_operation_display,
-        "past_operation": past_operation_display,
-        "screenshot_available": processed_screenshot_available,
-        "llm_stream_content": llm_stream_content, 
+        "user_goal": current_user_goal, 
+        "formulated_objective": current_formulated_objective, 
+        "operator_status": operator_status,
+        "current_visual_analysis": current_visual_analysis,
+        "current_thinking_process": current_thinking_process,
+        "current_steps_generated": current_steps_generated,
+        "current_operations_generated": current_operations_generated, # Added
+        "current_operation": current_operation_display, 
+        "past_operation": past_operation_display, 
+        "llm_query": "", 
+        "llm_response": "", 
+        "execution_result": "", 
+        "history_log": gui_log_messages, 
+        "screenshot_processed": processed_screenshot_available,
+        "llm_stream_content": llm_stream_content,
+        "is_paused": is_paused # Added pause state
     }
+
+@app.post("/control/toggle_pause") # New endpoint for pause
+async def toggle_pause_operator():
+    global is_paused # Ensure we are modifying the global variable
+    is_paused = not is_paused
+    status = "paused" if is_paused else "running"
+    print(f"[GUI /control/toggle_pause] Pause state toggled. New state: {'paused' if is_paused else 'running'}", flush=True) # Added flush
+    # The operator_status should reflect the actual operational state, not just pause.
+    # For now, just return the pause status.
+    return {"message": f"Operator {status}", "is_paused": is_paused}
 
 @app.post("/command")
 async def main_command(command: str = Form(...)):

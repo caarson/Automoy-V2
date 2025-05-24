@@ -231,47 +231,56 @@
       <div class="left-panel">
         <!-- branding -->
         <div class="logo-title-row">
-          <img src="/static/imgs/logo.png" alt="Automoy Logo" class="logo-img" />
-          <span class="title-separator">|</span>
-          <span class="main-title">Automoy</span>
-        </div>
-        <div id="objectiveDisplay" class="objective-display">Objective: Waiting...</div>
-
-        <!-- reasoning blocks -->
-        <div class="reasoning-block">
-          <div class="reasoning-section">
-            <span class="reasoning-label">LLM Stream:</span>
-            <span id="llmStreamContent">Waiting for LLM stream...</span>
-          </div>
-          <div class="reasoning-section">
-            <span class="reasoning-label">Visual Analysis:</span>
-            <span id="visualText">Waiting for visual analysis...</span>
-          </div>
-          <div class="reasoning-section">
-            <span class="reasoning-label">Thinking Process:</span>
-            <span id="thinkingText">Waiting for thinking process...</span>
-          </div>
-          <div class="reasoning-section">
-            <span class="reasoning-label">Steps:</span>
-            <span id="stepsText">Waiting for steps...</span>
-          </div>
+          <img src="/static/imgs/logo.png" alt="Logo" class="logo-img" />
+          <span class="title-separator"></span>
+          <h1 class="main-title">Automoy</h1>
         </div>
 
-        <!-- objective input -->
-        <form id="objectiveForm" class="objective-form" autocomplete="off">
+        <!-- User Goal Display -->
+        <div class="reasoning-section">
+            <div class="reasoning-label">User Goal:</div>
+            <span id="userGoalDisplay">Enter your goal below and press Send.</span>
+        </div>
+
+        <!-- Formulated Objective Display -->
+        <div class="reasoning-section" style="margin-top: 16px;">
+            <div class="reasoning-label">AI Formulated Objective:</div>
+            <span id="formulatedObjectiveDisplay">Waiting for AI...</span>
+        </div>
+        
+        <div class="reasoning-block" style="margin-top: 24px;">
+          <div class="reasoning-section">
+            <div class="reasoning-label">Visual Analysis:</div>
+            <span id="visualAnalysisDisplay">Waiting for visual analysis...</span>
+          </div>
+          <div class="reasoning-section">
+            <div class="reasoning-label">Thinking Process:</div>
+            <span id="thinkingProcessDisplay">Waiting for thinking process...</span>
+          </div>
+          <div class="reasoning-section">
+            <div class="reasoning-label">Steps Generated:</div>
+            <ul id="stepsGeneratedList">
+              <li>No steps generated yet.</li>
+            </ul>
+          </div>
+
+          <div class="reasoning-section">
+            <div class="reasoning-label">Operations Generated:</div>
+            <pre id="operationsGeneratedText">Waiting for operations...</pre>
+          </div>
+
+        </div>
+
+        <!-- Goal Input Form -->
+        <form id="goalForm" class="objective-form">
           <input
             type="text"
-            id="objectiveInput"
-            placeholder="Enter your objective..."
-            autocomplete="off"
+            id="goalInput"
+            placeholder="Enter your goal for Automoy..."
           />
-          <button type="submit" class="send-btn">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
+          <button type="submit" class="send-btn">SEND</button>
         </form>
-
-        <!-- coords display -->
-        <div id="coordsDisplay" class="coords-display">Coords: N/A</div>
+        <!-- <div id="coordsDisplay" class="coords-display">Coords: N/A</div> -->
       </div>
 
       <!-- RIGHT PANEL -->
@@ -286,7 +295,7 @@
             Waiting for frame
           </div>
           <img
-            id="screenshotImg"
+            id="screenshotImage"
             class="screenshot-img"
             src=""
             alt="Processed Screenshot"
@@ -297,17 +306,30 @@
         </div>
 
         <div class="operation-row">
-          <div class="operation-block">
-            <span class="operation-label">Past Operation:</span>
-            <span id="pastOperation">{No past operation}</span>
-          </div>
-          <div class="operation-block">
-            <span class="operation-label">Current Operation:</span>
-            <span id="currentOperation">{No current operation}</span>
-          </div>
-          <button id="pauseBtn" class="pause-btn">
-            <img src="/static/imgs/pause_button.png" alt="Pause" />
-          </button>
+          <div class="operation-status">
+          <div class="operation-label">Current:</div>
+          <span id="currentOperationDisplay">Idle</span>
+        </div>
+        <div class="operation-status">
+          <div class="operation-label">Past:</div>
+          <span id="pastOperationDisplay">None</span>
+        </div>
+        <!-- LLM Query, Response, Execution Result (Optional) -->
+        <!-- These can be added if detailed LLM interaction display is needed -->
+        <!-- <div class="operation-status">
+          <div class="operation-label">LLM Query:</div>
+          <span id="llmQueryDisplay"></span>
+        </div>
+        <div class="operation-status">
+          <div class="operation-label">LLM Response:</div>
+          <span id="llmResponseDisplay"></span>
+        </div>
+        <div class="operation-status">
+          <div class="operation-label">Execution Result:</div>
+          <span id="executionResultDisplay"></span>
+        </div> -->
+        <div class="pause-btn" id="pauseButton" title="Toggle Pause/Resume">
+            <img id="pauseIcon" src="/static/imgs/pause_icon.png" alt="Pause" />
         </div>
       </div>
     </div>

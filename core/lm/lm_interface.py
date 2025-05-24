@@ -91,6 +91,11 @@ def handle_llm_response(response, os_interface, parsed_ui=None, screenshot_path=
 class MainInterface:
     """High‑level interface for obtaining the next UI action from an LLM."""
 
+    def __init__(self):  # Add __init__
+        self.config = Config()
+        self.api_source, _ = self.config.get_api_source()
+        print(f"[MainInterface] Initialized with API source: {self.api_source}")
+
     async def get_next_action(self, model, messages, objective, session_id, screenshot_path):
         """
         Send the `messages` conversation context to the chosen model and
@@ -99,12 +104,9 @@ class MainInterface:
         Returns:
             tuple[str, str, None]: (response_text, session_id, None)
         """
-        print(f"[MainInterface] Using model: {model}")
+        print(f"[MainInterface] Using model: {model} via API source: {self.api_source}")  # Updated log
 
-        config = Config()
-        api_source, _ = config.get_api_source()
-
-        if api_source == "openai":
+        if self.api_source == "openai":
             # call_openai_model now returns a string (either JSON string for actions, or plain text for other stages)
             response_str = await call_openai_model(messages, objective, model)
             
@@ -117,7 +119,7 @@ class MainInterface:
             # The `DEBUG` print might show a JSON string or plain text.
             print(f"[DEBUG] OpenAI Response String: {response_str}") 
             return (response_str, session_id, None)
-        elif api_source == "lmstudio":
+        elif self.api_source == "lmstudio":
             response = await call_lmstudio_model(messages, objective, model)
             print(f"[DEBUG] LMStudio Response: {response}")
             return (response, session_id, None)
