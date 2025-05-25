@@ -337,11 +337,17 @@ function updateOperationalState(data) {
     // Handle last_action to update "Operations Generated" and "Past Operation"
     if (data.last_action) {
         const la = data.last_action;
-        const operationsContent = document.getElementById('operationsGeneratedContent');
+        const operationsDisplay = document.getElementById('operationsGeneratedText'); // Corrected ID from operationsGeneratedContent to operationsGeneratedText
         const pastOpDisplay = document.getElementById('pastOperationDisplay');
 
-        if (operationsContent) {
-            operationsContent.textContent = JSON.stringify(la.action || {}, null, 2);
+        if (operationsDisplay) { // Check if the element exists
+            if (la.action && typeof la.action === 'object') {
+                operationsDisplay.textContent = JSON.stringify(la.action, null, 2);
+            } else if (la.action) { // If la.action is a string or other primitive
+                operationsDisplay.textContent = la.action;
+            } else {
+                operationsDisplay.textContent = 'No action data available in last_action.';
+            }
         }
 
         if (pastOpDisplay) {

@@ -1,0 +1,44 @@
+{
+  "title": "Opening Google Chrome",
+  "created": "2025-05-24T21:16:00",
+  "steps": [
+    {
+      "step_id": 1,
+      "description": "Return to the Desktop using the Windows+D shortcut",
+      "action_type": "keyboard",
+      "action": {
+        "keys": ["win", "d"]
+      },
+      "context_anchor": "none"
+    },
+    {
+      "step_id": 2,
+      "description": "Open the Start Menu",
+      "action_type": "keyboard",
+      "action": {
+        "keys": ["win"]
+      },
+      "context_anchor": "none"
+    },
+    {
+      "step_id": 3,
+      "description": "Type 'Google Chrome'",
+      "action_type": "keyboard",
+      "action": {
+        "text": "Google Chrome"
+      },
+      "context_anchor": "start_menu"
+    },
+    {
+      "step_id": 4,
+      "description": "Press Enter to launch Chrome",
+      "action_type": "keyboard",
+      "action": {
+        "keys": ["enter"]
+      },
+      "context_anchor": "search_result_google_chrome"
+    }
+  ],
+  "tags": ["automation", "chrome", "basic"],
+  "version": "1.0"
+}

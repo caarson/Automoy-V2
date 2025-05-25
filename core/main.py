@@ -353,20 +353,21 @@ async def manage_pause_event_concurrently(pause_event_ref: asyncio.Event):
 
                 if is_gui_paused: # GUI wants to pause
                     if pause_event_ref.is_set(): # Operator is currently running
-                        logger.info("GUI requests PAUSE. Clearing asyncio.Event (pausing operator).", flush=True) # Log
+                        logger.info("GUI requests PAUSE. Clearing asyncio.Event (pausing operator).")
                         pause_event_ref.clear()
                 else: # GUI wants to run (not paused)
                     if not pause_event_ref.is_set(): # Operator is currently paused
-                        logger.info("GUI requests RESUME. Setting asyncio.Event (resuming operator).", flush=True) # Log
+                        logger.info("GUI requests RESUME. Setting asyncio.Event (resuming operator).")
                         pause_event_ref.set()
             else: # Optional: log if GUI state cannot be fetched
-                logger.warning(f"Could not get operator_state from GUI (status: {resp.status_code}). Retrying.", flush=True) # Log
+                logger.warning(f"Could not get operator_state from GUI (status: {resp.status_code}). Retrying.")
 
         except httpx.RequestError as e_httpx: # More specific exception for network issues with httpx
-            logger.warning(f"HTTP Error polling GUI state: {e_httpx}. Retrying.", flush=True) # Log
-            pass
+            logger.warning(f"HTTP Error polling GUI state: {e_httpx}. Retrying.")
+            # Removed flush=True as it's not a valid argument for logger methods
         except Exception as e: # Catch other unexpected errors
-            logger.error(f"Unexpected error in pause manager: {e}. Retrying.", flush=True) # Log
+            logger.error(f"Unexpected error in pause manager: {e}. Retrying.")
+            # Removed flush=True
         
         await asyncio.sleep(0.2) # Poll interval (e.g., 0.2 seconds)
 
