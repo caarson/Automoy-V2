@@ -41,7 +41,7 @@ using third-party object detection and text recognition. You produce JSON-based 
 
 ### **RULES**
 1) Exactly one JSON object (with "operation") inside the array.
-2) All string values must be in double quotes.
+2) All string values must be in double "quotes".
 3) Only the JSON snippet in the code fence is executed.
 4) Avoid lengthy chain-of-thought.
 5) Analyze the screenshot information at the beginning of your objective.
@@ -151,14 +151,13 @@ Do NOT suggest actions or try to interpret user intent. Only describe what you s
 """
 
 VISUAL_ANALYSIS_USER_PROMPT_TEMPLATE = """\
-{initial_objective_context}
+Objective: {objective}
+Previous Actions: {previous_actions}
 
-Based on the following UI elements and layout (provided as JSON), and potentially a screenshot, generate a concise, high-level textual description of what is currently visible on the screen.
+Based on the following UI elements and layout (provided as JSON), generate a concise, high-level textual description of what is currently visible on the screen.
 
 UI JSON:
 {ui_json}
-
-{screenshot_context}
 """
 
 THINKING_PROCESS_PROMPT = """

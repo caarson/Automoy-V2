@@ -9,6 +9,48 @@ PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 print(f"[GUI_LOAD] Project root added to sys.path: {PROJECT_ROOT}", flush=True)
 
+import logging
+import logging.handlers
+# Ensure this sys import is available for the logger if not already imported above
+# import sys 
+
+# Determine project root to correctly path to logs directory
+# PROJECT_ROOT is already defined above
+GUI_LOG_FILE_PATH = os.path.join(PROJECT_ROOT, "debug", "logs", "gui", "gui_output.log")
+
+def setup_gui_logging():
+    log_dir = os.path.dirname(GUI_LOG_FILE_PATH)
+    os.makedirs(log_dir, exist_ok=True)
+
+    gui_logger = logging.getLogger("GUI") # Specific logger for GUI
+    
+    # Clear existing handlers for this logger to avoid duplication
+    if gui_logger.hasHandlers():
+        gui_logger.handlers.clear()
+
+    gui_logger.setLevel(logging.DEBUG) 
+
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - [%(module)s.%(funcName)s:%(lineno)d] - %(message)s')
+
+    # File Handler for GUI logs
+    fh = logging.FileHandler(GUI_LOG_FILE_PATH, mode='w') # Changed mode to 'w'
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(formatter)
+    gui_logger.addHandler(fh)
+
+    # Console Handler for GUI logs
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.INFO) 
+    ch.setFormatter(formatter)
+    gui_logger.addHandler(ch)
+    
+    gui_logger.info(f"GUI Logging initialized. Log file: {GUI_LOG_FILE_PATH}. Console level: INFO, File level: DEBUG.")
+
+# Call setup_logging() once, early in the script.
+setup_gui_logging()
+logger = logging.getLogger("GUI") # Use the GUI-specific logger
+
+# Now continue with other imports
 import webbrowser
 import threading
 import shutil
@@ -31,6 +73,9 @@ import uvicorn  # add uvicorn import
 import webview  # for borderless GUI window
 from contextlib import asynccontextmanager # Add this import
 import threading # Ensure threading is imported
+import logging
+import logging.handlers
+import sys
 
 print(f"[GUI_LOAD] Imports completed.", flush=True)
 
@@ -116,7 +161,7 @@ async def lifespan(app_instance: FastAPI):
     print("[GUI Lifespan] Shutdown complete.", flush=True)
 
 app = FastAPI(lifespan=lifespan)
-print(f"[GUI_LOAD] FastAPI app created.", flush=True)
+logger.info("FastAPI app created with lifespan.") # Example log after app creation
 
 # --- CORS Middleware ---
 app.add_middleware(
@@ -713,6 +758,9 @@ def start_gui(host="127.0.0.1", port=8000, window_title="Automoy - Access via ht
         
         if window_global_ref:
             print(f"[GUI] PyWebView window created successfully: '{window_global_ref.title if hasattr(window_global_ref, 'title') else 'N/A'}'. Global ref set.", flush=True)
+            # Set the window instance for the control API
+            window_control_api.set_window(window_global_ref)
+            print("[GUI] window_control_api.set_window() called with window_global_ref.", flush=True)
             # Register event handlers AFTER window creation
             window_global_ref.events.loaded += lambda: apply_window_settings(window_global_ref)
             window_global_ref.events.closing += on_closing
@@ -772,3 +820,23 @@ if __name__ == "__main__":
     print("[GUI] Script executed directly. Calling start_gui().", flush=True)
     start_gui() # Add this line to actually start the GUI and server
     print("[GUI] start_gui() returned. Script will now exit if Uvicorn thread also exited.", flush=True)
+
+# Remove or comment out the later, redundant logging setup and app instantiation:
+# # Determine project root to correctly path to logs directory
+# PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), \'..\'))
+# GUI_LOG_FILE_PATH = os.path.join(PROJECT_ROOT, "debug", "logs", "gui", "gui_output.log")
+# 
+# def setup_gui_logging():
+# ... (all of this section) ...
+# setup_gui_logging()
+# logger = logging.getLogger("GUI")
+
+# app = FastAPI() # REMOVE THIS LINE
+
+# @app.on_event("startup")
+# async def startup_event():
+# logger.info("GUI Application startup.") # REMOVE (or ensure it's for the correct app)
+
+# @app.on_event("shutdown")
+# def shutdown_event():
+# logger.info("GUI Application shutdown.") # REMOVE (or ensure it's for the correct app)

@@ -112,7 +112,7 @@ body {
 #objectiveInput {
     flex: 1;
     font-size: 0.85rem; /* Slightly reduced font size */
-    padding: 12px 5px; /* Further reduced horizontal padding */
+    padding: 12px 2px; /* Further reduced horizontal padding */
     border-radius: 5px 0 0 5px; /* Softer radius */
     border: 1px solid #333;
     outline: none;
@@ -138,8 +138,8 @@ body {
     border: 1px solid #333;
     border-left: none;
     border-radius: 0 5px 5px 0;
-    font-size: 1.7rem; /* Slightly reduced font size */
-    padding: 0 10px; /* Further reduced horizontal padding */
+    font-size: 1.6rem; /* Further reduced font size */
+    padding: 0 8px; /* Further reduced horizontal padding */
     cursor: pointer;
     height: auto; /* Auto height to align with input */
     min-height: 48px; /* Increased min-height */

@@ -3,11 +3,15 @@ import re
 import pathlib
 import sys
 import os
+import logging  # Added logging
+
+# Get a logger for this module
+logger = logging.getLogger(__name__)
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 
 # Adjust imports to use absolute paths consistently
-from core.utils.region.mapper import map_elements_to_coords
+from core.utils.region.mapper import map_elements_to_coords  # This might be unused by the new handle_llm_response
 from .handlers.openai_handler import call_openai_model
 from .handlers.lmstudio_handler import call_lmstudio_model
 
@@ -20,72 +24,81 @@ sys.path.append(str(pathlib.Path(__file__).parent.parent.parent / "config"))
 from config import Config
 
 
-def handle_llm_response(response, os_interface, parsed_ui=None, screenshot_path=None):
-    """Parse an LLM response (JSON inside a markdown code‑block) and execute the described UI action via `os_interface`."""
-    try:
-        # Defensive: If response is an error string, print and return
-        if response.strip().startswith("[ERROR]"):
-            print(response)
-            return
-        code_block = re.search(r"```json\s*(.*?)\s*```", response, re.DOTALL)
-        if not code_block:
-            print("⚠️ Could not extract a valid JSON action from LLM response.")
-            print(f"[DEBUG] Raw LLM response: {response}")
-            return
+# Replaced original handle_llm_response with a new version
+# to match usage in core/operate.py for parsing and cleaning LLM outputs.
+def handle_llm_response(
+    raw_response_text: str,
+    context_description: str,  # e.g., "visual analysis", "thinking process", "action generation"
+    is_json: bool = False,
+    llm_interface=None  # Parameter is present as per operate.py's usage
+) -> any:
+    """
+    Processes raw LLM response text.
+    If is_json is True, attempts to extract and parse JSON from a markdown code block.
+    Otherwise, (or for the text part if JSON extraction fails), cleans the text,
+    notably by stripping <think>...</think> tags and other common XML/HTML tags.
+    """
+    logger.debug(f"Handling LLM response for '{context_description}'. Raw length: {len(raw_response_text)}. is_json: {is_json}")
 
-        action_list = json.loads(code_block.group(1))
-        if not action_list:
-            print("⚠️ JSON action list is empty.")
-            return
+    processed_text = raw_response_text
 
-        action = action_list[0]
-        op_type = action.get("operation")
+    # 1. Strip <think>...</think> tags and other unwanted XML/HTML-like tags from the text.
+    # This should happen regardless of whether we expect JSON, as thinking might be around the JSON.
+    def strip_tags(text):
+        if not isinstance(text, str):  # Ensure text is a string
+            logger.warning(f"Attempted to strip tags from non-string input: {type(text)}")
+            return ""  # Or return the input as is, or raise error
+        # Remove <think>...</think> tags
+        text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE)
+        # Remove any simple, standalone XML/HTML tag like <tag_name> or <tag_name/>
+        # This is a basic attempt and might need refinement if complex HTML/XML is possible and undesired.
+        text = re.sub(r"<\\w+/?>(?!</\\w+>)", "", text)  # Removes <tag> but not <tag>content</tag>
+        text = re.sub(r"<([A-Za-z][A-Za-z0-9]*)\\b[^>]*>(.*?)</\\1>", "\\2", text, flags=re.DOTALL)  # Strips outer tags if content is desired
+        # A more aggressive stripping of any tag:
+        # text = re.sub(r"<[^>]+>", "", text)
+        return text.strip()
 
-        if op_type == "press":
-            keys = action.get("keys", [])
-            if isinstance(keys, list) and len(keys) > 1:
-                os_interface.press(keys)
-            else:
-                single = keys[0] if isinstance(keys, list) and keys else keys
-                os_interface.press(single)
-            print(f"⌨️ Simulated Key Press: {keys}")
+    if not is_json:
+        processed_text = strip_tags(str(raw_response_text))  # Ensure input is string
+        logger.debug(f"Cleaned text for '{context_description}': {processed_text[:300]}...")
+        return processed_text
 
-        elif op_type == "click":
-            target_text = action.get("text", "").strip().lower()
-            if not target_text or not parsed_ui or not screenshot_path:
-                print(f"🖱️ Would click: {action}")
-                return
+    # 2. If is_json is True, try to extract and parse JSON.
+    # The raw_response_text itself might contain tags around the JSON block.
+    text_to_search_json_in = strip_tags(str(raw_response_text))  # Clean before searching for JSON block
 
-            coords_map = map_elements_to_coords(parsed_ui, screenshot_path)
+    json_match = re.search(r"```json\\s*(.*?)\\s*```", text_to_search_json_in, re.DOTALL)
+    json_str_to_parse = None
 
-            matched_coords = None
-            for content_key, element in coords_map.items():
-                if target_text in content_key:
-                    matched_coords = element["center"]
-                    print(f"🔍 Found partial match: '{element['content']}' at {matched_coords}")
-                    break
+    if json_match:
+        json_str_to_parse = json_match.group(1).strip()
+    else:
+        # If no markdown block, the cleaned text itself might be JSON.
+        # This is risky, as it might be a string that just happens to start with { or [
+        # For now, we will attempt to parse it if it looks like JSON, but log a warning.
+        if text_to_search_json_in.startswith("{") and text_to_search_json_in.endswith("}") or \
+           text_to_search_json_in.startswith("[") and text_to_search_json_in.endswith("]"):
+            logger.warning(f"No JSON markdown code block found for '{context_description}' when is_json=True. Attempting to parse entire cleaned text.")
+            json_str_to_parse = text_to_search_json_in
+        else:
+            logger.error(f"No JSON markdown code block found for '{context_description}' and cleaned text does not appear to be a JSON object/array. Cleaned text: {text_to_search_json_in[:300]}...")
+            return {"error": "JSON_NOT_FOUND", "message": f"Expected JSON for {context_description} but couldn't find ```json block or parseable JSON structure.", "cleaned_text_preview": text_to_search_json_in[:200]}
 
-            if matched_coords:
-                x, y = matched_coords
-                os_interface.click(x, y)
-                print(f"🖱️ Clicked on '{target_text}' at ({x}, {y})")
-            else:
-                print(f"⚠️ Couldn't find coordinates for '{target_text}' in UI.")
+    if json_str_to_parse:
+        try:
+            # Further clean the extracted JSON string from any potential comment lines if LLM added them
+            json_str_to_parse = re.sub(r"//.*?\\n", "\\n", json_str_to_parse)  # Remove // comments
+            json_str_to_parse = re.sub(r"#.*?\\n", "\\n", json_str_to_parse)  # Remove # comments
+            parsed_json = json.loads(json_str_to_parse)
+            logger.debug(f"Successfully parsed JSON for '{context_description}'.")
+            return parsed_json
+        except json.JSONDecodeError as e:
+            logger.error(f"JSONDecodeError for '{context_description}': {e}. JSON string was: '{json_str_to_parse[:500]}...'")
+            return {"error": "JSON_DECODE_ERROR", "message": str(e), "json_string_preview": json_str_to_parse[:200]}
 
-        elif op_type == "write":
-            text = action.get("text", "")
-            os_interface.write(text)
-            print(f"⌨️ Typed: {text}")
-
-        elif op_type == "take_screenshot":
-            print("📸 Would take a new screenshot (handled externally).")
-
-        elif op_type == "done":
-            print("✅ Task complete.")
-
-    except Exception as e:
-        print(f"❌ Error parsing or executing LLM response: {e}")
-        print(f"[DEBUG] Raw LLM response: {response}")
+    # Fallback if json_str_to_parse was not set (e.g. markdown found, but group(1) was empty - unlikely)
+    logger.error(f"JSON processing failed unexpectedly for '{context_description}'. No JSON string was identified for parsing.")
+    return {"error": "JSON_PROCESSING_FAILED", "message": f"Problem in JSON processing logic for {context_description}."}
 
 
 class MainInterface:

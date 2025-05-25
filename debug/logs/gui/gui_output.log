@@ -1,0 +1,2 @@
+2025-05-24 20:46:33,963 - GUI - INFO - [gui.setup_gui_logging:47] - GUI Logging initialized. Log file: C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\debug\logs\gui\gui_output.log. Console level: INFO, File level: DEBUG.
+2025-05-24 20:46:34,744 - GUI - INFO - [gui.<module>:164] - FastAPI app created with lifespan.
