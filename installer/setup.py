@@ -84,14 +84,45 @@ def run_omnispaper_setup():
         print("OmniParser setup failed. Please check logs.")
         sys.exit(1)
 
+def is_cuda_available():
+    """
+    Uses evaluations/check_cuda.py to determine if CUDA is installed.
+    Returns True if CUDA is detected, False otherwise.
+    """
+    script_dir = pathlib.Path(__file__).parent.parent.resolve()
+    check_cuda_script = script_dir / "evaluations" / "check_cuda.py"
+    result = subprocess.run([sys.executable, str(check_cuda_script)], capture_output=True, text=True)
+    # If the script prints a version, it's detected
+    return "Final Detected CUDA version" in result.stdout or "✅ Detected CUDA version" in result.stdout or "✅ Found CUDA version" in result.stdout
+
+def run_cuda_or_sycl_setup():
+    print("Checking for CUDA support...")
+    if is_cuda_available():
+        print("CUDA detected. Proceeding with CUDA installation...")
+        run_cuda_setup()
+    else:
+        print("CUDA not detected. Proceeding with SYCL/OpenCL installation...")
+        run_opencl_setup()
+
+def run_opencl_setup():
+    print("Starting SYCL/OpenCL installation...")
+    script_dir = pathlib.Path(__file__).parent.resolve()
+    opencl_setup_script = script_dir / "opencl_setup.py"
+    rc = subprocess.run([sys.executable, str(opencl_setup_script)], check=False)
+    if rc.returncode == 0:
+        print("SYCL/OpenCL setup complete!")
+    else:
+        print("SYCL/OpenCL setup failed. Please check logs.")
+        sys.exit(1)
+
 if __name__ == "__main__":
     print("Automoy-V2 Full Installer Starting...")
 
     # 1) Elevate if needed (opens new admin console with /k + quotes)
     ensure_admin()
 
-    # 2) CUDA
-    run_cuda_setup()
+    # 2) CUDA or SYCL/OpenCL
+    run_cuda_or_sycl_setup()
 
     # 3) Conda
     run_conda_setup()
