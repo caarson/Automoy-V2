@@ -204,27 +204,29 @@ is_paused: bool = False
 llm_stream_queue = asyncio.Queue()
 
 
-class GoalData(BaseModel): # Renamed from ObjectiveData
+class GoalData(BaseModel):    
     goal: str
 
-class ObjectiveData(BaseModel): # For LLM-formulated objective
+class ObjectiveData(BaseModel):    
     objective: str
 
 class LogMessage(BaseModel):
     message: str
+    level: str = "INFO"
 
 class StateUpdateText(BaseModel):
     text: str
 
 class StateUpdateSteps(BaseModel):
-    list: List[str] # Changed from steps to list to match operate.py
+    steps: List[str]
 
-class StateUpdateDict(BaseModel): # For operations generated
-    current_operations_generated: Dict[str, Any]
+class StateUpdateDict(BaseModel):    
+    json: Dict[str, Any] # Changed from json_data to json
 
 class LLMStreamChunk(BaseModel):
-    chunk: str
-
+    content: str
+    event_type: str # e.g., "thought", "action_json", "status"
+    
 @app.post("/state/visual")
 async def update_visual_state(data: StateUpdateText):
     global current_visual_analysis
@@ -242,15 +244,15 @@ async def update_thinking_state(data: StateUpdateText):
 @app.post("/state/steps_generated") # Added endpoint
 async def update_steps_state(data: StateUpdateSteps):
     global current_steps_generated
-    print(f"[GUI /state/steps_generated] Received steps update: {data.list}", flush=True)
-    current_steps_generated = data.list
+    print(f"[GUI /state/steps_generated] Received steps update: {data.steps}", flush=True)
+    current_steps_generated = data.steps
     return {"message": "Steps generated state updated"}
 
 @app.post("/state/operations_generated") # Added endpoint
 async def update_operations_state(data: StateUpdateDict): # Assuming StateUpdateDict is appropriate
     global current_operations_generated
-    print(f"[GUI /state/operations_generated] Received operations update: {data.current_operations_generated}", flush=True)
-    current_operations_generated = data.current_operations_generated
+    logger.info(f"[GUI /state/operations_generated] Received operations update: {data.json}", flush=True) # Corrected logging
+    current_operations_generated = data.json # Corrected assignment
     return {"message": "Operations generated state updated"}
 
 @app.post("/state/current_operation") # Added endpoint
@@ -269,28 +271,43 @@ async def update_last_action_result_state(data: StateUpdateText): # Assuming tex
 
 @app.post("/state/screenshot") # Added endpoint for screenshot path
 async def update_screenshot_state(payload: dict): # Generic dict payload
-    global processed_screenshot_available, window_global_ref # Added window_global_ref
-    # Path is expected in payload.get("path")
-    # Timestamp in payload.get("timestamp")
-    print(f"[GUI /state/screenshot] Received screenshot update notification: {payload}", flush=True)
-    new_screenshot_path = payload.get("path")
-    if new_screenshot_path: # Check if a path was provided in the payload
-        processed_screenshot_available = True
-        # The client-side script.js already handles refreshing the image src with a timestamp
-        # by calling refreshScreenshot(). We can also try to trigger it from here.
-        if window_global_ref:
+    global processed_screenshot_available, window_global_ref
+    logger.info(f"[GUI /state/screenshot] Received screenshot update notification: {payload}", flush=True) # Changed print to logger.info
+    
+    new_screenshot_abs_path_str = payload.get("path")
+    
+    if new_screenshot_abs_path_str:
+        source_path = Path(new_screenshot_abs_path_str)
+        # Ensure BASE_DIR is defined correctly, usually os.path.dirname(__file__)
+        static_destination_path = Path(BASE_DIR) / "static" / "processed_screenshot.png"
+        
+        if source_path.exists():
             try:
-                # Ensure the JS function refreshScreenshot() is called
-                js_command = "if (typeof refreshScreenshot === 'function') { refreshScreenshot(); console.log('[GUI /state/screenshot] JS refreshScreenshot called.'); } else { console.error('[GUI /state/screenshot] refreshScreenshot function not defined in JS.'); }"
-                window_global_ref.evaluate_js(js_command)
-                print(f"[GUI /state/screenshot] Executed JS command: {js_command}", flush=True)
+                # Ensure static directory exists
+                os.makedirs(static_destination_path.parent, exist_ok=True)
+                shutil.copy(str(source_path), str(static_destination_path))
+                logger.info(f"[GUI /state/screenshot] Copied screenshot from {source_path} to {static_destination_path}")
+                processed_screenshot_available = True # Set this only on successful copy
+
+                if window_global_ref:
+                    try:
+                        # Ensure the JS function refreshScreenshot() is called
+                        js_command = "if (typeof refreshScreenshot === 'function') { refreshScreenshot(); console.log('[GUI /state/screenshot] JS refreshScreenshot called.'); } else { console.error('[GUI /state/screenshot] refreshScreenshot function not defined in JS.'); }"
+                        window_global_ref.evaluate_js(js_command)
+                        logger.info(f"[GUI /state/screenshot] Executed JS command: {js_command}")
+                    except Exception as e:
+                        logger.error(f"[GUI /state/screenshot][ERROR] Failed to execute JS for screenshot refresh: {e}")
+                else:
+                    logger.warning("[GUI /state/screenshot][WARN] window_global_ref not available to trigger JS screenshot refresh.")
             except Exception as e:
-                print(f"[GUI /state/screenshot][ERROR] Failed to execute JS for screenshot refresh: {e}", flush=True)
+                logger.error(f"[GUI /state/screenshot] Error copying screenshot to static folder: {e}")
+                processed_screenshot_available = False # Failed to make it available
         else:
-            print("[GUI /state/screenshot][WARN] window_global_ref not available to trigger JS screenshot refresh.", flush=True)
+            logger.warning(f"[GUI /state/screenshot] Source screenshot path does not exist: {source_path}")
+            processed_screenshot_available = False
     else:
-        print("[GUI /state/screenshot] Screenshot update notification received, but no path provided in payload. Screenshot availability might not change.", flush=True)
-        # processed_screenshot_available might remain false or its previous state if no path is given
+        logger.warning("[GUI /state/screenshot] Screenshot update notification received, but no path provided in payload.")
+        processed_screenshot_available = False
         
     return {"message": "Screenshot state updated and JS refresh attempted if path provided"}
 
@@ -362,14 +379,14 @@ async def update_thinking_state(data: StateUpdateText):
 @app.post("/state/steps")
 async def update_steps_state(data: StateUpdateSteps):
     global current_steps_generated
-    current_steps_generated = data.list # Changed from data.steps
+    current_steps_generated = data.steps # Changed from data.steps
     return {"message": "Steps updated"}
 
 @app.post("/state/operations_generated") # New endpoint
 async def update_operations_generated_state(data: StateUpdateDict):
     global current_operations_generated
-    current_operations_generated = data.current_operations_generated
-    print(f"[GUI /state/operations_generated] Received operations: {current_operations_generated}", flush=True)
+    current_operations_generated = data.json # Corrected: Use data.json
+    print(f"[GUI /state/operations_generated] Received operations: {current_operations_generated}", flush=True) # Corrected: Print the updated variable
     return {"message": "Operations generated updated"}
 
 @app.post("/state/current_operation")
@@ -483,24 +500,22 @@ async def health_check():
     return {"status": "healthy", "message": "GUI server is responsive."}
 
 @app.get("/operator_state")
-async def get_operator_state_endpoint(): # Ensure this endpoint exists and returns current_objective
+async def get_operator_state():
+    # Ensure all relevant state pieces are included here
+    # logger.debug(f"Polling /operator_state. Current visual: {current_visual_analysis[:50]}, thinking: {current_thinking_process[:50]}, steps: {current_steps_generated}, ops: {current_operations_generated}")
     return {
-        "user_goal": current_user_goal, 
-        "formulated_objective": current_formulated_objective, 
+        "user_goal": current_user_goal,
+        "formulated_objective": current_formulated_objective,
         "operator_status": operator_status,
-        "current_visual_analysis": current_visual_analysis,
-        "current_thinking_process": current_thinking_process,
-        "current_steps_generated": current_steps_generated,
-        "current_operations_generated": current_operations_generated, # Added
-        "current_operation": current_operation_display, 
-        "past_operation": past_operation_display, 
-        "llm_query": "", 
-        "llm_response": "", 
-        "execution_result": "", 
-        "history_log": gui_log_messages, 
-        "screenshot_processed": processed_screenshot_available,
-        "llm_stream_content": llm_stream_content,
-        "is_paused": is_paused # Added pause state
+        "visual_analysis_output": current_visual_analysis, # Added
+        "thinking_process_output": current_thinking_process, # Added
+        "steps_generated": current_steps_generated, # Key for steps
+        "operations_generated": current_operations_generated, # Key for operations
+        "current_operation": current_operation_display, # For the "Current:" field
+        "past_operation": past_operation_display, # For the "Past:" field
+        "is_paused": is_paused, # For pause button UI
+        "processed_screenshot_available": processed_screenshot_available,
+        "log_messages": gui_log_messages[-20:] # Send last 20 log messages
     }
 
 @app.post("/control/toggle_pause") # New endpoint for pause

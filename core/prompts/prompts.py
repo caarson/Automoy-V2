@@ -150,77 +150,71 @@ Focus on:
 Do NOT suggest actions or try to interpret user intent. Only describe what you see.
 """
 
+# User prompt for Visual Analysis (assuming it takes objective and screen elements)
 VISUAL_ANALYSIS_USER_PROMPT_TEMPLATE = """\
 Objective: {objective}
-Previous Actions: {previous_actions}
 
-Based on the following UI elements and layout (provided as JSON), generate a concise, high-level textual description of what is currently visible on the screen.
+Current Screen Elements (from OCR/detection):
+{screenshot_elements}
 
-UI JSON:
-{ui_json}
+Based on the objective and the screen elements, provide a concise textual description of the current visual state of the screen.
+Focus on the active application, its purpose, and key interactive elements relevant to the objective.
+Example: "The screen shows a web browser open to Google search. The search bar is visible."
 """
 
-THINKING_PROCESS_PROMPT = """
-You are Automoy, an AI assistant. Your goal is to understand and break down a user's objective based on the current state of the screen.
-
-User's Objective:
-{objective}
-
-Current Screen Description:
-{screen_description}
-
-Based on the objective and the screen description, provide your reasoning and a refined understanding of what needs to be accomplished.
-Consider:
-- What is the user ultimately trying to achieve?
-- How does the current screen state relate to the objective? Is it a starting point, an intermediate step, or irrelevant?
-- What are the immediate sub-goals or prerequisites to move towards the objective from the current screen state?
-- Are there any ambiguities in the objective that need clarification (note these for internal thought, you cannot ask questions now)?
-- What is the most logical first major step or area of focus?
-
-Your thought process (be concise yet comprehensive):
+THINKING_PROCESS_SYSTEM_PROMPT = """\
+You are a strategic planner. Your role is to develop a high-level plan based on an objective and a visual analysis of the current screen.
+Do not generate specific actions yet. Focus on the strategy.
 """
 
-STEPS_GENERATION_PROMPT = """\
-Based on the overall objective, the current screen description, and your thinking process, generate a concise, numbered list of actionable steps to achieve the objective.
-Each step should be a clear, simple instruction aimed at making progress.
-Strive to identify at least one concrete action that can be taken based on the current information.
-
-- If the objective seems complete based on the screen and thinking, you can state that as a single step (e.g., "1. Objective is complete.").
-- Only if it is IMPOSSIBLE to determine a next concrete step from the current information, should your *sole* step be "1. Take a new screenshot and re-evaluate."
-- Prefer to break down the problem into smaller, actionable steps.
-
+THINKING_PROCESS_USER_PROMPT_TEMPLATE = """\
 Objective: {objective}
-Your Thinking Output: {thinking_output}
-Current Screen Description: {screen_description}
 
-Provide only the numbered list of steps.
+Visual Analysis Summary:
+{visual_summary}
+
+Based on the objective and the visual analysis, outline a high-level thinking process or strategy to achieve the objective.
+If the visual summary indicates an error or is insufficient (e.g., "Visual analysis failed", "Screen is blank"), your thinking process should acknowledge this and suggest initial recovery actions like "Re-capture the screen" or "Verify application state."
+Focus on what needs to be done conceptually.
+Example: "The strategy is to first locate the search bar, then type the search query, and finally press Enter."
+If Visual Analysis Summary is: "Error during visual analysis: OCR failed."
+Thinking Process Example: "Visual analysis failed. The first step should be to retry capturing and analyzing the screen to understand the current context."
 """
 
-# New System Prompt for Action Generation
-ACTION_GENERATION_SYSTEM_PROMPT = """You are an AI assistant that converts a single step of a plan into a specific, executable JSON action.
-The user will provide:
-1. A description of the current UI (from a previous visual analysis).
-2. The specific natural language step from a plan that needs to be executed.
-3. A JSON representation of the UI elements currently visible on the screen.
-
-Your task is to output ONLY a single JSON object representing the action to take. Do not include any other text, explanations, or conversational filler.
-The JSON action MUST follow this format: {"operation": "action_name", ...parameters...}
-
-Here are the common operations and their parameters:
-- Click an element: {"operation": "click", "element_id": "some_id_from_ui_json"}
-  (Alternatively, if an element_id is not suitable or available, you can use text content: {"operation": "click", "text": "Text on Button"})
-  (Or, if precise coordinates are known and necessary: {"operation": "click", "x": X_COORD, "y": Y_COORD})
-- Type text into a field: {"operation": "type", "element_id": "textbox_id", "text": "text to type"}
-  (Alternatively, using text to find the element: {"operation": "type", "text_to_find_element": "Label of Textbox", "text": "text to type"})
-- Scroll the window: {"operation": "scroll", "direction": "up" | "down" | "left" | "right", "amount": "once" | "page" | "full"}
-- Indicate the objective is complete: {"operation": "done", "summary": "A brief summary of completion."}
-- Request a new screenshot if the current view is insufficient or an action's result needs verification: {"operation": "take_screenshot"}
-- If the step is to wait for a moment: {"operation": "wait", "seconds": N} (e.g., {"operation": "wait", "seconds": 3})
-
-Choose the most appropriate "element_id" or "text" from the provided UI elements JSON for "click" and "type" operations.
-If the step is vague or cannot be directly translated into one of the above actions based on the screen, or if the objective seems completed by the step, use the "done" operation.
-Output only the JSON.
+STEP_GENERATION_SYSTEM_PROMPT = """\
+You are a task decomposer. Your role is to break down a high-level strategy into a sequence of concrete, actionable steps.
+Each step should be a clear instruction.
 """
+
+STEP_GENERATION_USER_PROMPT_TEMPLATE = """\
+Objective: {objective}
+
+Visual Analysis Summary:
+{visual_summary}
+
+Thinking Process Summary:
+{thinking_summary}
+
+Based on the objective, visual analysis, and the thinking process, generate a concise, numbered list of actionable steps.
+Each step should be a clear, high-level instruction that can later be translated into a single machine operation.
+Example:
+1. Click the 'File' menu.
+2. Select 'Open'.
+3. Type 'document.txt' into the filename field.
+4. Click the 'Open' button.
+
+If the Thinking Process Summary indicates an error (e.g., "Error during thinking process generation", "Skipped due to visual analysis failure"), or if the Visual Analysis Summary itself indicates a critical error, generate appropriate recovery steps.
+Example recovery steps if thinking failed:
+1. Re-evaluate the screen based on the visual analysis.
+2. Attempt to formulate a simpler plan.
+3. Take a new screenshot.
+
+If Visual Analysis Summary is: "Visual analysis failed." and Thinking Process Summary is: "Skipped due to visual analysis failure."
+Example Steps:
+1. Take a new screenshot and perform visual analysis again.
+"""
+
+ACTION_GENERATION_SYSTEM_PROMPT = DEFAULT_PROMPT # Retains existing action generation logic
 
 ###############################################################################
 # Prompt for Formulating Objective from User Goal

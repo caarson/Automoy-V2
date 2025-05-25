@@ -8,18 +8,23 @@ import sys
 import psutil
 import requests
 import logging # Import logging
+import platform # Add this import
 from datetime import datetime
+from pathlib import Path
+from typing import Optional, Dict, Any, List # Add List here if it's used elsewhere, ensure Dict, Optional, Any are present
 
 from core.exceptions import AutomoyError, OperationError
 from core.utils.operating_system.os_interface import OSInterface
 from core.utils.omniparser.omniparser_interface import OmniParserInterface
 from core.lm.lm_interface import MainInterface as LLMInterface
 from core.prompts.prompts import (
-    VISUAL_ANALYSIS_SYSTEM_PROMPT, # <-- Updated
-    VISUAL_ANALYSIS_USER_PROMPT_TEMPLATE, # <-- Added
-    THINKING_PROCESS_PROMPT,
-    STEPS_GENERATION_PROMPT,
-    ACTION_GENERATION_SYSTEM_PROMPT, # <-- Added
+    VISUAL_ANALYSIS_SYSTEM_PROMPT,
+    VISUAL_ANALYSIS_USER_PROMPT_TEMPLATE,
+    THINKING_PROCESS_SYSTEM_PROMPT, 
+    THINKING_PROCESS_USER_PROMPT_TEMPLATE, 
+    STEP_GENERATION_SYSTEM_PROMPT, 
+    STEP_GENERATION_USER_PROMPT_TEMPLATE, 
+    ACTION_GENERATION_SYSTEM_PROMPT,
 )
 from config import Config
 from core.utils.operating_system.desktop_utils import DesktopUtils
@@ -98,15 +103,20 @@ async def _update_gui_state(endpoint: str, payload: dict):
 
         url = f"http://127.0.0.1:8000{url_endpoint}"
         
-        # Using httpx for async requests if available, otherwise fallback or make it a requirement
-        # For now, using requests in a thread to avoid blocking, though httpx is preferred for async
         loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, lambda: requests.post(url, json=payload, timeout=5))
-        # print(f"[GUI_UPDATE] Sent {payload} to {url}")
+        # Using lambda to capture current payload value for the executor thread
+        current_payload = payload 
+        response = await loop.run_in_executor(None, lambda: requests.post(url, json=current_payload, timeout=5))
+        
+        if response.status_code == 200:
+            logger.debug(f"[GUI_UPDATE] Successfully sent payload to {url}. Response status: {response.status_code}, text: {response.text[:100] if response.text else 'N/A'}")
+        else:
+            logger.warning(f"[GUI_UPDATE] Failed to send payload to {url}. Response status: {response.status_code}, text: {response.text[:200] if response.text else 'N/A'}")
+            
     except requests.exceptions.RequestException as e:
-        logger.warning(f"Failed to update GUI state at {url}: {e}")
+        logger.warning(f"Failed to update GUI state at {url} (RequestException): {e}")
     except Exception as e:
-        logger.error(f"Unexpected error in _update_gui_state: {e}")
+        logger.error(f"Unexpected error in _update_gui_state sending to {url}: {e}", exc_info=True)
 
 
 class AutomoyOperator:
@@ -169,10 +179,8 @@ class AutomoyOperator:
                 await asyncio.sleep(0.5) # Give time for windows to minimize
 
             logger.info(f"Capturing screenshot to: {screenshot_path}")
-            # Ensure the directory for the screenshot exists
             os.makedirs(os.path.dirname(screenshot_path), exist_ok=True)
             
-            # Capture screenshot using OSInterface
             self.raw_screenshot_path_for_parsing = self.os_interface.take_screenshot(
                 filename=screenshot_path
             )
@@ -182,12 +190,20 @@ class AutomoyOperator:
                 return
 
             logger.info(f"Screenshot captured: {self.raw_screenshot_path_for_parsing}")
-            self.active_screenshot_for_llm_gui = self.raw_screenshot_path_for_parsing
-
+            
             # Process with OmniParser
             logger.info("Processing screenshot with OmniParser...")
             raw_parser_output = self.omniparser_instance.parse_screenshot(self.raw_screenshot_path_for_parsing)
             
+            # Determine which screenshot path to use for LLM and GUI notification
+            processed_screenshot_full_path = OPERATE_PY_PROJECT_ROOT / PROCESSED_SCREENSHOT_RELATIVE_PATH
+            if processed_screenshot_full_path.exists():
+                logger.info(f"CONFIRMED: Processed screenshot exists at {processed_screenshot_full_path} after OmniParser call.")
+                self.active_screenshot_for_llm_gui = str(processed_screenshot_full_path)
+            else:
+                logger.warning(f"WARNING: Processed screenshot DOES NOT exist at {processed_screenshot_full_path} after OmniParser call. LLM/GUI will use raw screenshot.")
+                self.active_screenshot_for_llm_gui = self.raw_screenshot_path_for_parsing # Fallback to raw
+
             cleaned_parser_output_for_log = clean_json_data(raw_parser_output) 
             logger.debug(f"Raw OmniParser output (cleaned for log): {json.dumps(cleaned_parser_output_for_log, indent=2)}")
 
@@ -202,23 +218,23 @@ class AutomoyOperator:
                     logger.warning("OmniParser output does not contain 'coords' or 'parsed_content_list' as a list.")
                     self.coords = []
 
-                processed_screenshot_path = OPERATE_PY_PROJECT_ROOT / PROCESSED_SCREENSHOT_RELATIVE_PATH
-                if processed_screenshot_path.exists():
-                    self.active_screenshot_for_llm_gui = str(processed_screenshot_path)
-                    logger.info(f"Using processed screenshot for GUI: {self.active_screenshot_for_llm_gui}")
+                if self.active_screenshot_for_llm_gui == str(processed_screenshot_full_path):
+                    logger.info(f"OmniParser processing complete. Using PROCESSED screenshot for LLM/GUI: {self.active_screenshot_for_llm_gui}")
                 else:
-                    logger.warning(f"Processed screenshot not found at {processed_screenshot_path}, GUI might show raw.")
-
+                    logger.info(f"OmniParser processing complete. Using RAW screenshot for LLM/GUI: {self.active_screenshot_for_llm_gui}")
+                
                 self.ui_json_for_llm = json.dumps(clean_json_data(raw_parser_output))
             else:
-                logger.error("Failed to parse screenshot or parser returned invalid data.")
+                logger.error(f"Failed to parse screenshot or OmniParser returned invalid data.")
+                self.active_screenshot_for_llm_gui = self.raw_screenshot_path_for_parsing # Ensure fallback
+                logger.info(f"LLM/GUI will use RAW screenshot due to parsing error: {self.active_screenshot_for_llm_gui}")
                 self.coords = []
                 self.ui_json_for_llm = None
                 self.run_capture_on_next_cycle = True
                 return
 
             logger.debug(f"self.coords after assignment: {json.dumps(self.coords[:5], indent=2)}... (first 5 elements)")
-            self.run_capture_on_next_cycle = False # Successfully captured and processed
+            self.run_capture_on_next_cycle = False
 
         except Exception as e:
             logger.error(f"Error in _capture_and_process_screenshot: {e}", exc_info=True)
@@ -333,14 +349,28 @@ class AutomoyOperator:
                         if action_label_target: tried_identifiers_parts.append(f"label '{action_label_target}'")
                         tried_identifiers_str = ", ".join(tried_identifiers_parts) if tried_identifiers_parts else "any provided identifiers by LLM"
                         
-                        coords_debug_info = ""
-                        if isinstance(self.coords, list):
-                            example_elements = [str(item.get('id', item.get('text', 'Unknown Element')) if isinstance(item, dict) else item) for i, item in enumerate(self.coords) if i < 3]
-                            coords_debug_info = f"First ~3 elements in self.coords: {example_elements}"
-                        else:
-                            coords_debug_info = f"self.coords type: {type(self.coords)}"
                         error_message = f"Click action failed: Element not found using {tried_identifiers_str}."
-                        logger.error(f"{error_message} {coords_debug_info}")
+                        
+                        # Enhanced coords_debug_info
+                        if isinstance(self.coords, list):
+                            coords_summary = f"self.coords contains {len(self.coords)} elements. "
+                            if len(self.coords) > 0:
+                                coords_summary += "First up to 5 elements (text/label/id | bbox): "
+                                details = []
+                                for i, item in enumerate(self.coords):
+                                    if i >= 5: break 
+                                    if isinstance(item, dict):
+                                        item_desc = item.get('text', item.get('label', item.get('id', 'N/A')))
+                                        item_bbox = item.get('bbox', 'N/A')
+                                        details.append(f"'{item_desc}' (bbox: {item_bbox})")
+                                    else:
+                                        details.append(str(item))
+                                coords_summary += "; ".join(details)
+                            else:
+                                coords_summary += "self.coords is an empty list."
+                            logger.error(f"{error_message} {coords_summary}")
+                        else:
+                            logger.error(f"{error_message} self.coords is not a list, type: {type(self.coords)}.")
 
                 if element_bbox_for_click:
                     x1, y1, x2, y2 = element_bbox_for_click
@@ -419,291 +449,361 @@ class AutomoyOperator:
                 await self.manage_gui_window_func("show")
                 await asyncio.sleep(0.2)
 
-    # ───────────────────────────── Startup ───────────────────────────
-    async def startup_sequence(self):
-        # This method is now primarily called from main.py before operate_loop
-        # It can remain for direct testing of operate.py if needed.
-        logger.info("🚀 Automoy Starting Up (within operator)...")
-        logger.info(f"Detected OS: {self.os_interface.os_type}")
+    # ───────────────────────────── LLM Multi-Stage Reasoning ───────────────────────────
 
-        # GUI launch is handled by main.py
-        # OmniParser server check/launch
-        if not self.omniparser._check_server_ready():
-            logger.error("❌ OmniParser server is not running! Attempting to start it…")
-            if self.omniparser.launch_server(): # launch_server should return success/failure
-                 await asyncio.sleep(5) # Give server time to start
-                 if not self.omniparser._check_server_ready():
-                    logger.error("❌ OmniParser server failed to start properly. Exiting.")
-                    sys.exit(1)
-            else:
-                logger.error("❌ Failed to initiate OmniParser server launch. Exiting.")
-                sys.exit(1)
-        else:
-            logger.info("✅ OmniParser server already running or started successfully.")
-
-
-        if not self.vmware.is_vmware_installed():
-            logger.warning("⚠️ VMWare is not installed or not detected.")
-
-        if not self.webscraper.is_ready():
-            logger.warning("⚠️ Web scraper is not properly configured!")
-
-        logger.info("✅ All systems ready (within operator startup_sequence)!")    
-
-
-    # ───────────────────────────── Loop ──────────────────────────────
-    async def operate_loop(self, max_iterations: int = 10): 
-        logger.info(f"Starting operation loop for objective: {self.objective}")
-        screenshot_dir = self.config.get("SCREENSHOT_DIR", os.path.join(OPERATE_PY_PROJECT_ROOT, "debug", "screenshots"))
-        os.makedirs(screenshot_dir, exist_ok=True)
-        current_screenshot_path = os.path.join(screenshot_dir, "automoy_current_capture.png")
-
-        max_consecutive_llm_errors = 3
-        llm_error_count = 0
-        iteration_count = 0 
-
-        while True: 
-            await self.pause_event.wait()
-            logger.debug(f"Operator cycle {iteration_count + 1}. Pause event is set, operator proceeding.")
-
-            if self.run_capture_on_next_cycle:
-                await self._capture_and_process_screenshot(screenshot_path=current_screenshot_path)
-                if not self.ui_json_for_llm: 
-                    logger.error("Screenshot capture/processing failed. Retrying next cycle.")
-                    await asyncio.sleep(1) 
-                    continue
-
-            action_json = await self._get_next_action_from_llm(
-                current_screenshot_path=self.active_screenshot_for_llm_gui, 
-                current_ui_json=self.ui_json_for_llm
-            )
-
-            if action_json and action_json.get("request_new_screenshot"):
-                logger.info("LLM requested a new screenshot for the next cycle.")
-                self.run_capture_on_next_cycle = True
-            
-            if not action_json or action_json.get("operation") == "error" or action_json.get("action_type") == "error": 
-                llm_error_count += 1
-                error_msg = action_json.get("message", action_json.get("reasoning", "Unknown error from LLM or empty action.")) if action_json else "No action JSON returned by LLM."
-                logger.error(f"LLM returned error or no action. Count: {llm_error_count}. Message: {error_msg}")
-                
-                if llm_error_count >= max_consecutive_llm_errors:
-                    logger.critical(f"Max consecutive LLM errors ({max_consecutive_llm_errors}) reached. Stopping operator.")
-                    break 
-                
-                await asyncio.sleep(1) 
-                continue 
-            
-            llm_error_count = 0 
-
-            action_to_execute = action_json
-            if "action_type" in action_to_execute and "operation" not in action_to_execute: # Ensure "operation" field
-                action_to_execute["operation"] = action_to_execute["action_type"]
-
-            action_success = await self._execute_action(action_to_execute)
-            executed_operation = action_to_execute.get("operation")
-
-            if executed_operation == "finish":
-                logger.info("Operator received 'finish' action. Objective assumed complete or stopping as instructed.")
-                await _update_gui_state("/state/current_operation", {"text": "Operation finished."})
-                break
-
-            if not action_success:
-                logger.warning(f"Action '{executed_operation}' targeting '{action_to_execute.get('action_target_description', 'N/A')}' failed during execution. Will attempt new screenshot and LLM cycle.")
-                self.run_capture_on_next_cycle = True 
-            else:
-                # If action was successful, LLM might have already requested a new screenshot.
-                # If not, we assume the state changed and a new screenshot is generally needed unless LLM says otherwise.
-                # However, if LLM explicitly sets request_new_screenshot to False, we honor that.
-                if not action_json.get("request_new_screenshot", False): # Default to True if not specified by LLM after a successful action
-                    # This logic can be debated: always take screenshot vs. only if LLM requests or action fails.
-                    # For now, if action is success AND LLM did not request new_screenshot=True, we assume LLM might want to act on same screen.
-                    # Let's change to: if action was successful, only take new screenshot if LLM requested it OR if it's a major action.
-                    # The current logic is: if request_new_screenshot is True, it's set. If action fails, it's set.
-                    # If action succeeds and request_new_screenshot is False, it remains False. This seems fine.
-                    pass
-
-
-            # General delay between operator cycles, distinct from specific action delays
-            await asyncio.sleep(self.config.get("OPERATOR_CYCLE_DELAY", 0.5)) # Using a distinct config key
-            iteration_count += 1
-            # Max iteration check is typically handled by the caller (e.g., main.py)
-            # if max_iterations and iteration_count >= max_iterations:
-            #     logger.info(f"Reached max_iterations ({max_iterations}). Stopping operator.")
-            #     break
-
-
-    async def _get_next_action_from_llm(self, current_screenshot_path: str, current_ui_json: str | None): # Added current_ui_json
-        """
-        Gets the next action from the LLM based on the current UI state.
-        This involves:
-        1. Performing visual analysis of the current screen.
-        2. Generating a thinking process based on the analysis and objective.
-        3. Deciding the next action (e.g., click, type, finish).
-        Updates GUI with visual analysis and thinking process.
-        The LLM can request a new screenshot by including 'request_new_screenshot': True in its response.
-        """
-        logger.info(f"Getting next action from LLM. Screenshot: {current_screenshot_path}")
-        if not current_ui_json:
-            logger.warning("No UI JSON available for LLM. Requesting new screenshot.")
-            return {
-                "operation": "error", # Or a specific operation to re-capture
-                "reasoning": "UI JSON data is missing, cannot proceed with analysis.",
-                "request_new_screenshot": True
-            }
-
-        # 0. Generate Steps if not already generated (or if objective changes, etc. - simplified for now)
-        if not self.generated_steps_output: # Only generate once, or based on some condition
-            try:
-                logger.info("Generating initial steps...")
-                steps_generation_user_prompt = STEPS_GENERATION_PROMPT.format(
-                    objective=self.objective,
-                    # Provide dummy/placeholder values for keys expected by STEPS_GENERATION_PROMPT
-                    # when it's called before visual_analysis_output and thinking_process_output are available.
-                    thinking_output="Initial step generation: Thinking process not yet available for prompt.",
-                    screen_description="Initial step generation: Screen description not yet available for prompt."
-                )
-                raw_steps_output = await self.llm.generate_text_async(
-                    system_prompt=None, # Or a specific system prompt for step generation
-                    user_prompt=steps_generation_user_prompt,
-                    model=self.model,
-                    # temperature=0.6,
-                    # max_tokens=400
-                )
-                # Assuming steps are returned as a list in a JSON structure, or a newline-separated string
-                # For simplicity, let's assume newline-separated string that handle_llm_response can process or we parse here
-                parsed_steps_response = handle_llm_response(raw_steps_output, "steps generation", llm_interface=self.llm)
-                
-                if isinstance(parsed_steps_response, str):
-                    self.generated_steps_output = [step.strip() for step in parsed_steps_response.split('\\n') if step.strip()]
-                elif isinstance(parsed_steps_response, list): # If LLM returns a list directly
-                    self.generated_steps_output = parsed_steps_response
-                else:
-                    logger.warning(f"Steps generation returned unexpected type: {type(parsed_steps_response)}. Steps not updated.")
-                    self.generated_steps_output = ["Could not parse generated steps."]
-
-                logger.info(f"Generated Steps: {self.generated_steps_output}")
-                await _update_gui_state("/state/steps_generated", {"list": self.generated_steps_output})
-            except Exception as e:
-                logger.error(f"Error during steps generation: {e}", exc_info=True)
-                self.generated_steps_output = ["Error generating steps."]
-                await _update_gui_state("/state/steps_generated", {"list": self.generated_steps_output})
+    async def _perform_visual_analysis(self, current_screenshot_path: str, current_ui_json: str | None):
+        """Performs visual analysis of the current screen and UI data."""
+        logger.info("Performing visual analysis...")
+        if not hasattr(self, '_llm_call_iteration'):
+            self._llm_call_iteration = 0
         
-        # 1. Perform Visual Analysis
+        visual_analysis_user_prompt = VISUAL_ANALYSIS_USER_PROMPT_TEMPLATE.format(
+            objective=self.objective,
+            screenshot_elements=current_ui_json if current_ui_json else "No UI elements detected or available."
+        )
+        
+        messages_visual = []
+        if VISUAL_ANALYSIS_SYSTEM_PROMPT:
+            messages_visual.append({"role": "system", "content": VISUAL_ANALYSIS_SYSTEM_PROMPT})
+        messages_visual.append({"role": "user", "content": visual_analysis_user_prompt})
+
         try:
-            logger.info("Performing visual analysis...")
-            visual_analysis_user_prompt = VISUAL_ANALYSIS_USER_PROMPT_TEMPLATE.format(
-                objective=self.objective,
-                ui_json=current_ui_json,
-                previous_actions=json.dumps(self.last_action) if self.last_action else "N/A"
+            response_tuple_visual = await self.llm.get_next_action(
+                model=self.model,
+                messages=messages_visual,
+                objective="Perform visual analysis of the current screen.",
+                session_id=f"automoy-op-{self._llm_call_iteration}-visual",
+                screenshot_path=current_screenshot_path
             )
-            # Assuming self.llm.generate_text_async exists and works as expected
-            # Parameters like model, temperature, max_tokens would ideally come from config or be defaults in LLMInterface
-            raw_visual_analysis = await self.llm.generate_text_async(
-                system_prompt=VISUAL_ANALYSIS_SYSTEM_PROMPT,
-                user_prompt=visual_analysis_user_prompt,
-                model=self.model, # Using model from self.config
-                # temperature=0.5, # Example, adjust as needed
-                # max_tokens=300   # Example, adjust as needed
-            )
-            self.visual_analysis_output = handle_llm_response(raw_visual_analysis, "visual analysis", llm_interface=self.llm) # Pass llm_interface
-            logger.info(f"Visual Analysis Output: {self.visual_analysis_output[:200]}...") # Log snippet
-            await _update_gui_state("/state/visual", {"text": self.visual_analysis_output}) # CORRECTED ENDPOINT
+            raw_visual_analysis = response_tuple_visual[0]
+            self.visual_analysis_output = handle_llm_response(raw_visual_analysis, "visual analysis", llm_interface=self.llm)
+            logger.info(f"Visual Analysis Output: {self.visual_analysis_output[:300]}...")
+            await _update_gui_state("/state/visual", {"text": self.visual_analysis_output})
         except Exception as e:
             logger.error(f"Error during visual analysis: {e}", exc_info=True)
             self.visual_analysis_output = "Error during visual analysis."
-            await _update_gui_state("/state/visual", {"text": self.visual_analysis_output}) # CORRECTED ENDPOINT
-            # Potentially return an error action or request new screenshot
-            return {
-                "operation": "error",
-                "reasoning": f"Failed to perform visual analysis: {e}",
-                "request_new_screenshot": True # Good idea to get a fresh view if analysis fails
-            }
+            await _update_gui_state("/state/visual", {"text": self.visual_analysis_output})
+            raise
 
-        # 2. Generate Thinking Process
+    async def _perform_thinking_process(self):
+        """Generates a thinking process based on the objective and visual analysis."""
+        logger.info("Generating thinking process...")
+        if not self.visual_analysis_output:
+            logger.warning("Visual analysis output is missing, cannot generate thinking process.")
+            self.thinking_process_output = "Skipped: Visual analysis was not available."
+            await _update_gui_state("/state/thinking", {"text": self.thinking_process_output})
+            return
+
+        thinking_user_prompt = THINKING_PROCESS_USER_PROMPT_TEMPLATE.format(
+            objective=self.objective,
+            visual_summary=self.visual_analysis_output
+        )
+        
+        messages_thinking = []
+        if THINKING_PROCESS_SYSTEM_PROMPT:
+            messages_thinking.append({"role": "system", "content": THINKING_PROCESS_SYSTEM_PROMPT})
+        messages_thinking.append({"role": "user", "content": thinking_user_prompt})
+
         try:
-            logger.info("Generating thinking process...")
-            # Determine current step description (placeholder for now)
-            current_step_desc = "Determining next optimal action towards the objective."
-            if self.generated_steps_output and 0 <= self.current_step_index < len(self.generated_steps_output):
-                current_step_desc = self.generated_steps_output[self.current_step_index]
-
-            thinking_process_user_prompt = THINKING_PROCESS_PROMPT.format(
-                objective=self.objective,
-                visual_summary=self.visual_analysis_output,
-                ui_elements=current_ui_json, # Provide the full UI JSON here
-                previous_actions=json.dumps(self.last_action) if self.last_action else "N/A",
-                current_step_description=current_step_desc
-            )
-            raw_thinking_process = await self.llm.generate_text_async(
-                system_prompt=None, # THINKING_PROCESS_PROMPT is often used as a single combined prompt
-                user_prompt=thinking_process_user_prompt,
+            response_tuple_thinking = await self.llm.get_next_action(
                 model=self.model,
-                # temperature=0.7,
-                # max_tokens=500
+                messages=messages_thinking,
+                objective="Generate a strategic thinking process.",
+                session_id=f"automoy-op-{self._llm_call_iteration}-thinking",
+                screenshot_path=None # Thinking is based on visual summary, not direct screenshot
             )
-            self.thinking_process_output = handle_llm_response(raw_thinking_process, "thinking process", llm_interface=self.llm) # Pass llm_interface
-            logger.info(f"Thinking Process Output (raw from LLM): {raw_thinking_process[:300]}...") # Log raw
-            logger.info(f"Thinking Process Output (handled): {self.thinking_process_output[:300]}...") # Log handled
-            await _update_gui_state("/state/thinking", {"text": self.thinking_process_output}) # CORRECTED ENDPOINT
+            raw_thinking = response_tuple_thinking[0]
+            self.thinking_process_output = handle_llm_response(raw_thinking, "thinking process", llm_interface=self.llm)
+            logger.info(f"Thinking Process Output: {self.thinking_process_output[:300]}...")
+            await _update_gui_state("/state/thinking", {"text": self.thinking_process_output})
         except Exception as e:
             logger.error(f"Error during thinking process generation: {e}", exc_info=True)
             self.thinking_process_output = "Error during thinking process generation."
-            await _update_gui_state("/state/thinking", {"text": self.thinking_process_output}) # CORRECTED ENDPOINT
-            return {
-                "operation": "error",
-                "reasoning": f"Failed to generate thinking process: {e}",
-                "request_new_screenshot": True
-            }
+            await _update_gui_state("/state/thinking", {"text": self.thinking_process_output})
+            raise
 
-        # 3. Decide Next Action
+    async def _generate_steps(self):
+        """Generates actionable steps based on objective, visual analysis, and thinking."""
+        logger.info("Generating steps...")
+        if not self.visual_analysis_output or not self.thinking_process_output:
+            logger.warning("Visual analysis or thinking process output is missing, cannot generate steps.")
+            self.generated_steps_output = ["Error: Prerequisite data (visual/thinking) missing for step generation."]
+            await _update_gui_state("/state/steps", {"steps": self.generated_steps_output})
+            return
+
+        step_gen_user_prompt = STEP_GENERATION_USER_PROMPT_TEMPLATE.format(
+            objective=self.objective,
+            visual_summary=self.visual_analysis_output,
+            thinking_summary=self.thinking_process_output
+        )
+        
+        messages_steps = []
+        if STEP_GENERATION_SYSTEM_PROMPT:
+            messages_steps.append({"role": "system", "content": STEP_GENERATION_SYSTEM_PROMPT})
+        messages_steps.append({"role": "user", "content": step_gen_user_prompt})
+
         try:
-            logger.info("Deciding next action...")
-            # The user prompt for action generation needs all relevant context
-            action_generation_user_prompt = (
-                f"Objective: {self.objective}\\n\\n"
-                f"Current Screen Visual Analysis:\\n{self.visual_analysis_output}\\n\\n"
-                f"My Thinking Process:\\n{self.thinking_process_output}\\n\\n"
-                f"Current UI Elements (JSON):\\n{current_ui_json}\\n\\n"
-                # f"Screenshot Path (for context, not for direct opening by LLM): {current_screenshot_path}\\n\\n" # LLM doesn't use path
-                f"Previous Action: {json.dumps(self.last_action) if self.last_action else 'N/A'}\\n\\n"
-                "Based on all the above, provide the next action as a JSON object."
-            )
-            
-            raw_action_json_str = await self.llm.generate_text_async(
-                system_prompt=ACTION_GENERATION_SYSTEM_PROMPT, # This defines the expected JSON output format
-                user_prompt=action_generation_user_prompt,
+            response_tuple_steps = await self.llm.get_next_action(
                 model=self.model,
-                # temperature=0.3, # Lower temperature for more deterministic actions
-                # max_tokens=200
+                messages=messages_steps,
+                objective="Generate a list of actionable steps.",
+                session_id=f"automoy-op-{self._llm_call_iteration}-steps",
+                screenshot_path=None 
+            )
+            raw_steps_output = response_tuple_steps[0]
+            processed_steps_text = handle_llm_response(raw_steps_output, "step generation", llm_interface=self.llm)
+            
+            self.generated_steps_output = []
+            if processed_steps_text:
+                potential_steps = [step.strip() for step in processed_steps_text.split('\\n') if step.strip()]
+                for step_line in potential_steps:
+                    if re.match(r"^\\d+\\.\\s*", step_line):
+                        self.generated_steps_output.append(re.sub(r"^\\d+\\.\\s*", "", step_line).strip())
+                    elif potential_steps and len(potential_steps) == 1 and not re.match(r"^\\d+\\.\\s*", step_line):
+                        self.generated_steps_output.append(step_line)
+
+            if not self.generated_steps_output and processed_steps_text: 
+                logger.warning(f"Could not parse steps into a numbered list. Using raw output: {processed_steps_text}")
+                self.generated_steps_output = [f"Could not parse steps: {processed_steps_text}"]
+            elif not self.generated_steps_output:
+                self.generated_steps_output = ["No steps were generated or output was empty."]
+
+            logger.info(f"Generated Steps: {self.generated_steps_output}")
+            await _update_gui_state("/state/steps", {"steps": self.generated_steps_output})
+            self.current_step_index = 0
+        except Exception as e: # Added except block to fix the try statement error
+            logger.error(f"Error during step generation: {e}", exc_info=True)
+            self.generated_steps_output = [f"Error during step generation: {e}"]
+            await _update_gui_state("/state/steps", {"text": f"Error: {e}"}) 
+            raise 
+
+    async def _ensure_plan_exists(self):
+        """Ensures that a plan (visual analysis, thinking, steps) exists. Regenerates if needed."""
+        if not self.visual_analysis_output or not self.thinking_process_output or not self.generated_steps_output:
+            logger.info("Plan is incomplete. Regenerating full plan...")
+            self.run_capture_on_next_cycle = True # Ensure fresh screenshot for new plan
+            await self._capture_and_process_screenshot(self.raw_screenshot_path_for_parsing or RAW_SCREENSHOT_FILENAME)
+            
+            if not self.active_screenshot_for_llm_gui or not self.ui_json_for_llm:
+                logger.error("Failed to capture or process screenshot for plan regeneration. Cannot proceed.")
+                # Potentially update GUI with error state here
+                await _update_gui_state("/state/current_operation", {"text": "Error: Failed to get screen data for planning."})
+                return False # Indicate failure to ensure plan
+
+            try:
+                await self._perform_visual_analysis(self.active_screenshot_for_llm_gui, self.ui_json_for_llm)
+                await self._perform_thinking_process()
+                await self._generate_steps()
+                if not self.generated_steps_output or "Error" in self.generated_steps_output[0]:
+                    logger.error("Failed to generate a valid plan even after retry.")
+                    return False # Indicate failure
+            except Exception as e:
+                logger.error(f"Exception during plan regeneration: {e}", exc_info=True)
+                return False # Indicate failure
+        return True # Plan exists or was successfully regenerated
+
+    async def _get_action_for_current_step(self, current_step_description: str, current_step_index: int) -> Optional[Dict[str, Any]]:
+        """
+        Determines the next action to take based on the current step of the formulated objective.
+        It queries the LLM with the current context (objective, step, screenshot) and parses the response.
+        """
+        logger.info(f"Getting action for step {current_step_index}: {current_step_description}")
+        if not self.active_screenshot_for_llm_gui:
+            logger.error("No active screenshot available for LLM input in _get_action_for_current_step.")
+            # Send a specific error to GUI for operations
+            error_action = {"error": "Screenshot missing for LLM."}
+            await self._update_gui_state("/state/operations_generated", {"json": error_action})
+            return None
+
+        # Construct messages for LLM
+        messages = self.construct_messages_for_action(current_step_description)
+        
+        proposed_action = None
+        try:
+            logger.debug(f"Querying LLM for action. Objective: {self.objective}, Step: {current_step_description}")
+            # Ensure self.llm_interface is not None
+            if not self.llm_interface:
+                logger.error("LLM interface is not initialized in AutomoyOperator.")
+                # Send a specific error to GUI for operations
+                error_action = {"error": "LLM interface not initialized."}
+                await self._update_gui_state("/state/operations_generated", {"json": error_action})
+                return None
+
+            response_text, _, _ = await self.llm_interface.get_next_action(
+                model=self.config.get_model(), 
+                messages=messages,
+                objective=self.objective, # Pass the full objective
+                session_id=self.session_id, # Pass the session_id
+                screenshot_path=self.active_screenshot_for_llm_gui 
             )
             
-            # Attempt to parse the LLM response as JSON
-            action_json = handle_llm_response(raw_action_json_str, "action generation", is_json=True, llm_interface=self.llm) # Pass llm_interface
-
-            if not action_json or not isinstance(action_json, dict):
-                logger.error(f"Failed to parse action JSON from LLM or invalid format. Raw: {raw_action_json_str}")
-                # Fallback or error action
-                return {
-                    "operation": "error",
-                    "reasoning": "LLM returned invalid action JSON.",
-                    "raw_response": raw_action_json_str,
-                    "request_new_screenshot": True # Good to refresh if LLM is confused
-                }
-
-            logger.info(f"LLM proposed action: {action_json}")
-            
-            # Ensure 'request_new_screenshot' defaults to False if not provided by LLM
-            if "request_new_screenshot" not in action_json:
-                action_json["request_new_screenshot"] = False
-            
-            self.last_action = action_json # Store the proposed action (before execution)
-            return action_json
+            if response_text:
+                # The handle_llm_response method should parse and return a single action dictionary,
+                # or an empty dict if parsing fails or no valid action is found.
+                proposed_action = self.llm_interface.handle_llm_response(response_text, self.objective)
+                logger.info(f"LLM proposed action_data: {proposed_action}")
+            else:
+                logger.warning("LLM returned no response_text.")
+                proposed_action = {} # Treat as no action
 
         except Exception as e:
-            logger.error(f"Error during action generation: {e}", exc_info=True)
-            return {
-                "operation": "error",
-                "reasoning": f"Failed to generate action: {e}",
-                "request_new_screenshot": True
-            }
+            logger.error(f"Error getting action from LLM: {e}", exc_info=True)
+            proposed_action = {"error": f"LLM query failed: {e}"} # Send error to GUI
+
+        # Ensure proposed_action is a dictionary, even if empty or an error placeholder
+        if not isinstance(proposed_action, dict):
+            logger.warning(f"Proposed action is not a dict: {proposed_action}. Resetting to error placeholder.")
+            proposed_action = {"error": "Invalid action format from LLM."}
+
+
+        if proposed_action and proposed_action != {} and not proposed_action.get("error"):
+            logger.info(f"Action for current step: {proposed_action}")
+            await self._update_gui_state("/state/operations_generated", {"json": proposed_action})
+            # Store this as the last proposed action
+            self.last_proposed_action = proposed_action
+            return proposed_action
+        else:
+            # If proposed_action is empty, None, or an error dictionary
+            if proposed_action and proposed_action.get("error"):
+                logger.warning(f"No valid action determined. LLM/Parsing issue: {proposed_action.get('error')}")
+                await self._update_gui_state("/state/operations_generated", {"json": proposed_action})
+            else:
+                logger.warning(f"No valid action determined. Proposed action was empty or None: {proposed_action}")
+                placeholder_action = {"info": "No action generated or action was empty."}
+                await self._update_gui_state("/state/operations_generated", {"json": placeholder_action})
+            self.last_proposed_action = None # Clear last proposed action
+            return None
+
+    async def operate_loop(self):
+        """
+        Main operational loop for Automoy.
+        Orchestrates screen capture, multi-stage reasoning (visual analysis, thinking, steps),
+        action generation for each step, and action execution.
+        """
+        logger.info(f"Starting Automoy operator loop with objective: {self.objective}")
+        if not self.objective:
+            logger.error("Objective is not set. Cannot start operation.")
+            await _update_gui_state("/state/current_operation", {"text": "Error: Objective not set."})
+            return
+
+        if not hasattr(self, '_llm_call_iteration'): # Ensure iteration counter is initialized
+            self._llm_call_iteration = 0
+
+        self.run_capture_on_next_cycle = True # Start with a screen capture
+
+        while True:
+            if self.pause_event and not self.pause_event.is_set(): # Corrected logic: if pause_event is defined and not set (meaning paused)
+                logger.info("Operation paused. Waiting for resume signal...")
+                await _update_gui_state("/state/current_operation", {"text": "Operation Paused. Waiting to resume..."})
+                await self.pause_event.wait() # This will block until set() is called
+                logger.info("Operation resumed.")
+                self.run_capture_on_next_cycle = True # Re-capture screen after resume
+
+            try:
+                # 1. Capture and Process Screenshot (if needed)
+                if self.run_capture_on_next_cycle:
+                    screenshot_file = os.path.join(OPERATE_PY_PROJECT_ROOT, RAW_SCREENSHOT_FILENAME)
+                    logger.info(f"Initiating screen capture and processing. Target path: {screenshot_file}")
+                    await self._capture_and_process_screenshot(screenshot_file)
+                    
+                    # After capture and process, notify GUI about the screenshot
+                    if self.active_screenshot_for_llm_gui and Path(self.active_screenshot_for_llm_gui).exists():
+                        abs_screenshot_path = str(Path(self.active_screenshot_for_llm_gui).resolve())
+                        logger.info(f"Notifying GUI with screenshot path: {abs_screenshot_path}")
+                        await _update_gui_state("/state/screenshot", {"path": abs_screenshot_path, "timestamp": datetime.now().isoformat()})
+                    else:
+                        logger.warning(f"Screenshot path for GUI ('{self.active_screenshot_for_llm_gui}') is not available or file does not exist. GUI will not be updated with a new screenshot.")
+
+                    if not self.active_screenshot_for_llm_gui or self.ui_json_for_llm is None: # Check if capture failed for LLM
+                        logger.error("Failed to capture or process screenshot for LLM. Retrying after delay.")
+                        await _update_gui_state("/state/current_operation", {"text": "Error: Screen capture failed for LLM. Retrying..."})
+                        await asyncio.sleep(2) # Wait before retrying
+                        self.run_capture_on_next_cycle = True
+                        continue # Retry the loop to capture again
+                    self.run_capture_on_next_cycle = False # Reset flag
+
+                # 2. Ensure Plan Exists (Visual Analysis, Thinking, Steps)
+                plan_ready = await self._ensure_plan_exists()
+                if not plan_ready:
+                    logger.error("Failed to establish a plan. Aborting current attempt or retrying.")
+                    await _update_gui_state("/state/current_operation", {"text": "Error: Failed to generate a plan. Check logs."})
+                    # Decide on recovery: retry, or stop. For now, let's retry after a delay.
+                    await asyncio.sleep(5)
+                    self.run_capture_on_next_cycle = True # Force re-capture and re-plan
+                    continue
+
+                # 3. Get Action for Current Step
+                if self.current_step_index >= len(self.generated_steps_output):
+                    logger.info("All planned steps completed. Objective might be achieved.")
+                    action_json = {"operation": "finish", "reasoning": "All generated steps have been executed."}
+                else:
+                    action_json = await self._get_action_for_current_step()
+
+                if not action_json or "operation" not in action_json:
+                    logger.error("Invalid action JSON received. Attempting to re-plan.")
+                    await _update_gui_state("/state/current_operation", {"text": "Error: Invalid action from LLM. Re-planning."})
+                    self.run_capture_on_next_cycle = True # Force re-capture and re-plan
+                    self.visual_analysis_output = "" # Clear previous plan states
+                    self.thinking_process_output = ""
+                    self.generated_steps_output = []
+                    continue
+
+                # 4. Process and Execute Action
+                self.last_action = action_json
+                operation_type = action_json.get("operation")
+
+                if operation_type == "finish":
+                    logger.info(f"Finish action received. Reasoning: {action_json.get('reasoning', 'No reasoning provided.')}")
+                    await _update_gui_state("/state/current_operation", {"text": f"Objective completed: {action_json.get('reasoning', 'All steps executed.')}"})
+                    await _update_gui_state("/state/last_action_status", {"status": "finished", "action": action_json})
+                    break # Exit the main operating loop
+
+                if operation_type == "error":
+                    logger.error(f"LLM indicated an error: {action_json.get('reasoning', 'No reasoning provided.')}")
+                    await _update_gui_state("/state/current_operation", {"text": f"LLM Error: {action_json.get('reasoning', 'Re-evaluating...')}"})
+                    self.run_capture_on_next_cycle = True # Re-capture and re-evaluate
+                    # Potentially clear plan to force full replan if LLM is stuck
+                    # self.visual_analysis_output = ""
+                    # self.thinking_process_output = ""
+                    # self.generated_steps_output = []
+                    await asyncio.sleep(1) # Brief pause before re-evaluating
+                    continue
+
+                action_executed_successfully = await self._execute_action(action_json)
+                self.last_action_execution_status = action_executed_successfully
+
+                if action_executed_successfully:
+                    logger.info(f"Action '{operation_type}' executed successfully. Moving to next step or re-evaluating.")
+                    await _update_gui_state("/state/last_action_status", {"status": "success", "action": action_json})
+                    self.current_step_index += 1
+                    # After a successful action, always re-capture to see the new state,
+                    # unless the action was minor and a re-capture is explicitly skipped by some logic (not implemented here)
+                    self.run_capture_on_next_cycle = True
+                else:
+                    logger.warning(f"Action '{operation_type}' failed to execute. Re-evaluating screen and current plan.")
+                    await _update_gui_state("/state/last_action_status", {"status": "failure", "action": action_json, "error": "Action execution failed."})
+                    # If an action fails, we should re-capture the screen to understand the current state
+                    # and then potentially re-evaluate the current step or the entire plan.
+                    self.run_capture_on_next_cycle = True
+                    # Consider if we should retry the same step or invalidate the plan.
+                    # For now, let's assume the LLM will adapt based on the new screen state for the current step.
+                    # If it repeatedly fails on the same step, the plan might need to be regenerated by _ensure_plan_exists.
+
+                await asyncio.sleep(self.config.get("LOOP_DELAY", 1.0)) # Configurable delay between actions/cycles
+
+            except AutomoyError as e: # Catch custom application errors
+                logger.error(f"AutomoyError in operate_loop: {e}", exc_info=True)
+                await _update_gui_state("/state/current_operation", {"text": f"Error: {e}. Check logs."})
+                # Decide on recovery or stop
+                self.run_capture_on_next_cycle = True # Try to recover by re-capturing
+                await asyncio.sleep(3) # Wait a bit before retrying
+            except Exception as e:
+                logger.error(f"Unexpected critical error in operate_loop: {e}", exc_info=True)
+                await _update_gui_state("/state/current_operation", {"text": f"Critical Error: {e}. Operation stopped."})
+                # For unexpected errors, it might be safer to stop
+                break
+        
+        logger.info("Automoy operator loop finished.")
+        await _update_gui_state("/state/current_operation", {"text": "Operation finished."})
+# Ensure this class definition ends correctly if there's more code below it in the actual file.
+# If AutomoyOperator is the last thing in the file, this is fine.

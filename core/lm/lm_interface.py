@@ -87,10 +87,21 @@ def handle_llm_response(
     if json_str_to_parse:
         try:
             # Further clean the extracted JSON string from any potential comment lines if LLM added them
-            json_str_to_parse = re.sub(r"//.*?\\n", "\\n", json_str_to_parse)  # Remove // comments
-            json_str_to_parse = re.sub(r"#.*?\\n", "\\n", json_str_to_parse)  # Remove # comments
+            json_str_to_parse = re.sub(r"//.*?\\\\n", "\\\\n", json_str_to_parse)  # Remove // comments
+            json_str_to_parse = re.sub(r"#.*?\\\\n", "\\\\n", json_str_to_parse)  # Remove # comments
             parsed_json = json.loads(json_str_to_parse)
             logger.debug(f"Successfully parsed JSON for '{context_description}'.")
+
+            # If the context is action generation and the parsed JSON is a list,
+            # return the first element if the list is not empty.
+            if context_description == "action generation" and isinstance(parsed_json, list):
+                if len(parsed_json) > 0:
+                    logger.info(f"Parsed JSON for action generation was a list. Returning first element: {parsed_json[0]}")
+                    return parsed_json[0]
+                else:
+                    logger.error(f"Parsed JSON for action generation was an empty list. Original string: '{json_str_to_parse[:500]}...'")
+                    return {"error": "EMPTY_ACTION_LIST", "message": "LLM returned an empty list for actions."}
+
             return parsed_json
         except json.JSONDecodeError as e:
             logger.error(f"JSONDecodeError for '{context_description}': {e}. JSON string was: '{json_str_to_parse[:500]}...'")

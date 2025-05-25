@@ -427,70 +427,102 @@ async def main():
     # This loop is now only for objective formulation, not pause management.
     while True:
         try:
+            logger.debug("Objective loop: Top of try block.") # ADDED
             # Use httpx for async GET request
             async with httpx.AsyncClient() as client:
+                logger.debug("Objective loop: Attempting to GET /operator_state") # ADDED
                 resp = await client.get("http://127.0.0.1:8000/operator_state", timeout=2)
+                logger.debug(f"Objective loop: GET /operator_state response status: {resp.status_code}") # ADDED
 
             if resp.status_code == 200:
-                state = resp.json()
+                logger.debug("Objective loop: Response 200 OK. Attempting to parse JSON.") # ADDED
+                try:
+                    # Log raw text first in case .json() fails
+                    raw_resp_text = resp.text 
+                    logger.debug(f"Objective loop: Raw response text from /operator_state: {raw_resp_text}") # ADDED
+                    state = resp.json()
+                    logger.debug(f"Objective loop: Parsed state from /operator_state: {state}") # ADDED
+                except Exception as e_json:
+                    logger.error(f"Objective loop: Failed to parse JSON response from /operator_state: {e_json}", exc_info=True) # ADDED
+                    state = {} # Initialize to empty dict to prevent further errors with 'state'
+
                 current_gui_goal = state.get("user_goal", "").strip()
+                logger.debug(f"Objective loop: Extracted current_gui_goal='{current_gui_goal}'") # ADDED
+
                 current_gui_formulated_objective = state.get("formulated_objective", "").strip()
                 operator_status = state.get("operator_status", "Idle")
-                # is_gui_paused = state.get("is_paused", False) # Pause state is handled by pause_manager_task
+                logger.debug(f"Objective loop: Current value of user_goal (before check)='{user_goal}'") # ADDED
 
-                if current_gui_goal and not user_goal:
+                # Evaluate and log the condition for processing a new goal
+                condition_to_process_goal = bool(current_gui_goal and not user_goal) 
+                logger.debug(f"Objective loop: Condition (current_gui_goal AND not user_goal) is {condition_to_process_goal}")
+
+                if condition_to_process_goal:
+                    logger.debug("Objective loop: Entered 'condition_to_process_goal' block.") # NEW
                     user_goal = current_gui_goal
                     logger.info(f"User Goal received from GUI: {user_goal}")
                     
                     logger.info(f"Requesting AI to formulate objective for goal: {user_goal}")
+                    logger.debug("Objective loop: Instantiating MainInterface...") # NEW
                     llm_interface = MainInterface()
+                    logger.debug("Objective loop: MainInterface instantiated.") # NEW
+
                     formulation_messages = [
                         {"role": "system", "content": FORMULATE_OBJECTIVE_SYSTEM_PROMPT},
                         {"role": "user", "content": FORMULATE_OBJECTIVE_USER_PROMPT_TEMPLATE.format(user_goal=user_goal)}
                     ]
+                    logger.debug(f"Objective loop: Formulation messages prepared: {formulation_messages}") # NEW
+
                     try:
-                        cfg = Config() # Ensure Config is instantiated if used here
+                        logger.debug("Objective loop: Attempting to formulate objective with LLM...") # NEW
+                        cfg = Config()
+                        logger.debug("Objective loop: Config instantiated.") # NEW
                         model_for_formulation = cfg.get_model()
+                        logger.debug(f"Objective loop: Model for formulation: {model_for_formulation}") # NEW
+
                         response_text, _, _ = await llm_interface.get_next_action(
                             model=model_for_formulation,
                             messages=formulation_messages,
-                            objective="Formulate a detailed objective from the user\'s goal.",
+                            objective="Formulate a detailed objective from the user\\'s goal.",
                             session_id="automoy-objective-formulation",
-                            screenshot_path=None
+                            screenshot_path=None 
                         )
-                        # Strip <think> tags and content before sending it to the GUI and using it for the operator
-                        raw_formulated_objective = response_text.strip()
+                        logger.debug(f"Objective loop: LLM raw response_text: {response_text[:200] if response_text else 'None'}...") # NEW with check
+
+                        raw_formulated_objective = response_text.strip() if response_text else "" # NEW with check
                         # Use re.DOTALL flag to make . match newlines
                         formulated_objective_for_gui = re.sub(r"<think>.*?</think>", "", raw_formulated_objective, flags=re.DOTALL).strip()
+                        logger.debug(f"Objective loop: Formulated objective for GUI (after stripping): {formulated_objective_for_gui[:200]}...") # NEW
                         
-                        if not formulated_objective_for_gui: # Check if stripping resulted in empty string
+                        if not formulated_objective_for_gui: 
                             logger.error("AI failed to formulate a valid objective after stripping tags. Using a fallback.")
                             formulated_objective_for_gui = f"Fallback objective: Complete user goal \'{user_goal}\'"
                         
-                        # Log the version that will be used by the operator (could be with or without think tags, depending on choice)
-                        # For now, let's assume the operator should also get the cleaned version.
                         formulated_objective = formulated_objective_for_gui
+                        logger.debug(f"Objective loop: Final formulated_objective: {formulated_objective[:200]}...") # NEW
 
                     except Exception as e_formulate:
-                        logger.error(f"Error during AI objective formulation: {e_formulate}")
-                        formulated_objective = f"Error fallback objective for: {user_goal}" # This will be sent to GUI
+                        logger.error(f"Error during AI objective formulation: {e_formulate}", exc_info=True) # MODIFIED to add exc_info
+                        formulated_objective = f"Error fallback objective for: {user_goal}"
 
                     logger.info(f"AI Formulated Objective (for GUI): {formulated_objective}")
+                    logger.debug("Objective loop: Attempting to POST formulated_objective to GUI...") # NEW
                     
                     async with httpx.AsyncClient() as client_post_obj: # Use a different name for this client
                         await client_post_obj.post("http://127.0.0.1:8000/state/formulated_objective", 
                                           json={"objective": formulated_objective}, timeout=5) # Send the cleaned version
+                    logger.debug("Objective loop: Successfully POSTed formulated_objective to GUI.") # NEW
                 
                 if user_goal and formulated_objective and current_gui_formulated_objective == formulated_objective and operator_status == "ObjectiveFormulated":
                     initial_objective_for_operator = formulated_objective # Use the cleaned version for the operator too
                     logger.info(f"Confirmed AI formulated objective (for operator): {initial_objective_for_operator}")
                     break # Exit loop once objective is formulated and confirmed
 
-        except httpx.RequestError: # Catch httpx specific errors
-            # print(f"[MAIN] Error polling GUI state during objective setup: {e_httpx_obj}") # Can be noisy
+        except httpx.RequestError as e_httpx_obj: # Catch httpx specific errors
+            logger.warning(f"[MAIN] Objective loop: httpx.RequestError polling GUI state: {e_httpx_obj}") # MODIFIED for clarity
             pass 
         except Exception as e_obj_loop: # Catch other errors in this loop
-            logger.error(f"Unexpected error polling GUI state during objective setup: {e_obj_loop}")
+            logger.error(f"Unexpected error in objective polling loop: {e_obj_loop}", exc_info=True) # MODIFIED for clarity
         await asyncio.sleep(0.1) # Poll every 0.1 seconds for objective setup
     
     logger.info(f"Proceeding with AI Formulated Objective: {initial_objective_for_operator}")

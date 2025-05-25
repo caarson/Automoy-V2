@@ -138,29 +138,29 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }
 
-                if (visualAnalysisDisplay && data.current_visual_analysis) {
-                    visualAnalysisDisplay.textContent = data.current_visual_analysis;
+                if (visualAnalysisDisplay && data.visual_analysis_output) { // Corrected from data.current_visual_analysis
+                    visualAnalysisDisplay.textContent = data.visual_analysis_output;
                 }
-                if (thinkingProcessDisplay && data.current_thinking_process) {
-                    thinkingProcessDisplay.textContent = data.current_thinking_process;
+                if (thinkingProcessDisplay && data.thinking_process_output) { // Corrected from data.current_thinking_process
+                    thinkingProcessDisplay.textContent = data.thinking_process_output;
                 }
-                if (stepsGeneratedDisplay && data.current_steps_generated) {
-                    if (Array.isArray(data.current_steps_generated) && data.current_steps_generated.length > 0) {
-                        stepsGeneratedDisplay.innerHTML = data.current_steps_generated.map(step => `<li>${escapeHtml(step)}</li>`).join('');
-                    } else if (Array.isArray(data.current_steps_generated) && data.current_steps_generated.length === 0 && stepsGeneratedDisplay.innerHTML !== "<li>Waiting for steps...</li>") {
+                if (stepsGeneratedDisplay && data.steps_generated) { // Corrected from data.current_steps_generated
+                    if (Array.isArray(data.steps_generated) && data.steps_generated.length > 0) {
+                        stepsGeneratedDisplay.innerHTML = data.steps_generated.map(step => `<li>${escapeHtml(step)}</li>`).join('');
+                    } else if (Array.isArray(data.steps_generated) && data.steps_generated.length === 0 && stepsGeneratedDisplay.innerHTML !== "<li>Waiting for steps...</li>") {
                         stepsGeneratedDisplay.innerHTML = "<li>No steps generated yet.</li>";
-                    } else if (typeof data.current_steps_generated === 'string') { // Handle if it's a string by mistake
-                        stepsGeneratedDisplay.innerHTML = `<li>${escapeHtml(data.current_steps_generated)}</li>`;
+                    } else if (typeof data.steps_generated === 'string') { // Handle if it's a string by mistake
+                        stepsGeneratedDisplay.innerHTML = `<li>${escapeHtml(data.steps_generated)}</li>`;
                     }
                 }
                 // Update for Operations Generated
-                if (operationsGeneratedDisplay && data.current_operations_generated) {
-                    // Assuming data.current_operations_generated will be a string (e.g., JSON string of the operation)
+                if (operationsGeneratedDisplay && data.operations_generated) { // Already corrected to data.operations_generated
+                    // Assuming data.operations_generated will be a string (e.g., JSON string of the operation)
                     // If it's an object, you might want to JSON.stringify it here with indentation
-                    if (typeof data.current_operations_generated === 'object') {
-                        operationsGeneratedDisplay.textContent = JSON.stringify(data.current_operations_generated, null, 2);
+                    if (typeof data.operations_generated === 'object') { // Corrected: Check data.operations_generated
+                        operationsGeneratedDisplay.textContent = JSON.stringify(data.operations_generated, null, 2); // Corrected: Use data.operations_generated
                     } else {
-                        operationsGeneratedDisplay.textContent = data.current_operations_generated;
+                        operationsGeneratedDisplay.textContent = data.operations_generated; // Corrected: Use data.operations_generated
                     }
                 } else if (operationsGeneratedDisplay) {
                     // Clear or set to default if no operations data
@@ -267,7 +267,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Add a cache-busting query parameter
         const timestamp = new Date().getTime();
-        const screenshotUrl = `/automoy_current.png?t=${timestamp}`;
+        // Corrected URL to point to the copied processed screenshot in the static directory
+        const screenshotUrl = `/static/processed_screenshot.png?t=${timestamp}`; 
         console.log("Refreshing screenshot from:", screenshotUrl);
 
         imgElement.src = screenshotUrl; 
@@ -281,7 +282,6 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error("Error loading screenshot. It might not be available yet or path is incorrect.");
             imgElement.style.display = 'none';
             placeholder.style.display = 'block';
-            // Optionally, try again after a short delay or revert to placeholder text
             placeholder.textContent = 'Error loading screenshot. Waiting for next update...';
         };
     }
@@ -313,53 +313,60 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function updateOperationalState(data) {
-    if (!data) return;
+    if (!data) {
+        console.warn("updateOperationalState called with no data.");
+        return;
+    }
+    console.log("Updating operational state with data:", data); // General log
 
-    // ... existing cases for visual, thinking, steps_generated, current_operation ...
-    if (data.visual_analysis_output !== undefined) {
-        document.getElementById('visualAnalysisDisplay').textContent = data.visual_analysis_output;
+    // Update User Goal
+    const userGoalElement = document.getElementById('user-goal-content');
+    if (userGoalElement) {
+        userGoalElement.textContent = data.user_goal || 'Not set';
     }
-    if (data.thinking_process_output !== undefined) {
-        document.getElementById('thinkingProcessDisplay').textContent = data.thinking_process_output;
-    }
-    if (data.generated_steps_output !== undefined) {
-        const stepsList = document.getElementById('stepsGeneratedList');
-        stepsList.innerHTML = ''; // Clear previous steps
-        data.generated_steps_output.forEach(step => {
-            const li = document.createElement('li');
-            li.textContent = step;
-            stepsList.appendChild(li);
-        });
-    }
-    if (data.current_operation !== undefined) {
-        document.getElementById('currentOperationDisplay').textContent = data.current_operation;
-    }
-    // Handle last_action to update "Operations Generated" and "Past Operation"
-    if (data.last_action) {
-        const la = data.last_action;
-        const operationsDisplay = document.getElementById('operationsGeneratedText'); // Corrected ID from operationsGeneratedContent to operationsGeneratedText
-        const pastOpDisplay = document.getElementById('pastOperationDisplay');
 
-        if (operationsDisplay) { // Check if the element exists
-            if (la.action && typeof la.action === 'object') {
-                operationsDisplay.textContent = JSON.stringify(la.action, null, 2);
-            } else if (la.action) { // If la.action is a string or other primitive
-                operationsDisplay.textContent = la.action;
-            } else {
-                operationsDisplay.textContent = 'No action data available in last_action.';
-            }
-        }
+    // Update AI Formulated Objective
+    const aiObjectiveElement = document.getElementById('ai-formulated-objective-content');
+    if (aiObjectiveElement) {
+        aiObjectiveElement.textContent = data.formulated_objective || 'Waiting for user goal...';
+    }
 
-        if (pastOpDisplay) {
-            let pastOpText = "Status: Unknown";
-            if (la.action && la.action.operation) {
-                pastOpText = `Action: ${la.action.operation}, Status: ${la.status || 'N/A'}`;
-            } else if (la.status) { // If only status is available
-                pastOpText = `Status: ${la.status}`;
-            } else if (la.action) { // If only action is available
-                 pastOpText = `Action: ${JSON.stringify(la.action, null, 2)}, Status: N/A`;
-            }
-            pastOpDisplay.textContent = pastOpText;
+    // Update Steps Generated (Visual Analysis Output)
+    const visualAnalysisElement = document.getElementById('visual-analysis-content');
+    if (visualAnalysisElement) {
+        // Assuming visual_analysis_output contains the steps (plain text or pre-formatted)
+        visualAnalysisElement.textContent = data.visual_analysis_output || 'No visual analysis yet.';
+    }
+    
+    // Update Operations Generated
+    const operationsElement = document.getElementById('operations-generated-content');
+    if (operationsElement) {
+        console.log('Raw operations_generated from backend:', data.operations_generated); // Specific log for operations
+        const operationsContent = data.operations_generated && Object.keys(data.operations_generated).length > 0
+            ? JSON.stringify(data.operations_generated, null, 2)
+            : '{}'; // Default to '{}' string if empty or undefined
+        operationsElement.textContent = escapeHtml(operationsContent);
+    }
+
+    // Update Thinking Process
+    const thinkingProcessElement = document.getElementById('thinking-process-content');
+    if (thinkingProcessElement) {
+        thinkingProcessElement.textContent = data.thinking_process_output || 'No thinking process logged yet.';
+    }
+
+    // Update Operator Status
+    const operatorStatusElement = document.getElementById('operator-status-content');
+    if (operatorStatusElement) {
+        operatorStatusElement.textContent = data.operator_status || 'Idle';
+    }
+
+    // Update current step display
+    const currentStepDisplayElement = document.getElementById('current-step-display');
+    if (currentStepDisplayElement) {
+        if (data.current_step_description) {
+            currentStepDisplayElement.innerHTML = `<strong>Current:</strong> ${escapeHtml(data.current_step_description)}`;
+        } else {
+            currentStepDisplayElement.innerHTML = '<strong>Current:</strong> Not started';
         }
     }
 }
