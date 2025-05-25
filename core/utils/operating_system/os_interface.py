@@ -50,12 +50,10 @@ class OSInterface:
 
     def click_mouse(self, button: str = "left") -> None:
         """Clicks the mouse using the specified button (left or right)."""
-        if button == "left":
-            mouse.click()
-        elif button == "right":
-            mouse.right_click()
-        else:
-            raise ValueError("Unsupported mouse button. Use 'left' or 'right'.")
+        # pyautogui.click() handles screen coordinates directly.
+        # The mouse should have already been moved to the target coordinates
+        # by the calling function (e.g., _execute_action using self.os_interface.move_mouse).
+        pyautogui.click(button=button)
 
     def drag_mouse(self, x: int, y: int, duration: float = 0.5) -> None:
         """Drags the mouse to a new position."""

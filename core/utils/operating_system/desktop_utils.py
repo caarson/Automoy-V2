@@ -36,6 +36,17 @@ class DesktopUtils:
             return None
 
     @staticmethod
+    def show_desktop():
+        """Minimizes all windows to show the desktop."""
+        # Simulates pressing Win+D
+        try:
+            import pyautogui
+            pyautogui.hotkey('winleft', 'd')
+            print("[INFO][DesktopUtils] Simulated Win+D to show desktop.")
+        except Exception as e:
+            print(f"[ERROR][DesktopUtils] Failed to simulate Win+D: {e}")
+
+    @staticmethod
     def get_desktop_background_settings():
         if DesktopUtils._original_settings is not None:
             # Already have settings, possibly from a previous call in the same session that wasn't restored

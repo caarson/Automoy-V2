@@ -1,4 +1,3 @@
-print("[MAIN_PY_DEBUG] Script execution started.")
 import asyncio
 import os
 import signal
@@ -8,12 +7,12 @@ import time
 import webbrowser
 from contextlib import contextmanager
 import shutil # Add this import
-import pygetwindow as gw
-import functools
 import re # Add re module for regex operations
-
-# Define the prefix for the Automoy GUI window title
-AUTOMOY_GUI_TITLE_PREFIX = "Automoy - Access via"
+import pygetwindow as gw # Added for find_automoy_gui_window
+import functools # Added for functools.partial
+import httpx # Added for async API calls
+import psutil # Added for process cleanup
+import requests # Added for synchronous health check
 
 # Add project root to sys.path BEFORE attempting to import from core or config
 # This ensures that modules like 'core' and 'config' can be found.
@@ -21,24 +20,60 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-# Define the GUI window title prefix for hide/show operations
-AUTOMOY_GUI_TITLE_PREFIX = "Automoy - Access via"
-
-import psutil
-import requests
-import httpx # Added for async API calls
-
+# Now import project-specific modules
 from core.utils.operating_system.desktop_utils import DesktopUtils
 from core.utils.omniparser.omniparser_server_manager import OmniParserServerManager
 from core.operate import AutomoyOperator, _update_gui_state 
 from config import Config
-# Import necessary for LLM call
 from core.lm.lm_interface import MainInterface
 from core.prompts.prompts import FORMULATE_OBJECTIVE_SYSTEM_PROMPT, FORMULATE_OBJECTIVE_USER_PROMPT_TEMPLATE
 
+import logging
+import logging.handlers
+
+LOG_FILE_PATH = os.path.join(PROJECT_ROOT, "debug", "logs", "core", "output.log") # Updated path
+
+def setup_logging():
+    log_dir = os.path.dirname(LOG_FILE_PATH)
+    os.makedirs(log_dir, exist_ok=True)
+
+    root_logger = logging.getLogger()
+    
+    # Clear existing handlers to avoid duplication if this function is called multiple times
+    if root_logger.hasHandlers():
+        root_logger.handlers.clear()
+
+    root_logger.setLevel(logging.DEBUG) 
+
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - [%(module)s.%(funcName)s:%(lineno)d] - %(message)s')
+
+    # File Handler for detailed debug logs
+    fh = logging.FileHandler(LOG_FILE_PATH, mode='w') # Changed mode to 'w'
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(formatter)
+    root_logger.addHandler(fh)
+
+    # Console Handler for general info logs
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.INFO) 
+    ch.setFormatter(formatter)
+    root_logger.addHandler(ch)
+    
+    # Use the root logger for the initial message, or a specific logger if preferred
+    logging.info(f"Logging initialized. Log file: {LOG_FILE_PATH}. Console level: INFO, File level: DEBUG.")
+
+# Call setup_logging() once, early in the script.
+setup_logging()
+logger = logging.getLogger(__name__) # Logger for this module
+
+logger.debug("Script execution started.")
+
+# Define the prefix for the Automoy GUI window title
+AUTOMOY_GUI_TITLE_PREFIX = "Automoy - Access via"
+
 gui_process = None
-omniparser_server_process = None # To keep track of the OmniParser server process
-pause_event = asyncio.Event() # Create a global pause event
+omniparser_server_process = None 
+pause_event = asyncio.Event() 
 
 # Function to find the Automoy GUI window (using the corrected title prefix)
 def find_automoy_gui_window():
@@ -49,17 +84,17 @@ def find_automoy_gui_window():
                 return w
         return None
     except Exception as e:
-        print(f"[PYGETWINDOW_FIND][ERROR] Error finding Automoy GUI window: {e}")
+        logger.error(f"Error finding Automoy GUI window: {e}")
         return None
 
 def start_gui_subprocess():
     global gui_process
     # Correctly determine the project root and gui_script_path
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    gui_script_path = os.path.join(project_root, "gui", "gui.py")
+    # PROJECT_ROOT is already defined globally
+    gui_script_path = os.path.join(PROJECT_ROOT, "gui", "gui.py")
 
     if not os.path.exists(gui_script_path):
-        print(f"[MAIN][ERROR] GUI script not found at {gui_script_path}")
+        logger.error(f"GUI script not found at {gui_script_path}")
         return None
 
     try:
@@ -70,15 +105,13 @@ def start_gui_subprocess():
             # allowing its stdout/stderr (prints, errors) to be visible.
             creation_flags = subprocess.CREATE_NEW_CONSOLE
         
-        # Log the command and flags being used
-        # The existing print statement for the command is good.
-        print(f"[MAIN] Starting GUI: {sys.executable} \\\"{gui_script_path}\\\"") # Corrected: Escape backslashes for quotes
+        logger.info(f"Starting GUI: {sys.executable} \\\"{gui_script_path}\\\"")
         # CREATE_NO_WINDOW can be added back for production if GUI console is not needed
         # creationflags = subprocess.CREATE_NO_WINDOW 
         # Ensure gui.py runs in a new console window to see its output
         creationflags = subprocess.CREATE_NEW_CONSOLE
         gui_process = subprocess.Popen([sys.executable, gui_script_path], creationflags=creationflags)
-        print(f"[MAIN] GUI process started with PID: {gui_process.pid}. Waiting for it to be healthy...")
+        logger.info(f"GUI process started with PID: {gui_process.pid}. Waiting for it to be healthy...")
 
         max_wait_time = 30  # seconds
         start_time = time.time()
@@ -90,38 +123,38 @@ def start_gui_subprocess():
                 if response.status_code == 200:
                     content = response.json()
                     if content.get("status") == "healthy":
-                        print("[MAIN] GUI is healthy and responsive.")
+                        logger.info("GUI is healthy and responsive.")
                         gui_ready = True
                         break
                     else:
-                        print(f"[MAIN] GUI health check status not healthy: {content.get('status')}, retrying...")
+                        logger.warning(f"GUI health check status not healthy: {content.get('status')}, retrying...")
                 else:
-                    print(f"[MAIN] GUI health check failed with status {response.status_code}, retrying...")
+                    logger.warning(f"GUI health check failed with status {response.status_code}, retrying...")
             except requests.exceptions.ConnectionError:
-                print("[MAIN] GUI not ready yet (connection error), retrying...")
+                logger.warning("GUI not ready yet (connection error), retrying...")
             except requests.exceptions.Timeout:
-                print("[MAIN] GUI health check timed out, retrying...")
+                logger.warning("GUI health check timed out, retrying...")
             except Exception as e:
-                print(f"[MAIN] Error checking GUI health: {e}, retrying...")
+                logger.error(f"Error checking GUI health: {e}, retrying...")
             time.sleep(1)
 
         if not gui_ready:
-            print("[MAIN][ERROR] GUI did not become healthy within the timeout period.")
+            logger.error("GUI did not become healthy within the timeout period.")
             if gui_process and gui_process.poll() is None:
-                print("[MAIN] Terminating unresponsive GUI process.")
+                logger.info("Terminating unresponsive GUI process.")
                 gui_process.terminate()
                 try:
                     gui_process.wait(timeout=5)
                 except subprocess.TimeoutExpired:
-                    print("[MAIN] GUI process did not terminate gracefully, killing.")
+                    logger.warning("GUI process did not terminate gracefully, killing.")
                     gui_process.kill()
             gui_process = None
             return None
 
-        print("[MAIN] GUI subprocess started and reported healthy.")
+        logger.info("GUI subprocess started and reported healthy.")
         return gui_process
     except Exception as e:
-        print(f"[MAIN][ERROR] Failed to start GUI subprocess: {e}")
+        logger.error(f"Failed to start GUI subprocess: {e}")
         if gui_process and gui_process.poll() is None:
             gui_process.kill() # Ensure it's killed if something went wrong after Popen
         gui_process = None
@@ -129,12 +162,12 @@ def start_gui_subprocess():
 
 async def _control_gui_window_api(action: str, retries=3, delay=1) -> bool:
     if not gui_process:
-        print(f"[API_CALL][ERROR] GUI process not available. Cannot {action} window.")
+        logger.error(f"GUI process not available. Cannot {action} window.")
         return False
 
     gui_base_url = "http://127.0.0.1:8000"
     url = f"{gui_base_url}/control/window/{action}"
-    print(f"[API_CALL] Attempting to {action} GUI window via API: {url}")
+    logger.info(f"Attempting to {action} GUI window via API: {url}")
 
     for attempt in range(retries):
         try:
@@ -142,45 +175,48 @@ async def _control_gui_window_api(action: str, retries=3, delay=1) -> bool:
                 response = await client.post(url, timeout=10) # Increased timeout slightly
 
             if response.status_code == 200:
-                print(f"[API_CALL] Successfully sent {action} command to GUI API. Response: {response.text}")
+                logger.info(f"Successfully sent {action} command to GUI API. Response: {response.text}")
                 return True
             else:
-                print(f"[API_CALL][ERROR] Failed to {action} GUI window via API. Attempt {attempt + 1}/{retries}. Status: {response.status_code}, Response: {response.text}")
+                logger.error(f"Failed to {action} GUI window via API. Attempt {attempt + 1}/{retries}. Status: {response.status_code}, Response: {response.text}")
         except httpx.RequestError as e:
-            print(f"[API_CALL][ERROR] httpx.RequestError on attempt {attempt + 1}/{retries} when trying to {action} GUI: {e}")
+            logger.error(f"httpx.RequestError on attempt {attempt + 1}/{retries} when trying to {action} GUI: {e}")
         except Exception as e:
-            print(f"[API_CALL][ERROR] Unexpected error on attempt {attempt + 1}/{retries} when trying to {action} GUI: {e}")
+            logger.error(f"Unexpected error on attempt {attempt + 1}/{retries} when trying to {action} GUI: {e}")
         
         if attempt < retries - 1:
-            print(f"Retrying in {delay}s...")
+            logger.info(f"Retrying in {delay}s...")
             await asyncio.sleep(delay)
         else:
-            print(f"[API_CALL] Failed to {action} GUI window via API after {retries} attempts.")
+            logger.error(f"Failed to {action} GUI window via API after {retries} attempts.")
     return False
 
 def _pygetwindow_show_and_position(window):
     if window:
-        print(f"[MAIN_GUI_CTRL] pygetwindow: Restoring and activating window '{window.title}'.") # Modified log
+        logger.info(f"pygetwindow: Restoring and activating window '{window.title}'.")
         if window.isMinimized:
             window.restore()
         
         if not window.visible:
             window.show()
-            print(f"[MAIN_GUI_CTRL] pygetwindow: Window '{window.title}' was not visible, called show().")
+            logger.info(f"pygetwindow: Window '{window.title}' was not visible, called show().")
          
-        window.activate()
-        # window.resizeTo(1228, 691) # Removed resize
-        # window.moveTo(0, 0)        # Removed move
-        print(f"[MAIN_GUI_CTRL] pygetwindow: Window '{window.title}' shown and activated.") # Modified log
+        try:
+            window.activate()
+        except gw.PyGetWindowException as e: # Assuming 'import pygetwindow as gw' is at the top
+            if "Error code from Windows: 0" in str(e):
+                logger.warning(f"pygetwindow.activate() raised known benign exception (error code 0): {e}. Continuing.")
+            else:
+                logger.error(f"pygetwindow.activate() failed: {e}")
+                raise # Re-raise other pygetwindow exceptions
+        logger.info(f"pygetwindow: Window '{window.title}' shown and activated.")
     else:
-        print("[MAIN_GUI_CTRL] pygetwindow: Window not provided for show_and_position.")
+        logger.warning("pygetwindow: Window not provided for show_and_position.")
 
 async def async_manage_automoy_gui_visibility(action: str, window_title: str = AUTOMOY_GUI_TITLE_PREFIX) -> bool:
-    # Normalize action and handle minimize (hide) directly via pygetwindow
     normalized = action.lower()
     if normalized in ('hide', 'minimize'):
-        print(f"[MAIN_GUI_CTRL] Minimizing Automoy GUI ('{window_title}') via pygetwindow.")
-        # Wait for the window to be created (up to 3s)
+        logger.info(f"Minimizing Automoy GUI ('{window_title}') via pygetwindow.")
         window = None
         for _ in range(10):  # 10 x 0.3s = 3s
             window = find_automoy_gui_window()
@@ -188,50 +224,53 @@ async def async_manage_automoy_gui_visibility(action: str, window_title: str = A
                 break
             await asyncio.sleep(0.3)
         if not window:
-            print(f"[MAIN_GUI_CTRL] Timeout: No GUI window found with prefix '{window_title}' to minimize.")
+            logger.warning(f"Timeout: No GUI window found with prefix '{window_title}' to minimize.")
             return False
-        window.minimize()
-        await asyncio.sleep(1.0)  # ensure window is hidden
-        return True
-    
-    # Show action: try API first, then fallback
-    print(f"[MAIN_GUI_CTRL] Attempting to show Automoy GUI via API.")
+        try:
+            window.minimize()
+            await asyncio.sleep(1.0)  # ensure window is hidden
+            logger.info(f"GUI window '{window.title}' minimized via pygetwindow.")
+            return True
+        except Exception as e:
+            logger.error(f"Error minimizing window '{window.title}' via pygetwindow: {e}")
+            return False
+            
+    logger.info(f"Attempting to show Automoy GUI ('{window_title}') via API.")
     if await _control_gui_window_api('show'):
         await asyncio.sleep(0.5)  # allow show to complete
         return True
-    print(f"[MAIN_GUI_CTRL] API show failed, falling back to pygetwindow.")
+    logger.warning(f"API show failed for '{window_title}', falling back to pygetwindow.")
     window = find_automoy_gui_window()
     if not window:
-        print(f"[MAIN_GUI_CTRL] No GUI window found with prefix '{window_title}' to show.")
+        logger.warning(f"No GUI window found with prefix '{window_title}' to show via pygetwindow fallback.")
         return False
     _pygetwindow_show_and_position(window)
     return True
 
 async def hide_gui_for_screenshot(window_title: str = AUTOMOY_GUI_TITLE_PREFIX):
-    print(f"[MAIN_GUI_CTRL] Preparing to minimize GUI ('{window_title}') for screenshot.")
+    logger.info(f"Preparing to minimize GUI ('{window_title}') for screenshot.")
     minimized_successfully = await async_manage_automoy_gui_visibility("minimize", window_title)
 
     if minimized_successfully:
-        print(f"[MAIN_GUI_CTRL] GUI ('{window_title}') minimization attempt completed (API or pygetwindow).")
+        logger.info(f"GUI ('{window_title}') minimization attempt completed.")
     else:
-        print(f"[MAIN_GUI_CTRL] Failed to minimize GUI ('{window_title}') via API and pygetwindow fallback. Screenshot might capture the GUI.")
+        logger.warning(f"Failed to minimize GUI ('{window_title}'). Screenshot might capture the GUI.")
 
 async def show_gui_after_screenshot(window_title: str = AUTOMOY_GUI_TITLE_PREFIX):
-    print(f"[MAIN_GUI_CTRL] Preparing to show GUI ('{window_title}') after screenshot.")
+    logger.info(f"Preparing to show GUI ('{window_title}') after screenshot.")
     shown_successfully = await async_manage_automoy_gui_visibility("show", window_title)
 
     if shown_successfully:
-        print(f"[MAIN_GUI_CTRL] GUI ('{window_title}') show attempt completed (API or pygetwindow).")
+        logger.info(f"GUI ('{window_title}') show attempt completed.")
     else:
-        print(f"[MAIN_GUI_CTRL] Failed to show GUI ('{window_title}') via API and pygetwindow fallback.")
+        logger.warning(f"Failed to show GUI ('{window_title}').")
 
 def cleanup_processes():
     global gui_process, omniparser_server_process
-    print("[CLEANUP] Cleaning up processes...")
+    logger.info("Cleaning up processes...")
 
-    # Terminate GUI process
     if gui_process:
-        print(f"[CLEANUP] Terminating GUI process (PID: {gui_process.pid})...")
+        logger.info(f"Terminating GUI process (PID: {gui_process.pid})...")
         if gui_process.poll() is None: # Check if process is still running
             # Try to terminate gracefully first
             if sys.platform == "win32":
@@ -247,39 +286,36 @@ def cleanup_processes():
 
             try:
                 gui_process.wait(timeout=10) # Wait for graceful termination
-                print("[CLEANUP] GUI process terminated gracefully.")
+                logger.info("GUI process terminated gracefully.")
             except subprocess.TimeoutExpired:
-                print("[CLEANUP] GUI process did not terminate gracefully, killing...")
+                logger.warning("GUI process did not terminate gracefully, killing...")
                 gui_process.kill() # Force kill if it doesn't terminate
                 try:
                     gui_process.wait(timeout=5) # Wait for kill
                 except subprocess.TimeoutExpired:
-                    print("[CLEANUP] GUI process kill command timed out.")
+                    logger.error("GUI process kill command timed out.")
             except Exception as e: # Catch other potential errors during termination
-                print(f"[CLEANUP][ERROR] Error during GUI process termination: {e}")
+                logger.error(f"Error during GUI process termination: {e}")
         else:
-            print("[CLEANUP] GUI process already terminated.")
+            logger.info("GUI process already terminated.")
         gui_process = None
 
-    # Terminate OmniParser server process (if managed by main.py via OmniParserServerManager)
-    # The OmniParserServerManager instance should handle its own process termination ideally.
-    # This is a fallback / direct management if omniparser_server_process is the Popen object.
     if omniparser_server_process and omniparser_server_process.poll() is None:
-        print(f"[CLEANUP] Terminating OmniParser server process (PID: {omniparser_server_process.pid})...")
+        logger.info(f"Terminating OmniParser server process (PID: {omniparser_server_process.pid})...")
         omniparser_server_process.terminate()
         try:
             omniparser_server_process.wait(timeout=5)
-            print("[CLEANUP] OmniParser server process terminated.")
+            logger.info("OmniParser server process terminated.")
         except subprocess.TimeoutExpired:
-            print("[CLEANUP] OmniParser server process did not terminate gracefully, killing...")
+            logger.warning("OmniParser server process did not terminate gracefully, killing...")
             omniparser_server_process.kill()
             try:
                 omniparser_server_process.wait(timeout=2)
             except subprocess.TimeoutExpired:
-                print("[CLEANUP] OmniParser server process kill command timed out.")
+                logger.error("OmniParser server process kill command timed out.")
         omniparser_server_process = None
     elif omniparser_server_process: # Process exists but poll() is not None (already terminated)
-        print(f"[CLEANUP] OmniParser server process (PID: {omniparser_server_process.pid if hasattr(omniparser_server_process, 'pid') else 'unknown'}) already terminated.")
+        logger.info(f"OmniParser server process (PID: {omniparser_server_process.pid if hasattr(omniparser_server_process, 'pid') else 'unknown'}) already terminated.")
         omniparser_server_process = None
     
     # Additional cleanup for any OmniParser server processes that might have been missed
@@ -288,27 +324,24 @@ def cleanup_processes():
         for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
             # Adjust "omniparser_script_name.py" to the actual script name if different
             # Or check for a unique part of the command line arguments
-            if proc.info['name'] and proc.info['name'].lower() == 'python.exe' or proc.info['name'].lower() == 'python': # Check if it's a python process
+            if proc.info['name'] and proc.info['name'].lower() in ('python.exe', 'python'): # Check if it's a python process
                  cmdline = proc.info['cmdline']
                  if cmdline and any("omniparser" in arg.lower() for arg in cmdline): # Heuristic
-                    print(f"[CLEANUP] Found lingering OmniParser-related process: PID {proc.info['pid']}, Cmd: {' '.join(cmdline)}. Terminating.")
+                    logger.info(f"Found lingering OmniParser-related process: PID {proc.info['pid']}, Cmd: {' '.join(cmdline)}. Terminating.")
                     try:
                         p = psutil.Process(proc.info['pid'])
                         p.terminate() # or p.kill()
                         p.wait(timeout=3)
                     except psutil.NoSuchProcess:
-                        print(f"[CLEANUP] Process {proc.info['pid']} already terminated.")
+                        logger.info(f"Process {proc.info['pid']} already terminated.")
                     except Exception as e:
-                        print(f"[CLEANUP][ERROR] Failed to terminate lingering OmniParser process {proc.info['pid']}: {e}")
+                        logger.error(f"Failed to terminate lingering OmniParser process {proc.info['pid']}: {e}")
     except Exception as e:
-        print(f"[CLEANUP][ERROR] Error during psutil cleanup for OmniParser: {e}")
-
-    print("[CLEANUP] Process cleanup finished.")
-
+        logger.error(f"Error during psutil cleanup for OmniParser: {e}")
+    logger.info("Process cleanup finished.")
 
 async def manage_pause_event_concurrently(pause_event_ref: asyncio.Event):
-    """Polls GUI for pause state and updates the pause_event accordingly. Runs concurrently."""
-    print("[PAUSE_MANAGER_TASK] Started.")
+    logger.info("Pause manager task started.")
     while True:
         try:
             async with httpx.AsyncClient() as client:
@@ -318,61 +351,62 @@ async def manage_pause_event_concurrently(pause_event_ref: asyncio.Event):
                 state = resp.json()
                 is_gui_paused = state.get("is_paused", False)
 
-                # Minimal logging to reduce noise, can be enabled for deep debugging
-                # print(f"[PAUSE_MANAGER_TASK] GUI says: {{'is_paused': {is_paused}}}. Event is_set: {pause_event_ref.is_set()}")
-
                 if is_gui_paused: # GUI wants to pause
                     if pause_event_ref.is_set(): # Operator is currently running
-                        print("[PAUSE_MANAGER_TASK] GUI requests PAUSE. Clearing asyncio.Event (pausing operator).", flush=True) # Log
+                        logger.info("GUI requests PAUSE. Clearing asyncio.Event (pausing operator).", flush=True) # Log
                         pause_event_ref.clear()
-                    # else: # Operator already paused, GUI agrees
-                        # print("[PAUSE_MANAGER_TASK] GUI confirms PAUSE. Event already clear.", flush=True) # Log - can be noisy
                 else: # GUI wants to run (not paused)
                     if not pause_event_ref.is_set(): # Operator is currently paused
-                        print("[PAUSE_MANAGER_TASK] GUI requests RESUME. Setting asyncio.Event (resuming operator).", flush=True) # Log
+                        logger.info("GUI requests RESUME. Setting asyncio.Event (resuming operator).", flush=True) # Log
                         pause_event_ref.set()
-                    # else: # Operator already running, GUI agrees
-                        # print("[PAUSE_MANAGER_TASK] GUI confirms RESUME. Event already set.", flush=True) # Log - can be noisy
             else: # Optional: log if GUI state cannot be fetched
-                print(f"[PAUSE_MANAGER_TASK] Warning: Could not get operator_state from GUI (status: {resp.status_code}). Retrying.", flush=True) # Log
+                logger.warning(f"Could not get operator_state from GUI (status: {resp.status_code}). Retrying.", flush=True) # Log
 
         except httpx.RequestError as e_httpx: # More specific exception for network issues with httpx
-            print(f"[PAUSE_MANAGER_TASK] HTTP Error polling GUI state: {e_httpx}. Retrying.", flush=True) # Log
+            logger.warning(f"HTTP Error polling GUI state: {e_httpx}. Retrying.", flush=True) # Log
             pass
         except Exception as e: # Catch other unexpected errors
-            print(f"[PAUSE_MANAGER_TASK] Unexpected error: {e}. Retrying.", flush=True) # Log
+            logger.error(f"Unexpected error in pause manager: {e}. Retrying.", flush=True) # Log
         
         await asyncio.sleep(0.2) # Poll interval (e.g., 0.2 seconds)
 
 async def main():
-    print("[MAIN_PY_DEBUG] main() coroutine entered.")
+    logger.debug("main() coroutine entered.")
     global gui_process, omniparser_server_process, pause_event 
-    config = Config()
-    # Default objective is not used initially, user goal is primary
-    # initial_objective = config.get("DEFAULT_OBJECTIVE", "No objective set in environment.txt")
-    # print(f"Initial Objective: {initial_objective}")
+    
+    try:
+        config = Config()
+    except Exception as e:
+        logger.critical(f"Failed to initialize Config: {e}", exc_info=True)
+        return # Cannot proceed without config
 
-    # Initialize DesktopUtils
-    desktop_utils = DesktopUtils() 
+    try:
+        desktop_utils = DesktopUtils() 
+    except Exception as e:
+        logger.critical(f"Failed to initialize DesktopUtils: {e}", exc_info=True)
+        return
 
-    # Start OmniParser Server
-    omniparser_manager = OmniParserServerManager()
-    if not omniparser_manager.is_server_ready():
-        print("[MAIN] OmniParser server is not running. Attempting to start...")
-        omniparser_server_process = omniparser_manager.start_server()
-        if not omniparser_server_process or not omniparser_manager.wait_for_server(timeout=30):
-            print("[MAIN][ERROR] OmniParser server failed to start or become ready. Exiting.")
-            cleanup_processes() 
-            if hasattr(omniparser_manager, 'stop_server'): omniparser_manager.stop_server()
-            return
-        print("[MAIN] OmniParser server started and ready.")
-    else:
-        print("[MAIN] OmniParser server is already running or started successfully.")
+    try:
+        omniparser_manager = OmniParserServerManager()
+        if not omniparser_manager.is_server_ready():
+            logger.info("OmniParser server is not running. Attempting to start...")
+            omniparser_server_process = omniparser_manager.start_server()
+            if not omniparser_server_process or not omniparser_manager.wait_for_server(timeout=30):
+                logger.error("OmniParser server failed to start or become ready. Exiting.")
+                cleanup_processes() 
+                if hasattr(omniparser_manager, 'stop_server'): omniparser_manager.stop_server()
+                return
+            logger.info("OmniParser server started and ready.")
+        else:
+            logger.info("OmniParser server is already running or started successfully.")
+    except Exception as e:
+        logger.critical(f"Failed to initialize or start OmniParserServerManager: {e}", exc_info=True)
+        cleanup_processes()
+        return
 
-    # Start GUI
     gui_process = start_gui_subprocess()  
     if not gui_process:  
-        print("[MAIN][ERROR] GUI process failed to start. Exiting.")  
+        logger.error("GUI process failed to start. Exiting.")  
         cleanup_processes()   
         if hasattr(omniparser_manager, 'stop_server'): omniparser_manager.stop_server()  
         return  
@@ -384,7 +418,7 @@ async def main():
     pause_manager_task = asyncio.create_task(manage_pause_event_concurrently(pause_event))
 
     # Wait for the user to set a goal via the GUI
-    print("[MAIN] Waiting for user to set a goal via the GUI...")
+    logger.info("Waiting for user to set a goal via the GUI...")
     user_goal = None
     formulated_objective = None
     initial_objective_for_operator = None
@@ -403,13 +437,11 @@ async def main():
                 operator_status = state.get("operator_status", "Idle")
                 # is_gui_paused = state.get("is_paused", False) # Pause state is handled by pause_manager_task
 
-                # REMOVED PAUSE LOGIC and [MAIN_PAUSE_DEBUG] logs from this loop
-
                 if current_gui_goal and not user_goal:
                     user_goal = current_gui_goal
-                    print(f"[MAIN] User Goal received from GUI: {user_goal}")
+                    logger.info(f"User Goal received from GUI: {user_goal}")
                     
-                    print(f"[MAIN] Requesting AI to formulate objective for goal: {user_goal}")
+                    logger.info(f"Requesting AI to formulate objective for goal: {user_goal}")
                     llm_interface = MainInterface()
                     formulation_messages = [
                         {"role": "system", "content": FORMULATE_OBJECTIVE_SYSTEM_PROMPT},
@@ -431,7 +463,7 @@ async def main():
                         formulated_objective_for_gui = re.sub(r"<think>.*?</think>", "", raw_formulated_objective, flags=re.DOTALL).strip()
                         
                         if not formulated_objective_for_gui: # Check if stripping resulted in empty string
-                            print("[MAIN][ERROR] AI failed to formulate a valid objective after stripping tags. Using a fallback.")
+                            logger.error("AI failed to formulate a valid objective after stripping tags. Using a fallback.")
                             formulated_objective_for_gui = f"Fallback objective: Complete user goal \'{user_goal}\'"
                         
                         # Log the version that will be used by the operator (could be with or without think tags, depending on choice)
@@ -439,10 +471,10 @@ async def main():
                         formulated_objective = formulated_objective_for_gui
 
                     except Exception as e_formulate:
-                        print(f"[MAIN][ERROR] Error during AI objective formulation: {e_formulate}")
+                        logger.error(f"Error during AI objective formulation: {e_formulate}")
                         formulated_objective = f"Error fallback objective for: {user_goal}" # This will be sent to GUI
 
-                    print(f"[MAIN] AI Formulated Objective (for GUI): {formulated_objective}")
+                    logger.info(f"AI Formulated Objective (for GUI): {formulated_objective}")
                     
                     async with httpx.AsyncClient() as client_post_obj: # Use a different name for this client
                         await client_post_obj.post("http://127.0.0.1:8000/state/formulated_objective", 
@@ -450,54 +482,61 @@ async def main():
                 
                 if user_goal and formulated_objective and current_gui_formulated_objective == formulated_objective and operator_status == "ObjectiveFormulated":
                     initial_objective_for_operator = formulated_objective # Use the cleaned version for the operator too
-                    print(f"[MAIN] Confirmed AI formulated objective (for operator): {initial_objective_for_operator}")
+                    logger.info(f"Confirmed AI formulated objective (for operator): {initial_objective_for_operator}")
                     break # Exit loop once objective is formulated and confirmed
 
         except httpx.RequestError: # Catch httpx specific errors
             # print(f"[MAIN] Error polling GUI state during objective setup: {e_httpx_obj}") # Can be noisy
             pass 
         except Exception as e_obj_loop: # Catch other errors in this loop
-            print(f"[MAIN] Unexpected error polling GUI state during objective setup: {e_obj_loop}")
+            logger.error(f"Unexpected error polling GUI state during objective setup: {e_obj_loop}")
         await asyncio.sleep(0.1) # Poll every 0.1 seconds for objective setup
     
-    print(f"[MAIN] Proceeding with AI Formulated Objective: {initial_objective_for_operator}")
+    logger.info(f"Proceeding with AI Formulated Objective: {initial_objective_for_operator}")
 
-    operator = AutomoyOperator(
-        objective=initial_objective_for_operator, 
-        manage_gui_window_func=functools.partial(async_manage_automoy_gui_visibility, window_title=AUTOMOY_GUI_TITLE_PREFIX),
-        omniparser=omniparser_manager.get_interface(),
-        pause_event=pause_event 
-    )
+    try:
+        operator = AutomoyOperator(
+            objective=initial_objective_for_operator, 
+            manage_gui_window_func=functools.partial(async_manage_automoy_gui_visibility, window_title=AUTOMOY_GUI_TITLE_PREFIX),
+            omniparser=omniparser_manager.get_interface(), # Ensure this returns a valid interface
+            pause_event=pause_event 
+        )
+    except Exception as e:
+        logger.critical(f"Failed to initialize AutomoyOperator: {e}", exc_info=True)
+        cleanup_processes()
+        if hasattr(omniparser_manager, 'stop_server'): omniparser_manager.stop_server()
+        # Cancel pause manager task if it was started
+        if 'pause_manager_task' in locals() and pause_manager_task and not pause_manager_task.done():
+            pause_manager_task.cancel()
+        return
 
-    print(f"[MAIN] Starting operator with objective: {initial_objective_for_operator}")
+    logger.info(f"Starting operator with objective: {initial_objective_for_operator}")
     try:
         await operator.operate_loop()
+    except Exception as e_op_loop:
+        logger.error(f"Error during operator.operate_loop: {e_op_loop}", exc_info=True)
     finally:
-        # Clean up the pause manager task when operate_loop finishes or if an error occurs
-        print("[MAIN] Operator loop finished or an error occurred. Cancelling pause manager task.")
+        logger.info("Operator loop finished or an error occurred. Cancelling pause manager task.")
         if pause_manager_task and not pause_manager_task.done():
             pause_manager_task.cancel()
             try:
                 await pause_manager_task
             except asyncio.CancelledError:
-                print("[MAIN] Pause manager task successfully cancelled.")
+                logger.info("Pause manager task successfully cancelled.")
             except Exception as e_task_cleanup:
-                print(f"[MAIN][ERROR] Exception during pause manager task cleanup: {e_task_cleanup}")
+                logger.error(f"Exception during pause manager task cleanup: {e_task_cleanup}", exc_info=True)
         else:
-            print("[MAIN] Pause manager task was already done or not initialized.")
-
+            logger.info("Pause manager task was already done or not initialized.")
 
 if __name__ == "__main__":
-    print("[MAIN_PY_DEBUG] Inside __main__ block, before asyncio.run.")
+    logger.debug("Inside __main__ block, before asyncio.run.")
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("[MAIN] Process interrupted by user (Ctrl+C).")
+        logger.info("Process interrupted by user (Ctrl+C).")
     except Exception as e:
-        print(f"[MAIN][CRITICAL] An unhandled exception occurred at the top level: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.critical(f"An unhandled exception occurred at the top level: {e}", exc_info=True)
     finally:
-        print("[MAIN] Starting final cleanup...")
+        logger.info("Starting final cleanup...")
         cleanup_processes()
-        print("[MAIN] Application shutdown complete.")
+        logger.info("Application shutdown complete.")

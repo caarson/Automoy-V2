@@ -298,4 +298,62 @@ document.addEventListener('DOMContentLoaded', function() {
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
     }
+
+    // SSE for operational updates (newly added)
+    const eventSourceOperational = new EventSource('/stream_operator_updates');
+    eventSourceOperational.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        console.log('Operational update:', data);
+        updateOperationalState(data);
+    };
+    eventSourceOperational.onerror = function(error) {
+        console.error('EventSource failed:', error);
+        eventSourceOperational.close();
+    };
 });
+
+function updateOperationalState(data) {
+    if (!data) return;
+
+    // ... existing cases for visual, thinking, steps_generated, current_operation ...
+    if (data.visual_analysis_output !== undefined) {
+        document.getElementById('visualAnalysisDisplay').textContent = data.visual_analysis_output;
+    }
+    if (data.thinking_process_output !== undefined) {
+        document.getElementById('thinkingProcessDisplay').textContent = data.thinking_process_output;
+    }
+    if (data.generated_steps_output !== undefined) {
+        const stepsList = document.getElementById('stepsGeneratedList');
+        stepsList.innerHTML = ''; // Clear previous steps
+        data.generated_steps_output.forEach(step => {
+            const li = document.createElement('li');
+            li.textContent = step;
+            stepsList.appendChild(li);
+        });
+    }
+    if (data.current_operation !== undefined) {
+        document.getElementById('currentOperationDisplay').textContent = data.current_operation;
+    }
+    // Handle last_action to update "Operations Generated" and "Past Operation"
+    if (data.last_action) {
+        const la = data.last_action;
+        const operationsContent = document.getElementById('operationsGeneratedContent');
+        const pastOpDisplay = document.getElementById('pastOperationDisplay');
+
+        if (operationsContent) {
+            operationsContent.textContent = JSON.stringify(la.action || {}, null, 2);
+        }
+
+        if (pastOpDisplay) {
+            let pastOpText = "Status: Unknown";
+            if (la.action && la.action.operation) {
+                pastOpText = `Action: ${la.action.operation}, Status: ${la.status || 'N/A'}`;
+            } else if (la.status) { // If only status is available
+                pastOpText = `Status: ${la.status}`;
+            } else if (la.action) { // If only action is available
+                 pastOpText = `Action: ${JSON.stringify(la.action, null, 2)}, Status: N/A`;
+            }
+            pastOpDisplay.textContent = pastOpText;
+        }
+    }
+}

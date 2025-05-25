@@ -24,3 +24,14 @@ class ModelNotRecognizedException(Exception):
         if self.supported_models:
             message += f" Supported models are: {', '.join(self.supported_models)}."
         super().__init__(message)
+
+class AutomoyError(Exception):
+    """Base exception class for Automoy specific errors."""
+    pass
+
+class OperationError(AutomoyError):
+    """Exception raised for errors during an operation execution."""
+    def __init__(self, operation_name: str, message: str):
+        self.operation_name = operation_name
+        self.message = f"Error in operation '{operation_name}': {message}"
+        super().__init__(self.message)

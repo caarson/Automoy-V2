@@ -1,0 +1,2530 @@
+2025-05-24 18:33:52,331 - root - INFO - [main.setup_logging:63] - Logging initialized. Log file: c:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\debug\logs\core\output.log. Console level: INFO, File level: DEBUG.
+2025-05-24 18:33:52,331 - __main__ - DEBUG - [main.<module>:69] - Script execution started.
+2025-05-24 18:33:52,332 - __main__ - DEBUG - [main.<module>:532] - Inside __main__ block, before asyncio.run.
+2025-05-24 18:33:52,332 - asyncio - DEBUG - [proactor_events.__init__:634] - Using proactor: IocpProactor
+2025-05-24 18:33:52,333 - __main__ - DEBUG - [main.main:374] - main() coroutine entered.
+2025-05-24 18:33:52,336 - urllib3.connectionpool - DEBUG - [connectionpool._new_conn:241] - Starting new HTTP connection (1): localhost:8111
+2025-05-24 18:33:56,364 - __main__ - INFO - [main.main:392] - OmniParser server is not running. Attempting to start...
+2025-05-24 18:33:56,365 - urllib3.connectionpool - DEBUG - [connectionpool._new_conn:241] - Starting new HTTP connection (1): localhost:8111
+2025-05-24 18:34:00,401 - urllib3.connectionpool - DEBUG - [connectionpool._new_conn:241] - Starting new HTTP connection (1): localhost:8111
+2025-05-24 18:34:06,461 - urllib3.connectionpool - DEBUG - [connectionpool._new_conn:241] - Starting new HTTP connection (1): localhost:8111
+2025-05-24 18:34:12,517 - urllib3.connectionpool - DEBUG - [connectionpool._new_conn:241] - Starting new HTTP connection (1): localhost:8111
+2025-05-24 18:34:18,579 - urllib3.connectionpool - DEBUG - [connectionpool._new_conn:241] - Starting new HTTP connection (1): localhost:8111
+2025-05-24 18:34:24,659 - urllib3.connectionpool - DEBUG - [connectionpool._new_conn:241] - Starting new HTTP connection (1): localhost:8111
+2025-05-24 18:34:30,729 - urllib3.connectionpool - DEBUG - [connectionpool._new_conn:241] - Starting new HTTP connection (1): localhost:8111
+2025-05-24 18:34:36,784 - urllib3.connectionpool - DEBUG - [connectionpool._new_conn:241] - Starting new HTTP connection (1): localhost:8111
+2025-05-24 18:34:38,850 - urllib3.connectionpool - DEBUG - [connectionpool._make_request:544] - http://localhost:8111 "GET /probe/ HTTP/1.1" 200 34
+2025-05-24 18:34:38,851 - urllib3.connectionpool - DEBUG - [connectionpool._new_conn:241] - Starting new HTTP connection (1): localhost:8111
+2025-05-24 18:34:40,882 - urllib3.connectionpool - DEBUG - [connectionpool._make_request:544] - http://localhost:8111 "GET /probe/ HTTP/1.1" 200 34
+2025-05-24 18:34:40,883 - __main__ - INFO - [main.main:399] - OmniParser server started and ready.
+2025-05-24 18:34:40,883 - __main__ - INFO - [main.start_gui_subprocess:108] - Starting GUI: C:\Users\imitr\anaconda3\envs\automoy_env\python.exe \"c:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\gui\gui.py\"
+2025-05-24 18:34:40,888 - __main__ - INFO - [main.start_gui_subprocess:114] - GUI process started with PID: 27940. Waiting for it to be healthy...
+2025-05-24 18:34:40,889 - urllib3.connectionpool - DEBUG - [connectionpool._new_conn:241] - Starting new HTTP connection (1): 127.0.0.1:8000
+2025-05-24 18:34:42,897 - __main__ - WARNING - [main.start_gui_subprocess:134] - GUI not ready yet (connection error), retrying...
+2025-05-24 18:34:43,898 - urllib3.connectionpool - DEBUG - [connectionpool._new_conn:241] - Starting new HTTP connection (1): 127.0.0.1:8000
+2025-05-24 18:34:43,917 - urllib3.connectionpool - DEBUG - [connectionpool._make_request:544] - http://127.0.0.1:8000 "GET /health HTTP/1.1" 200 58
+2025-05-24 18:34:43,918 - __main__ - INFO - [main.start_gui_subprocess:126] - GUI is healthy and responsive.
+2025-05-24 18:34:43,918 - __main__ - INFO - [main.start_gui_subprocess:154] - GUI subprocess started and reported healthy.
+2025-05-24 18:34:43,918 - __main__ - INFO - [main.main:421] - Waiting for user to set a goal via the GUI...
+2025-05-24 18:34:44,771 - __main__ - INFO - [main.manage_pause_event_concurrently:344] - Pause manager task started.
+2025-05-24 18:34:45,317 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:34:45,317 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:34:45,319 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E53E330>
+2025-05-24 18:34:45,319 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:45,320 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E53E6F0>
+2025-05-24 18:34:45,320 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:34:45,320 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:34:45,320 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:34:45,320 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:45,321 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:45,321 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:34:45,321 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:34:45,321 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:34:45,321 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:45,322 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:34:44 GMT'), (b'server', b'uvicorn'), (b'content-length', b'479'), (b'content-type', b'application/json')])
+2025-05-24 18:34:45,322 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:34:45,323 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:34:45,323 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:34:45,323 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:34:45,323 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:34:44 GMT'), (b'server', b'uvicorn'), (b'content-length', b'479'), (b'content-type', b'application/json')])
+2025-05-24 18:34:45,324 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:34:45,324 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:34:45,325 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:34:45,325 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:34:45,325 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:34:45,325 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:34:45,325 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:34:45,326 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:34:45,326 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:34:45,326 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:34:45,880 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:34:46,417 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:34:46,418 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E53F560>
+2025-05-24 18:34:46,418 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:46,419 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:34:46,419 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:34:46,419 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:34:46,419 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:46,419 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E5601A0>
+2025-05-24 18:34:46,420 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:46,420 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:34:46,420 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:34:46,420 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:34:46,420 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:46,447 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:34:46 GMT'), (b'server', b'uvicorn'), (b'content-length', b'479'), (b'content-type', b'application/json')])
+2025-05-24 18:34:46,447 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:34:46,447 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:34:46,469 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:34:46,469 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:34:46,469 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:34:46,469 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:34:46,470 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:34:46,470 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:34:46 GMT'), (b'server', b'uvicorn'), (b'content-length', b'479'), (b'content-type', b'application/json')])
+2025-05-24 18:34:46,470 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:34:46,471 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:34:46,471 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:34:46,471 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:34:46,471 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:34:46,472 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:34:46,472 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:34:47,332 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:34:48,416 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:34:48,418 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E53F110>
+2025-05-24 18:34:48,418 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:48,419 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:34:48,419 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:34:48,419 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:34:48,420 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:48,420 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E5615B0>
+2025-05-24 18:34:48,420 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:48,421 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:34:48,421 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:34:48,421 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:34:48,421 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:48,422 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:34:48 GMT'), (b'server', b'uvicorn'), (b'content-length', b'479'), (b'content-type', b'application/json')])
+2025-05-24 18:34:48,423 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:34:48,423 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:34:48,424 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:34:48,424 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:34:48,424 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:34:48,425 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:34:48,425 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:34:48 GMT'), (b'server', b'uvicorn'), (b'content-length', b'479'), (b'content-type', b'application/json')])
+2025-05-24 18:34:48,426 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:34:48,426 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:34:48,427 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:34:48,427 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:34:48,427 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:34:48,428 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:34:48,428 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:34:48,428 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:34:49,261 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:34:49,718 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:34:49,719 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E562BD0>
+2025-05-24 18:34:49,719 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:49,719 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:34:49,719 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:34:49,719 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:34:49,720 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:49,720 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E563800>
+2025-05-24 18:34:49,720 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:49,720 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:34:49,720 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:34:49,720 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:34:49,720 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:49,721 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:34:49 GMT'), (b'server', b'uvicorn'), (b'content-length', b'479'), (b'content-type', b'application/json')])
+2025-05-24 18:34:49,721 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:34:49,721 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:34:49,722 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:34:49,722 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:34:49,722 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:34:49,722 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:34:49,722 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:34:49 GMT'), (b'server', b'uvicorn'), (b'content-length', b'479'), (b'content-type', b'application/json')])
+2025-05-24 18:34:49,722 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:34:49,723 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:34:49,723 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:34:49,723 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:34:49,723 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:34:49,723 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:34:49,723 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:34:49,724 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:34:50,258 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:34:50,697 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:34:50,698 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E5082F0>
+2025-05-24 18:34:50,698 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:50,699 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:34:50,699 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:34:50,699 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:34:50,699 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:50,699 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E047290>
+2025-05-24 18:34:50,699 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:50,699 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:34:50,699 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:34:50,700 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:34:50,700 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:50,700 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:34:50 GMT'), (b'server', b'uvicorn'), (b'content-length', b'479'), (b'content-type', b'application/json')])
+2025-05-24 18:34:50,700 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:34:50,701 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:34:50,701 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:34:50,701 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:34:50,701 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:34:50,701 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:34:50,702 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:34:50 GMT'), (b'server', b'uvicorn'), (b'content-length', b'479'), (b'content-type', b'application/json')])
+2025-05-24 18:34:50,702 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:34:50,702 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:34:50,703 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:34:50,703 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:34:50,703 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:34:50,703 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:34:50,703 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:34:50,703 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:34:51,472 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:34:52,119 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:34:52,120 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E53E960>
+2025-05-24 18:34:52,120 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:52,120 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:34:52,122 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:34:52,122 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:34:52,122 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:52,122 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E53E9F0>
+2025-05-24 18:34:52,122 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:52,122 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:34:52,122 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:34:52,122 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:34:52,122 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:52,122 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:34:51 GMT'), (b'server', b'uvicorn'), (b'content-length', b'479'), (b'content-type', b'application/json')])
+2025-05-24 18:34:52,123 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:34:52,123 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:34:52,124 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:34:52,124 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:34:52,124 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:34:52,124 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:34:52,125 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:34:51 GMT'), (b'server', b'uvicorn'), (b'content-length', b'479'), (b'content-type', b'application/json')])
+2025-05-24 18:34:52,125 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:34:52,127 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:34:52,127 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:34:52,127 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:34:52,127 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:34:52,127 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:34:52,127 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:34:52,127 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:34:52,707 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:34:53,131 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:34:53,132 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E560FB0>
+2025-05-24 18:34:53,133 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:53,133 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:34:53,133 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:34:53,133 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:34:53,133 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:53,133 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E5607A0>
+2025-05-24 18:34:53,134 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:53,134 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:34:53,134 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:34:53,134 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:34:53,134 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:53,135 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:34:52 GMT'), (b'server', b'uvicorn'), (b'content-length', b'479'), (b'content-type', b'application/json')])
+2025-05-24 18:34:53,135 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:34:53,135 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:34:53,135 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:34:53,135 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:34:53,136 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:34:53,136 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:34:53,136 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:34:52 GMT'), (b'server', b'uvicorn'), (b'content-length', b'479'), (b'content-type', b'application/json')])
+2025-05-24 18:34:53,136 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:34:53,137 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:34:53,137 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:34:53,137 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:34:53,137 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:34:53,137 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:34:53,137 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:34:53,138 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:34:53,611 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:34:54,007 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:34:54,008 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E579070>
+2025-05-24 18:34:54,008 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:54,009 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:34:54,009 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:34:54,009 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:34:54,009 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:54,009 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E579DF0>
+2025-05-24 18:34:54,009 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:54,010 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:34:54,010 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:34:54,010 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:34:54,010 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:54,010 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:34:53 GMT'), (b'server', b'uvicorn'), (b'content-length', b'479'), (b'content-type', b'application/json')])
+2025-05-24 18:34:54,010 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:34:54,011 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:34:54,011 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:34:54,011 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:34:54,011 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:34:54,011 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:34:54,012 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:34:53 GMT'), (b'server', b'uvicorn'), (b'content-length', b'479'), (b'content-type', b'application/json')])
+2025-05-24 18:34:54,012 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:34:54,012 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:34:54,012 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:34:54,012 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:34:54,012 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:34:54,012 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:34:54,012 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:34:54,013 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:34:54,532 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:34:54,995 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:34:54,997 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E57AE40>
+2025-05-24 18:34:54,997 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:54,998 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:34:54,998 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:34:54,998 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:34:54,998 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:54,998 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E57BAD0>
+2025-05-24 18:34:54,998 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:54,999 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:34:54,999 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:34:54,999 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:34:54,999 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:55,000 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:34:54 GMT'), (b'server', b'uvicorn'), (b'content-length', b'479'), (b'content-type', b'application/json')])
+2025-05-24 18:34:55,000 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:34:55,000 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:34:55,001 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:34:55,001 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:34:55,001 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:34:55,001 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:34:55,002 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:34:54 GMT'), (b'server', b'uvicorn'), (b'content-length', b'479'), (b'content-type', b'application/json')])
+2025-05-24 18:34:55,002 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:34:55,003 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:34:55,003 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:34:55,004 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:34:55,004 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:34:55,004 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:34:55,004 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:34:55,004 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:34:55,659 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:34:56,124 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:34:56,125 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E53EDB0>
+2025-05-24 18:34:56,125 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:56,126 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:34:56,126 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:34:56,126 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:34:56,126 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:56,126 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E53E030>
+2025-05-24 18:34:56,126 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:56,127 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:34:56,127 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:34:56,127 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:34:56,127 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:34:56,127 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:34:55 GMT'), (b'server', b'uvicorn'), (b'content-length', b'507'), (b'content-type', b'application/json')])
+2025-05-24 18:34:56,127 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:34:56,128 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:34:56,128 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:34:56,128 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:34:56,129 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:34:56,129 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:34:56,130 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:34:55 GMT'), (b'server', b'uvicorn'), (b'content-length', b'507'), (b'content-type', b'application/json')])
+2025-05-24 18:34:56,130 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:34:56,130 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:34:56,130 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:34:56,131 - __main__ - INFO - [main.main:442] - User Goal received from GUI: Open Google Chrome
+2025-05-24 18:34:56,131 - __main__ - INFO - [main.main:444] - Requesting AI to formulate objective for goal: Open Google Chrome
+2025-05-24 18:34:56,136 - urllib3.connectionpool - DEBUG - [connectionpool._new_conn:1049] - Starting new HTTPS connection (1): llm.technologies-ai.com:443
+2025-05-24 18:34:56,328 - urllib3.connectionpool - DEBUG - [connectionpool._make_request:544] - https://llm.technologies-ai.com:443 "POST /v1/chat/completions HTTP/1.1" 200 None
+2025-05-24 18:35:01,081 - __main__ - INFO - [main.main:477] - AI Formulated Objective (for GUI): Launch the Google Chrome web browser application on the computer.
+2025-05-24 18:35:01,449 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:35:01,449 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:35:01,449 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=5 socket_options=None
+2025-05-24 18:35:01,449 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:35:01,449 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:35:01,450 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:35:01,450 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E5619D0>
+2025-05-24 18:35:01,450 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'POST']>
+2025-05-24 18:35:01,451 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:35:01,451 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'POST']>
+2025-05-24 18:35:01,451 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:35:01,451 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'POST']>
+2025-05-24 18:35:01,452 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:35:01 GMT'), (b'server', b'uvicorn'), (b'content-length', b'146'), (b'content-type', b'application/json')])
+2025-05-24 18:35:01,453 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: POST http://127.0.0.1:8000/state/formulated_objective "HTTP/1.1 200 OK"
+2025-05-24 18:35:01,453 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'POST']>
+2025-05-24 18:35:01,453 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:35:01,453 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:35:01,454 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:35:01,454 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:35:01,454 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:35:01,959 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:35:02,410 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:35:02,411 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E5618E0>
+2025-05-24 18:35:02,411 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:35:02,412 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:35:02,412 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:35:02,412 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:35:02,412 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:35:02,412 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E578D70>
+2025-05-24 18:35:02,412 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:35:02,412 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:35:02,413 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:35:02,413 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:35:02,413 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:35:02,413 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:35:01 GMT'), (b'server', b'uvicorn'), (b'content-length', b'543'), (b'content-type', b'application/json')])
+2025-05-24 18:35:02,413 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:35:02,414 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:35:02,414 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:35:02,414 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:35:02,414 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:35:02,415 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:35:02,415 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:35:01 GMT'), (b'server', b'uvicorn'), (b'content-length', b'543'), (b'content-type', b'application/json')])
+2025-05-24 18:35:02,415 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:35:02,416 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:35:02,416 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:35:02,416 - __main__ - INFO - [main.main:485] - Confirmed AI formulated objective (for operator): Launch the Google Chrome web browser application on the computer.
+2025-05-24 18:35:02,416 - __main__ - INFO - [main.main:495] - Proceeding with AI Formulated Objective: Launch the Google Chrome web browser application on the computer.
+2025-05-24 18:35:02,418 - __main__ - INFO - [main.main:513] - Starting operator with objective: Launch the Google Chrome web browser application on the computer.
+2025-05-24 18:35:02,419 - core.operate - INFO - [operate.operate_loop:409] - Starting operation loop for objective: Launch the Google Chrome web browser application on the computer.
+2025-05-24 18:35:02,419 - core.operate - DEBUG - [operate.operate_loop:427] - Operator cycle 1. Pause event is set, operator proceeding.
+2025-05-24 18:35:02,419 - core.operate - INFO - [operate._capture_and_process_screenshot:154] - Preparing to capture screenshot to: C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\debug\screenshots\automoy_current_capture.png
+2025-05-24 18:35:02,420 - core.operate - INFO - [operate._capture_and_process_screenshot:158] - Minimizing Automoy GUI for screenshot.
+2025-05-24 18:35:02,420 - __main__ - INFO - [main.async_manage_automoy_gui_visibility:219] - Minimizing Automoy GUI ('Automoy - Access via') via pygetwindow.
+2025-05-24 18:35:02,435 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:35:02,435 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:35:02,435 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:35:02,435 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:35:02,435 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:35:03,092 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:35:03,093 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E4EB350>
+2025-05-24 18:35:03,093 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:35:03,094 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:35:03,094 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:35:03,094 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:35:03,094 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:35:03,095 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:35:02 GMT'), (b'server', b'uvicorn'), (b'content-length', b'543'), (b'content-type', b'application/json')])
+2025-05-24 18:35:03,096 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:35:03,096 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:35:03,096 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:35:03,097 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:35:03,097 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:35:03,097 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:35:03,097 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:35:03,722 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:35:03,726 - __main__ - INFO - [main.async_manage_automoy_gui_visibility:232] - GUI window 'Automoy - Access via http://127.0.0.1:8000' minimized via pygetwindow.
+2025-05-24 18:35:03,727 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E563EF0>
+2025-05-24 18:35:03,727 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:35:03,727 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:35:03,727 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:35:03,727 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:35:03,727 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:35:03,729 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:35:03 GMT'), (b'server', b'uvicorn'), (b'content-length', b'543'), (b'content-type', b'application/json')])
+2025-05-24 18:35:03,729 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:35:03,729 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:35:03,730 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:35:03,730 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:35:03,730 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:35:03,730 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:35:03,730 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:35:04,315 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:35:04,316 - core.operate - INFO - [operate._capture_and_process_screenshot:164] - Showing desktop (minimizing all windows) for screenshot.
+2025-05-24 18:35:04,426 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E578FE0>
+2025-05-24 18:35:04,427 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'GET']>
+2025-05-24 18:35:04,427 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:35:04,427 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'GET']>
+2025-05-24 18:35:04,427 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:35:04,427 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'GET']>
+2025-05-24 18:35:04,429 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:35:03 GMT'), (b'server', b'uvicorn'), (b'content-length', b'543'), (b'content-type', b'application/json')])
+2025-05-24 18:35:04,429 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: GET http://127.0.0.1:8000/operator_state "HTTP/1.1 200 OK"
+2025-05-24 18:35:04,431 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'GET']>
+2025-05-24 18:35:04,432 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:35:04,432 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:35:04,432 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:35:04,433 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:35:04,433 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:35:05,204 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=2 socket_options=None
+2025-05-24 18:35:05,204 - core.operate - INFO - [operate._capture_and_process_screenshot:169] - Capturing screenshot to: C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\debug\screenshots\automoy_current_capture.png
+2025-05-24 18:35:05,639 - core.operate - INFO - [operate._capture_and_process_screenshot:182] - Screenshot captured: C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\debug\screenshots\automoy_current_capture.png
+2025-05-24 18:35:05,639 - core.operate - INFO - [operate._capture_and_process_screenshot:186] - Processing screenshot with OmniParser...
+2025-05-24 18:35:05,656 - urllib3.connectionpool - DEBUG - [connectionpool._new_conn:241] - Starting new HTTP connection (1): localhost:8111
+2025-05-24 18:35:13,865 - urllib3.connectionpool - DEBUG - [connectionpool._make_request:544] - http://localhost:8111 "POST /parse/ HTTP/1.1" 200 783642
+2025-05-24 18:35:13,922 - core.operate - DEBUG - [operate._capture_and_process_screenshot:190] - Raw OmniParser output (cleaned for log): {
+  "parsed_content_list": [
+    {
+      "type": "text",
+      "bbox": [
+        0.04244791716337204,
+        0.3282407522201538,
+        0.15598958730697632,
+        0.34259259700775146
+      ],
+      "interactivity": false,
+      "content": "Arduino IDE   SOLIDWORKS HP_ATX_Pr_",
+      "source": "box_ocr_content_ocr"
+    },
+    {
+      "type": "text",
+      "bbox": [
+        0.03958333283662796,
+        0.5111111402511597,
+        0.11953125149011612,
+        0.5291666388511658
+      ],
+      "interactivity": false,
+      "content": "Creality Print SOLIDWORKS",
+      "source": "box_ocr_content_ocr"
+    },
+    {
+      "type": "text",
+      "bbox": [
+        0.04244791716337204,
+        0.6060185432434082,
+        0.15677084028720856,
+        0.6203703880310059
+      ],
+      "interactivity": false,
+      "content": "OBS Studio   SOLIDWORKS PSU bracket",
+      "source": "box_ocr_content_ocr"
+    },
+    {
+      "type": "text",
+      "bbox": [
+        0.04218750074505806,
+        0.6972222328186035,
+        0.11953125149011612,
+        0.7138888835906982
+      ],
+      "interactivity": false,
+      "content": "Notepad+ + SOLIDWORKS",
+      "source": "box_ocr_content_ocr"
+    },
+    {
+      "type": "text",
+      "bbox": [
+        0.04140625149011612,
+        0.8833333253860474,
+        0.11874999850988388,
+        0.8999999761581421
+      ],
+      "interactivity": false,
+      "content": "NVIDIA App   SOLIDWORKS",
+      "source": "box_ocr_content_ocr"
+    },
+    {
+      "type": "text",
+      "bbox": [
+        0.02526041679084301,
+        0.9629629850387573,
+        0.07864583283662796,
+        0.977314829826355
+      ],
+      "interactivity": false,
+      "content": "Beach hazards st_",
+      "source": "box_ocr_content_ocr"
+    },
+    {
+      "type": "text",
+      "bbox": [
+        0.9533854126930237,
+        0.9629629850387573,
+        0.9786458611488342,
+        0.977314829826355
+      ],
+      "interactivity": false,
+      "content": "6.35 PM",
+      "source": "box_ocr_content_ocr"
+    },
+    {
+      "type": "text",
+      "bbox": [
+        0.02526041679084301,
+        0.979629635810852,
+        0.05052083358168602,
+        0.9912037253379822
+      ],
+      "interactivity": false,
+      "content": "In effect",
+      "source": "box_ocr_content_ocr"
+    },
+    {
+      "type": "text",
+      "bbox": [
+        0.9471353888511658,
+        0.9782407283782959,
+        0.9786458611488342,
+        0.9912037253379822
+      ],
+      "interactivity": false,
+      "content": "5/24/2025",
+      "source": "box_ocr_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.03543581813573837,
+        0.0,
+        0.08143434673547745,
+        0.08874278515577316
+      ],
+      "interactivity": true,
+      "content": "Visual Studio Code ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.08037993311882019,
+        0.0,
+        0.11645147949457169,
+        0.08784016221761703
+      ],
+      "interactivity": true,
+      "content": "EO) Logi Optionst ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.11486401408910751,
+        0.0,
+        0.16079925000667572,
+        0.08758280426263809
+      ],
+      "interactivity": true,
+      "content": "S (2024 SOLIDWORKS Inspection 2_ ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.1595640480518341,
+        0.0013621436664834619,
+        0.19513584673404694,
+        0.08727715164422989
+      ],
+      "interactivity": true,
+      "content": "Cover filament__ Top ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.07796475291252136,
+        0.28016409277915955,
+        0.12009251117706299,
+        0.3637654185295105
+      ],
+      "interactivity": true,
+      "content": "SW 2024 2024 ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.1576465219259262,
+        0.1850147396326065,
+        0.19674409925937653,
+        0.27039021253585815
+      ],
+      "interactivity": true,
+      "content": "VMware Workstati__ ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.03739951550960541,
+        0.4625438153743744,
+        0.0805061012506485,
+        0.5508458018302917
+      ],
+      "interactivity": true,
+      "content": "6. ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.040465593338012695,
+        0.09225620329380035,
+        0.07859999686479568,
+        0.18092478811740875
+      ],
+      "interactivity": true,
+      "content": "Remote Ripple ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.11372887343168259,
+        0.09310868382453918,
+        0.16034184396266937,
+        0.1802409440279007
+      ],
+      "interactivity": true,
+      "content": "2024 SOLIDWORKS Visualize Bo_ ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.07865004241466522,
+        0.8344487547874451,
+        0.11916372925043106,
+        0.9219155311584473
+      ],
+      "interactivity": true,
+      "content": "SW 2024 Composer $_ ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.0014820009237155318,
+        0.2786784768104553,
+        0.03879529610276222,
+        0.361677885055542
+      ],
+      "interactivity": true,
+      "content": "FL Studio 2024 ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.03753913566470146,
+        0.18642807006835938,
+        0.0791068822145462,
+        0.2707398235797882
+      ],
+      "interactivity": true,
+      "content": "AOMEI Partitio_ ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.29352158308029175,
+        0.9601377248764038,
+        0.4085853695869446,
+        0.9938266277313232
+      ],
+      "interactivity": true,
+      "content": "Search ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.0776539295911789,
+        0.37334322929382324,
+        0.11832340806722641,
+        0.45767635107040405
+      ],
+      "interactivity": true,
+      "content": "2024 eDrawings 2024 x64._ ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.0787804126739502,
+        0.0937773585319519,
+        0.11589169502258301,
+        0.18026606738567352
+      ],
+      "interactivity": true,
+      "content": "Adobe Acrobat ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.07639086991548538,
+        0.7426388263702393,
+        0.1206427589058876,
+        0.827774703502655
+      ],
+      "interactivity": true,
+      "content": "Soz4 SOLIDWORKS Composer P_ ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.0,
+        0.09041962027549744,
+        0.0416991226375103,
+        0.1807844340801239
+      ],
+      "interactivity": true,
+      "content": "Recycle Bin ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.1614404320716858,
+        0.09844911098480225,
+        0.19626376032829285,
+        0.17986208200454712
+      ],
+      "interactivity": true,
+      "content": "Cover filament Top ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.12114675343036652,
+        0.7443011999130249,
+        0.15636584162712097,
+        0.8282390832901001
+      ],
+      "interactivity": true,
+      "content": "Case for Filament__ ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.0019522994989529252,
+        0.0,
+        0.037344370037317276,
+        0.08813834190368652
+      ],
+      "interactivity": true,
+      "content": "Projects ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.1574813574552536,
+        0.2805756628513336,
+        0.19614233076572418,
+        0.36503133177757263
+      ],
+      "interactivity": true,
+      "content": "MSI Afterburner ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.0002160579024348408,
+        0.8339694738388062,
+        0.04053724929690361,
+        0.9242338538169861
+      ],
+      "interactivity": true,
+      "content": "uTorrent Web ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.039232008159160614,
+        0.3713948130607605,
+        0.07760265469551086,
+        0.45723798871040344
+      ],
+      "interactivity": true,
+      "content": "Bambu Studio ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.00014868378639221191,
+        0.46158117055892944,
+        0.03951854258775711,
+        0.550687849521637
+      ],
+      "interactivity": true,
+      "content": "Microsoft Edge ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.11782028526067734,
+        0.3719695508480072,
+        0.15886197984218597,
+        0.45809146761894226
+      ],
+      "interactivity": true,
+      "content": "HP_ATX_Pr_ ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.07716520130634308,
+        0.5570768117904663,
+        0.11805789172649384,
+        0.6422718167304993
+      ],
+      "interactivity": true,
+      "content": "2024 Electrical ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.11955749988555908,
+        0.8334501385688782,
+        0.1571824699640274,
+        0.9233471155166626
+      ],
+      "interactivity": true,
+      "content": "LM Studio ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.04009639471769333,
+        0.743441104888916,
+        0.07612546533346176,
+        0.8285219073295593
+      ],
+      "interactivity": true,
+      "content": "Waves Central ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.1160811185836792,
+        0.18502363562583923,
+        0.15859343111515045,
+        0.2710879445075989
+      ],
+      "interactivity": true,
+      "content": "HP_ATX_Pr_ ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.001049387501552701,
+        0.37117674946784973,
+        0.039517100900411606,
+        0.45731818675994873
+      ],
+      "interactivity": true,
+      "content": "Google Chrome ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.07695157080888748,
+        0.1860571950674057,
+        0.11850026249885559,
+        0.27076950669288635
+      ],
+      "interactivity": true,
+      "content": "Ancel IR ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.1188896894454956,
+        0.5617746710777283,
+        0.15764901041984558,
+        0.6430661678314209
+      ],
+      "interactivity": true,
+      "content": "for Filame ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.0001401066838297993,
+        0.18424510955810547,
+        0.040022168308496475,
+        0.27069759368896484
+      ],
+      "interactivity": true,
+      "content": "FastVPN ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.07853757590055466,
+        0.4624214172363281,
+        0.11838711053133011,
+        0.5517512559890747
+      ],
+      "interactivity": true,
+      "content": "2024 Visualize 20_ ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.0023263096809387207,
+        0.7430652976036072,
+        0.03714738041162491,
+        0.8264964818954468
+      ],
+      "interactivity": true,
+      "content": "GitHub Desktop ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.037283334881067276,
+        0.644813597202301,
+        0.078165203332901,
+        0.735196590423584
+      ],
+      "interactivity": true,
+      "content": "'Yfugad: ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.0763184055685997,
+        0.648047685623169,
+        0.1198073998093605,
+        0.7351204752922058
+      ],
+      "interactivity": true,
+      "content": "SW 2024 Composer 2_ ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.12030591815710068,
+        0.6528831124305725,
+        0.15673966705799103,
+        0.7358288764953613
+      ],
+      "interactivity": true,
+      "content": "Case for Filament_ ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.12257359176874161,
+        0.46188637614250183,
+        0.15772901475429535,
+        0.5503890514373779
+      ],
+      "interactivity": true,
+      "content": "Part1 ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.001511907554231584,
+        0.6459652185440063,
+        0.03863287717103958,
+        0.7304600477218628
+      ],
+      "interactivity": true,
+      "content": "Discord ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.00029326678486540914,
+        0.5538766384124756,
+        0.039742812514305115,
+        0.6394366025924683
+      ],
+      "interactivity": true,
+      "content": "TI-Nspire ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.2417297661304474,
+        0.27950260043144226,
+        0.2710222005844116,
+        0.347006231546402
+      ],
+      "interactivity": true,
+      "content": "Config ",
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.03756500780582428,
+        0.27916452288627625,
+        0.07936118543148041,
+        0.36375993490219116
+      ],
+      "interactivity": true,
+      "content": "AutoLine",
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.11962566524744034,
+        0.2813906669616699,
+        0.1580735743045807,
+        0.36498570442199707
+      ],
+      "interactivity": true,
+      "content": "UFE PDF - AIF",
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.04120771959424019,
+        0.8350896239280701,
+        0.07688268274068832,
+        0.9232048988342285
+      ],
+      "interactivity": true,
+      "content": "Nivilla App",
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.4098981022834778,
+        0.9608029723167419,
+        0.4296441078186035,
+        0.9979930520057678
+      ],
+      "interactivity": true,
+      "content": "Copy",
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.6848490238189697,
+        0.9589683413505554,
+        0.7071862816810608,
+        0.9969579577445984
+      ],
+      "interactivity": true,
+      "content": "a video or video file.",
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.0388173833489418,
+        0.5555849075317383,
+        0.07828982919454575,
+        0.64155113697052
+      ],
+      "interactivity": true,
+      "content": "OBS Studio",
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.4340822100639343,
+        0.9623801708221436,
+        0.45297184586524963,
+        0.9970908761024475
+      ],
+      "interactivity": true,
+      "content": "Google Chrome web browser",
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.6630062460899353,
+        0.9588688611984253,
+        0.6828716993331909,
+        0.9972460865974426
+      ],
+      "interactivity": true,
+      "content": "M&m's",
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.7107247710227966,
+        0.9607146978378296,
+        0.7285236716270447,
+        0.9970526695251465
+      ],
+      "interactivity": true,
+      "content": "Subscript",
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.6395374536514282,
+        0.9601337313652039,
+        0.6603946685791016,
+        0.9970729351043701
+      ],
+      "interactivity": true,
+      "content": "Display",
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.6172217130661011,
+        0.9610816240310669,
+        0.6375619769096375,
+        0.997075080871582
+      ],
+      "interactivity": true,
+      "content": "PowerPoint",
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.2701655626296997,
+        0.9597033262252808,
+        0.2916868031024933,
+        0.9950346946716309
+      ],
+      "interactivity": true,
+      "content": "Windows",
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.502644419670105,
+        0.9586315155029297,
+        0.523582935333252,
+        0.9967904686927795
+      ],
+      "interactivity": true,
+      "content": "Microsoft Office",
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.5935901999473572,
+        0.960881233215332,
+        0.6145718097686768,
+        0.9972995519638062
+      ],
+      "interactivity": true,
+      "content": "Chat",
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.5470419526100159,
+        0.9609004259109497,
+        0.5697329044342041,
+        0.9973703026771545
+      ],
+      "interactivity": true,
+      "content": "Delete",
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.5248028039932251,
+        0.9597238898277283,
+        0.5464249849319458,
+        0.9967986941337585
+      ],
+      "interactivity": true,
+      "content": "OneNote",
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.45706015825271606,
+        0.9618767499923706,
+        0.4770430624485016,
+        0.9951885938644409
+      ],
+      "interactivity": true,
+      "content": "Microsoft Edge browser",
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.5709400177001953,
+        0.9607856869697571,
+        0.5907514691352844,
+        0.9980176091194153
+      ],
+      "interactivity": true,
+      "content": "Toggleoggleoggle",
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.47987478971481323,
+        0.959256112575531,
+        0.5018234252929688,
+        0.9960322380065918
+      ],
+      "interactivity": true,
+      "content": "Gallery",
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.8862746953964233,
+        0.9632760286331177,
+        0.9031383395195007,
+        0.9970524311065674
+      ],
+      "interactivity": true,
+      "content": "Go to previous month August",
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.9301064610481262,
+        0.9603678584098816,
+        0.9422850012779236,
+        0.9936550855636597
+      ],
+      "interactivity": true,
+      "content": "Toggle Check",
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.9178422093391418,
+        0.9624963998794556,
+        0.9295420050621033,
+        0.9917490482330322
+      ],
+      "interactivity": true,
+      "content": "Sound",
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "type": "icon",
+      "bbox": [
+        0.9049516916275024,
+        0.9643694758415222,
+        0.9169084429740906,
+        0.9919641613960266
+      ],
+      "interactivity": true,
+      "content": "WiFi",
+      "source": "box_yolo_content_yolo"
+    }
+  ],
+  "latency": 6.138180732727051,
+  "coords": [
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Arduino IDE   SOLIDWORKS HP_ATX_Pr_",
+      "type": "text",
+      "interactivity": false,
+      "source": "box_ocr_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Creality Print SOLIDWORKS",
+      "type": "text",
+      "interactivity": false,
+      "source": "box_ocr_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "OBS Studio   SOLIDWORKS PSU bracket",
+      "type": "text",
+      "interactivity": false,
+      "source": "box_ocr_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Notepad+ + SOLIDWORKS",
+      "type": "text",
+      "interactivity": false,
+      "source": "box_ocr_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "NVIDIA App   SOLIDWORKS",
+      "type": "text",
+      "interactivity": false,
+      "source": "box_ocr_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Beach hazards st_",
+      "type": "text",
+      "interactivity": false,
+      "source": "box_ocr_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "6.35 PM",
+      "type": "text",
+      "interactivity": false,
+      "source": "box_ocr_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "In effect",
+      "type": "text",
+      "interactivity": false,
+      "source": "box_ocr_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "5/24/2025",
+      "type": "text",
+      "interactivity": false,
+      "source": "box_ocr_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Visual Studio Code ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "EO) Logi Optionst ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "S (2024 SOLIDWORKS Inspection 2_ ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Cover filament__ Top ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "SW 2024 2024 ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "VMware Workstati__ ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "6. ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Remote Ripple ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "2024 SOLIDWORKS Visualize Bo_ ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "SW 2024 Composer $_ ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "FL Studio 2024 ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "AOMEI Partitio_ ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Search ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "2024 eDrawings 2024 x64._ ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Adobe Acrobat ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Soz4 SOLIDWORKS Composer P_ ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Recycle Bin ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Cover filament Top ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Case for Filament__ ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Projects ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "MSI Afterburner ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "uTorrent Web ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Bambu Studio ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Microsoft Edge ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "HP_ATX_Pr_ ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "2024 Electrical ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "LM Studio ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Waves Central ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "HP_ATX_Pr_ ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Google Chrome ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Ancel IR ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "for Filame ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "FastVPN ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "2024 Visualize 20_ ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "GitHub Desktop ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "'Yfugad: ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "SW 2024 Composer 2_ ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Case for Filament_ ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Part1 ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Discord ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "TI-Nspire ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Config ",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_ocr"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "AutoLine",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "UFE PDF - AIF",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Nivilla App",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Copy",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "a video or video file.",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "OBS Studio",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Google Chrome web browser",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "M&m's",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Subscript",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Display",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "PowerPoint",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Windows",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Microsoft Office",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Chat",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Delete",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "OneNote",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Microsoft Edge browser",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Toggleoggleoggle",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Gallery",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Go to previous month August",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Toggle Check",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "Sound",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_yolo"
+    },
+    {
+      "bbox": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "content": "WiFi",
+      "type": "icon",
+      "interactivity": true,
+      "source": "box_yolo_content_yolo"
+    }
+  ]
+}
+2025-05-24 18:35:13,923 - core.operate - INFO - [operate._capture_and_process_screenshot:195] - Assigned 74 elements from 'coords' to self.coords.
+2025-05-24 18:35:13,923 - core.operate - INFO - [operate._capture_and_process_screenshot:206] - Using processed screenshot for GUI: C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\core\utils\omniparser\processed_screenshot.png
+2025-05-24 18:35:13,927 - core.operate - DEBUG - [operate._capture_and_process_screenshot:218] - self.coords after assignment: [
+  {
+    "bbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "content": "Arduino IDE   SOLIDWORKS HP_ATX_Pr_",
+    "type": "text",
+    "interactivity": false,
+    "source": "box_ocr_content_ocr"
+  },
+  {
+    "bbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "content": "Creality Print SOLIDWORKS",
+    "type": "text",
+    "interactivity": false,
+    "source": "box_ocr_content_ocr"
+  },
+  {
+    "bbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "content": "OBS Studio   SOLIDWORKS PSU bracket",
+    "type": "text",
+    "interactivity": false,
+    "source": "box_ocr_content_ocr"
+  },
+  {
+    "bbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "content": "Notepad+ + SOLIDWORKS",
+    "type": "text",
+    "interactivity": false,
+    "source": "box_ocr_content_ocr"
+  },
+  {
+    "bbox": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "content": "NVIDIA App   SOLIDWORKS",
+    "type": "text",
+    "interactivity": false,
+    "source": "box_ocr_content_ocr"
+  }
+]... (first 5 elements)
+2025-05-24 18:35:13,927 - core.operate - INFO - [operate._capture_and_process_screenshot:229] - Showing Automoy GUI after screenshot processing.
+2025-05-24 18:35:13,928 - __main__ - INFO - [main.async_manage_automoy_gui_visibility:238] - Attempting to show Automoy GUI ('Automoy - Access via') via API.
+2025-05-24 18:35:13,928 - __main__ - INFO - [main._control_gui_window_api:170] - Attempting to show GUI window via API: http://127.0.0.1:8000/control/window/show
+2025-05-24 18:35:14,252 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=10 socket_options=None
+2025-05-24 18:35:14,253 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.failed exception=ConnectTimeout(TimeoutError())
+2025-05-24 18:35:14,253 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E563CB0>
+2025-05-24 18:35:14,253 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'POST']>
+2025-05-24 18:35:14,253 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:35:14,253 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'POST']>
+2025-05-24 18:35:14,253 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:35:14,254 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'POST']>
+2025-05-24 18:35:14,355 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:35:13 GMT'), (b'server', b'uvicorn'), (b'content-length', b'35'), (b'content-type', b'application/json')])
+2025-05-24 18:35:14,356 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: POST http://127.0.0.1:8000/control/window/show "HTTP/1.1 200 OK"
+2025-05-24 18:35:14,356 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'POST']>
+2025-05-24 18:35:14,357 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:35:14,357 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:35:14,357 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:35:14,357 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:35:14,357 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:35:14,358 - __main__ - INFO - [main._control_gui_window_api:178] - Successfully sent show command to GUI API. Response: {"status":"show action dispatched"}
+2025-05-24 18:35:15,076 - core.operate - INFO - [operate._get_next_action_from_llm:518] - Getting next action from LLM. Current screenshot: C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\core\utils\omniparser\processed_screenshot.png
+2025-05-24 18:35:15,076 - core.operate - DEBUG - [operate._get_next_action_from_llm:520] - Current UI JSON for LLM (first 200 chars): {"parsed_content_list": [{"type": "text", "bbox": [0.04244791716337204, 0.3282407522201538, 0.15598958730697632, 0.34259259700775146], "interactivity": false, "content": "Arduino IDE   SOLIDWORKS HP_A...
+2025-05-24 18:35:16,087 - core.operate - INFO - [operate._execute_action:247] - Attempting action: click, Details: button_1...
+2025-05-24 18:35:16,089 - urllib3.connectionpool - DEBUG - [connectionpool._new_conn:241] - Starting new HTTP connection (1): 127.0.0.1:8000
+2025-05-24 18:35:16,105 - urllib3.connectionpool - DEBUG - [connectionpool._make_request:544] - http://127.0.0.1:8000 "POST /state/current_operation HTTP/1.1" 200 45
+2025-05-24 18:35:16,106 - core.operate - ERROR - [operate._execute_action:334] - Click action failed: Element not found using element_id 'button_1'. First ~3 elements in self.coords: ['Unknown Element', 'Unknown Element', 'Unknown Element']
+2025-05-24 18:35:16,619 - core.operate - INFO - [operate._execute_action:363] - Successfully executed: click
+2025-05-24 18:35:16,730 - __main__ - INFO - [main.async_manage_automoy_gui_visibility:238] - Attempting to show Automoy GUI ('Automoy - Access via') via API.
+2025-05-24 18:35:16,731 - __main__ - INFO - [main._control_gui_window_api:170] - Attempting to show GUI window via API: http://127.0.0.1:8000/control/window/show
+2025-05-24 18:35:17,051 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=10 socket_options=None
+2025-05-24 18:35:17,052 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E563B60>
+2025-05-24 18:35:17,052 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'POST']>
+2025-05-24 18:35:17,052 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:35:17,052 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'POST']>
+2025-05-24 18:35:17,052 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:35:17,052 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'POST']>
+2025-05-24 18:35:17,055 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:35:16 GMT'), (b'server', b'uvicorn'), (b'content-length', b'35'), (b'content-type', b'application/json')])
+2025-05-24 18:35:17,055 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: POST http://127.0.0.1:8000/control/window/show "HTTP/1.1 200 OK"
+2025-05-24 18:35:17,055 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'POST']>
+2025-05-24 18:35:17,055 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:35:17,055 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:35:17,056 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:35:17,056 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:35:17,056 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:35:17,056 - __main__ - INFO - [main._control_gui_window_api:178] - Successfully sent show command to GUI API. Response: {"status":"show action dispatched"}
+2025-05-24 18:35:18,067 - core.operate - DEBUG - [operate.operate_loop:427] - Operator cycle 2. Pause event is set, operator proceeding.
+2025-05-24 18:35:18,067 - core.operate - INFO - [operate._get_next_action_from_llm:518] - Getting next action from LLM. Current screenshot: C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\core\utils\omniparser\processed_screenshot.png
+2025-05-24 18:35:18,067 - core.operate - DEBUG - [operate._get_next_action_from_llm:520] - Current UI JSON for LLM (first 200 chars): {"parsed_content_list": [{"type": "text", "bbox": [0.04244791716337204, 0.3282407522201538, 0.15598958730697632, 0.34259259700775146], "interactivity": false, "content": "Arduino IDE   SOLIDWORKS HP_A...
+2025-05-24 18:35:19,075 - core.operate - INFO - [operate._execute_action:247] - Attempting action: click, Details: button_2...
+2025-05-24 18:35:19,076 - urllib3.connectionpool - DEBUG - [connectionpool._new_conn:241] - Starting new HTTP connection (1): 127.0.0.1:8000
+2025-05-24 18:35:19,092 - urllib3.connectionpool - DEBUG - [connectionpool._make_request:544] - http://127.0.0.1:8000 "POST /state/current_operation HTTP/1.1" 200 45
+2025-05-24 18:35:19,092 - core.operate - ERROR - [operate._execute_action:334] - Click action failed: Element not found using element_id 'button_2'. First ~3 elements in self.coords: ['Unknown Element', 'Unknown Element', 'Unknown Element']
+2025-05-24 18:35:19,607 - core.operate - INFO - [operate._execute_action:363] - Successfully executed: click
+2025-05-24 18:35:19,717 - __main__ - INFO - [main.async_manage_automoy_gui_visibility:238] - Attempting to show Automoy GUI ('Automoy - Access via') via API.
+2025-05-24 18:35:19,717 - __main__ - INFO - [main._control_gui_window_api:170] - Attempting to show GUI window via API: http://127.0.0.1:8000/control/window/show
+2025-05-24 18:35:20,037 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=10 socket_options=None
+2025-05-24 18:35:20,038 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E57AD20>
+2025-05-24 18:35:20,038 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'POST']>
+2025-05-24 18:35:20,038 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:35:20,039 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'POST']>
+2025-05-24 18:35:20,039 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:35:20,039 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'POST']>
+2025-05-24 18:35:20,042 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:35:20 GMT'), (b'server', b'uvicorn'), (b'content-length', b'35'), (b'content-type', b'application/json')])
+2025-05-24 18:35:20,042 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: POST http://127.0.0.1:8000/control/window/show "HTTP/1.1 200 OK"
+2025-05-24 18:35:20,042 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'POST']>
+2025-05-24 18:35:20,043 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:35:20,043 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:35:20,043 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:35:20,043 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:35:20,043 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:35:20,043 - __main__ - INFO - [main._control_gui_window_api:178] - Successfully sent show command to GUI API. Response: {"status":"show action dispatched"}
+2025-05-24 18:35:21,055 - core.operate - DEBUG - [operate.operate_loop:427] - Operator cycle 3. Pause event is set, operator proceeding.
+2025-05-24 18:35:21,055 - core.operate - INFO - [operate._get_next_action_from_llm:518] - Getting next action from LLM. Current screenshot: C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\core\utils\omniparser\processed_screenshot.png
+2025-05-24 18:35:21,056 - core.operate - DEBUG - [operate._get_next_action_from_llm:520] - Current UI JSON for LLM (first 200 chars): {"parsed_content_list": [{"type": "text", "bbox": [0.04244791716337204, 0.3282407522201538, 0.15598958730697632, 0.34259259700775146], "interactivity": false, "content": "Arduino IDE   SOLIDWORKS HP_A...
+2025-05-24 18:35:22,060 - core.operate - INFO - [operate._execute_action:247] - Attempting action: click, Details: button_3...
+2025-05-24 18:35:22,063 - urllib3.connectionpool - DEBUG - [connectionpool._new_conn:241] - Starting new HTTP connection (1): 127.0.0.1:8000
+2025-05-24 18:35:22,079 - urllib3.connectionpool - DEBUG - [connectionpool._make_request:544] - http://127.0.0.1:8000 "POST /state/current_operation HTTP/1.1" 200 45
+2025-05-24 18:35:22,079 - core.operate - ERROR - [operate._execute_action:334] - Click action failed: Element not found using element_id 'button_3'. First ~3 elements in self.coords: ['Unknown Element', 'Unknown Element', 'Unknown Element']
+2025-05-24 18:35:22,581 - core.operate - INFO - [operate._execute_action:363] - Successfully executed: click
+2025-05-24 18:35:22,693 - __main__ - INFO - [main.async_manage_automoy_gui_visibility:238] - Attempting to show Automoy GUI ('Automoy - Access via') via API.
+2025-05-24 18:35:22,696 - __main__ - INFO - [main._control_gui_window_api:170] - Attempting to show GUI window via API: http://127.0.0.1:8000/control/window/show
+2025-05-24 18:35:23,012 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=10 socket_options=None
+2025-05-24 18:35:23,013 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E5C3EF0>
+2025-05-24 18:35:23,013 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'POST']>
+2025-05-24 18:35:23,013 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:35:23,013 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'POST']>
+2025-05-24 18:35:23,013 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:35:23,013 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'POST']>
+2025-05-24 18:35:23,016 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:35:22 GMT'), (b'server', b'uvicorn'), (b'content-length', b'35'), (b'content-type', b'application/json')])
+2025-05-24 18:35:23,016 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: POST http://127.0.0.1:8000/control/window/show "HTTP/1.1 200 OK"
+2025-05-24 18:35:23,017 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'POST']>
+2025-05-24 18:35:23,017 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:35:23,017 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:35:23,017 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:35:23,017 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:35:23,018 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:35:23,018 - __main__ - INFO - [main._control_gui_window_api:178] - Successfully sent show command to GUI API. Response: {"status":"show action dispatched"}
+2025-05-24 18:35:24,037 - core.operate - DEBUG - [operate.operate_loop:427] - Operator cycle 4. Pause event is set, operator proceeding.
+2025-05-24 18:35:24,037 - core.operate - INFO - [operate._get_next_action_from_llm:518] - Getting next action from LLM. Current screenshot: C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\core\utils\omniparser\processed_screenshot.png
+2025-05-24 18:35:24,037 - core.operate - DEBUG - [operate._get_next_action_from_llm:520] - Current UI JSON for LLM (first 200 chars): {"parsed_content_list": [{"type": "text", "bbox": [0.04244791716337204, 0.3282407522201538, 0.15598958730697632, 0.34259259700775146], "interactivity": false, "content": "Arduino IDE   SOLIDWORKS HP_A...
+2025-05-24 18:35:25,046 - core.operate - INFO - [operate._execute_action:247] - Attempting action: click, Details: button_4...
+2025-05-24 18:35:25,048 - urllib3.connectionpool - DEBUG - [connectionpool._new_conn:241] - Starting new HTTP connection (1): 127.0.0.1:8000
+2025-05-24 18:35:25,064 - urllib3.connectionpool - DEBUG - [connectionpool._make_request:544] - http://127.0.0.1:8000 "POST /state/current_operation HTTP/1.1" 200 45
+2025-05-24 18:35:25,065 - core.operate - ERROR - [operate._execute_action:334] - Click action failed: Element not found using element_id 'button_4'. First ~3 elements in self.coords: ['Unknown Element', 'Unknown Element', 'Unknown Element']
+2025-05-24 18:35:25,570 - core.operate - INFO - [operate._execute_action:363] - Successfully executed: click
+2025-05-24 18:35:25,678 - __main__ - INFO - [main.async_manage_automoy_gui_visibility:238] - Attempting to show Automoy GUI ('Automoy - Access via') via API.
+2025-05-24 18:35:25,679 - __main__ - INFO - [main._control_gui_window_api:170] - Attempting to show GUI window via API: http://127.0.0.1:8000/control/window/show
+2025-05-24 18:35:26,001 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=10 socket_options=None
+2025-05-24 18:35:26,001 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E508B60>
+2025-05-24 18:35:26,002 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'POST']>
+2025-05-24 18:35:26,002 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:35:26,002 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'POST']>
+2025-05-24 18:35:26,002 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:35:26,002 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'POST']>
+2025-05-24 18:35:26,005 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:35:25 GMT'), (b'server', b'uvicorn'), (b'content-length', b'35'), (b'content-type', b'application/json')])
+2025-05-24 18:35:26,005 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: POST http://127.0.0.1:8000/control/window/show "HTTP/1.1 200 OK"
+2025-05-24 18:35:26,006 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'POST']>
+2025-05-24 18:35:26,006 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:35:26,006 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:35:26,006 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:35:26,006 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:35:26,007 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:35:26,007 - __main__ - INFO - [main._control_gui_window_api:178] - Successfully sent show command to GUI API. Response: {"status":"show action dispatched"}
+2025-05-24 18:35:27,022 - core.operate - DEBUG - [operate.operate_loop:427] - Operator cycle 5. Pause event is set, operator proceeding.
+2025-05-24 18:35:27,022 - core.operate - INFO - [operate._get_next_action_from_llm:518] - Getting next action from LLM. Current screenshot: C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\core\utils\omniparser\processed_screenshot.png
+2025-05-24 18:35:27,023 - core.operate - DEBUG - [operate._get_next_action_from_llm:520] - Current UI JSON for LLM (first 200 chars): {"parsed_content_list": [{"type": "text", "bbox": [0.04244791716337204, 0.3282407522201538, 0.15598958730697632, 0.34259259700775146], "interactivity": false, "content": "Arduino IDE   SOLIDWORKS HP_A...
+2025-05-24 18:35:28,032 - core.operate - INFO - [operate._execute_action:247] - Attempting action: click, Details: button_5...
+2025-05-24 18:35:28,033 - urllib3.connectionpool - DEBUG - [connectionpool._new_conn:241] - Starting new HTTP connection (1): 127.0.0.1:8000
+2025-05-24 18:35:28,049 - urllib3.connectionpool - DEBUG - [connectionpool._make_request:544] - http://127.0.0.1:8000 "POST /state/current_operation HTTP/1.1" 200 45
+2025-05-24 18:35:28,050 - core.operate - ERROR - [operate._execute_action:334] - Click action failed: Element not found using element_id 'button_5'. First ~3 elements in self.coords: ['Unknown Element', 'Unknown Element', 'Unknown Element']
+2025-05-24 18:35:28,565 - core.operate - INFO - [operate._execute_action:363] - Successfully executed: click
+2025-05-24 18:35:28,675 - __main__ - INFO - [main.async_manage_automoy_gui_visibility:238] - Attempting to show Automoy GUI ('Automoy - Access via') via API.
+2025-05-24 18:35:28,675 - __main__ - INFO - [main._control_gui_window_api:170] - Attempting to show GUI window via API: http://127.0.0.1:8000/control/window/show
+2025-05-24 18:35:29,105 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.started host='127.0.0.1' port=8000 local_address=None timeout=10 socket_options=None
+2025-05-24 18:35:29,106 - httpcore.connection - DEBUG - [_trace.atrace:87] - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002404E5E8EF0>
+2025-05-24 18:35:29,107 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.started request=<Request [b'POST']>
+2025-05-24 18:35:29,107 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_headers.complete
+2025-05-24 18:35:29,107 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.started request=<Request [b'POST']>
+2025-05-24 18:35:29,107 - httpcore.http11 - DEBUG - [_trace.atrace:87] - send_request_body.complete
+2025-05-24 18:35:29,108 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.started request=<Request [b'POST']>
+2025-05-24 18:35:29,110 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Sun, 25 May 2025 01:35:28 GMT'), (b'server', b'uvicorn'), (b'content-length', b'35'), (b'content-type', b'application/json')])
+2025-05-24 18:35:29,110 - httpx - INFO - [_client._send_single_request:1740] - HTTP Request: POST http://127.0.0.1:8000/control/window/show "HTTP/1.1 200 OK"
+2025-05-24 18:35:29,111 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.started request=<Request [b'POST']>
+2025-05-24 18:35:29,111 - httpcore.http11 - DEBUG - [_trace.atrace:87] - receive_response_body.complete
+2025-05-24 18:35:29,111 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.started
+2025-05-24 18:35:29,111 - httpcore.http11 - DEBUG - [_trace.atrace:87] - response_closed.complete
+2025-05-24 18:35:29,112 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.started
+2025-05-24 18:35:29,112 - httpcore.connection - DEBUG - [_trace.atrace:87] - close.complete
+2025-05-24 18:35:29,112 - __main__ - INFO - [main._control_gui_window_api:178] - Successfully sent show command to GUI API. Response: {"status":"show action dispatched"}
+2025-05-24 18:35:30,118 - core.operate - DEBUG - [operate.operate_loop:427] - Operator cycle 6. Pause event is set, operator proceeding.
+2025-05-24 18:35:30,118 - core.operate - INFO - [operate._get_next_action_from_llm:518] - Getting next action from LLM. Current screenshot: C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\core\utils\omniparser\processed_screenshot.png
+2025-05-24 18:35:30,118 - core.operate - DEBUG - [operate._get_next_action_from_llm:520] - Current UI JSON for LLM (first 200 chars): {"parsed_content_list": [{"type": "text", "bbox": [0.04244791716337204, 0.3282407522201538, 0.15598958730697632, 0.34259259700775146], "interactivity": false, "content": "Arduino IDE   SOLIDWORKS HP_A...
+2025-05-24 18:35:31,120 - core.operate - INFO - [operate._execute_action:247] - Attempting action: finish, Details: ...
+2025-05-24 18:35:31,122 - urllib3.connectionpool - DEBUG - [connectionpool._new_conn:241] - Starting new HTTP connection (1): 127.0.0.1:8000
+2025-05-24 18:35:31,139 - urllib3.connectionpool - DEBUG - [connectionpool._make_request:544] - http://127.0.0.1:8000 "POST /state/current_operation HTTP/1.1" 200 45
+2025-05-24 18:35:31,625 - core.operate - INFO - [operate._execute_action:363] - Successfully executed: finish
+2025-05-24 18:35:31,625 - core.operate - INFO - [operate.operate_loop:494] - 'finish' action received. Stopping operator.
+2025-05-24 18:35:31,626 - __main__ - INFO - [main.main:519] - Operator loop finished or an error occurred. Cancelling pause manager task.
+2025-05-24 18:35:31,626 - __main__ - INFO - [main.main:529] - Pause manager task was already done or not initialized.
+2025-05-24 18:35:31,627 - asyncio - ERROR - [base_events.default_exception_handler:1833] - Task exception was never retrieved
+future: <Task finished name='Task-2' coro=<manage_pause_event_concurrently() done, defined at c:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\core\main.py:343> exception=TypeError("Logger._log() got an unexpected keyword argument 'flush'")>
+Traceback (most recent call last):
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\site-packages\httpx\_transports\default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\site-packages\httpx\_transports\default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\site-packages\httpcore\_async\connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\site-packages\httpcore\_async\connection_pool.py", line 236, in handle_async_request
+    response = await connection.handle_async_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\site-packages\httpcore\_async\connection.py", line 101, in handle_async_request
+    raise exc
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\site-packages\httpcore\_async\connection.py", line 78, in handle_async_request
+    stream = await self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\site-packages\httpcore\_async\connection.py", line 124, in _connect
+    stream = await self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\site-packages\httpcore\_backends\auto.py", line 31, in connect_tcp
+    return await self._backend.connect_tcp(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\site-packages\httpcore\_backends\anyio.py", line 113, in connect_tcp
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\site-packages\httpcore\_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "c:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\core\main.py", line 348, in manage_pause_event_concurrently
+    resp = await client.get("http://127.0.0.1:8000/operator_state", timeout=2)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\site-packages\httpx\_client.py", line 1768, in get
+    return await self.request(
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\site-packages\httpx\_client.py", line 1540, in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\site-packages\httpx\_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\site-packages\httpx\_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\site-packages\httpx\_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\site-packages\httpx\_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\site-packages\httpx\_transports\default.py", line 393, in handle_async_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\site-packages\httpx\_transports\default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectTimeout
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "c:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\core\main.py", line 366, in manage_pause_event_concurrently
+    logger.warning(f"HTTP Error polling GUI state: {e_httpx}. Retrying.", flush=True) # Log
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\logging\__init__.py", line 1551, in warning
+    self._log(WARNING, msg, args, **kwargs)
+TypeError: Logger._log() got an unexpected keyword argument 'flush'
+2025-05-24 18:35:31,645 - __main__ - INFO - [main.<module>:540] - Starting final cleanup...
+2025-05-24 18:35:31,646 - __main__ - INFO - [main.cleanup_processes:270] - Cleaning up processes...
+2025-05-24 18:35:31,646 - __main__ - INFO - [main.cleanup_processes:273] - Terminating GUI process (PID: 27940)...
+2025-05-24 18:35:31,698 - __main__ - INFO - [main.cleanup_processes:289] - GUI process terminated gracefully.
+2025-05-24 18:35:31,698 - __main__ - INFO - [main.cleanup_processes:304] - Terminating OmniParser server process (PID: 26328)...
+2025-05-24 18:35:31,708 - __main__ - INFO - [main.cleanup_processes:308] - OmniParser server process terminated.
+2025-05-24 18:35:34,874 - __main__ - INFO - [main.cleanup_processes:330] - Found lingering OmniParser-related process: PID 10920, Cmd: C:\Users\imitr\anaconda3\envs\automoy_env\python.exe omniparserserver.py --som_model_path C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\dependencies\OmniParser-master\weights\icon_detect\model.pt --caption_model_name florence2 --caption_model_path C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\dependencies\OmniParser-master\weights\icon_caption_florence --device cuda --BOX_TRESHOLD 0.15 --port 8111. Terminating.
+2025-05-24 18:35:36,159 - __main__ - INFO - [main.cleanup_processes:341] - Process cleanup finished.
+2025-05-24 18:35:36,160 - __main__ - INFO - [main.<module>:542] - Application shutdown complete.
