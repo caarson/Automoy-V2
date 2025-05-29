@@ -1,5 +1,121 @@
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing UI');
+    console.log('DOM loaded, initializing UI');      
+    
+    // Loading screen management
+    let omniParserReady = false;
+    let uiZoomed = false;
+    let systemReady = false;
+    let loadingScreenHidden = false;
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    
+    // Add a flag to ensure we don't hide too early
+    let initializationStarted = false;
+    
+    console.log('Loading screen variables initialized:', {
+        omniParserReady,
+        uiZoomed, 
+        systemReady,
+        loadingScreenHidden,
+        loadingOverlay: !!loadingOverlay
+    });    function checkLoadingComplete() {
+        console.log(`Loading status check: omniParserReady=${omniParserReady}, uiZoomed=${uiZoomed}, systemReady=${systemReady}, loadingScreenHidden=${loadingScreenHidden}`);
+        
+        if (loadingScreenHidden) {
+            console.log('Loading screen already hidden, skipping...');
+            return;
+        }
+        
+        // STRICT REQUIREMENT: Both uiZoomed AND systemReady must be true
+        const bothConditionsMet = uiZoomed && systemReady;
+        console.log(`Both conditions met check: uiZoomed(${uiZoomed}) && systemReady(${systemReady}) = ${bothConditionsMet}`);
+        
+        // Hide loading screen only when both UI zoom and system initialization are complete
+        if (bothConditionsMet && loadingOverlay) {
+            console.log('✅ BOTH UI zoom and system initialization completed - hiding loading screen to reveal GUI...');
+            loadingScreenHidden = true;
+            loadingOverlay.classList.add('hidden');
+            
+            // Remove the loading overlay from DOM after transition
+            setTimeout(() => {
+                if (loadingOverlay && loadingOverlay.classList.contains('hidden')) {
+                    loadingOverlay.remove();
+                    console.log('Loading overlay removed from DOM');
+                }
+            }, 500); // Match the CSS transition duration
+        } else {
+            console.log(`❌ Still waiting: uiZoomed=${uiZoomed}, systemReady=${systemReady} - both must be true to hide loading screen`);
+        }
+    }
+      function hideLoadingScreen(reason) {
+        console.log(`⚠️ hideLoadingScreen called with reason: ${reason}`);
+        console.log(`Current state: uiZoomed=${uiZoomed}, systemReady=${systemReady}, loadingScreenHidden=${loadingScreenHidden}`);
+        
+        // Only allow hiding if both conditions are met OR it's a timeout/emergency
+        const emergencyReasons = ['30-second timeout reached', 'Escape key pressed'];
+        const isEmergency = emergencyReasons.includes(reason);
+        const bothConditionsMet = uiZoomed && systemReady;
+        
+        if (!loadingScreenHidden && loadingOverlay && (bothConditionsMet || isEmergency)) {
+            console.log(`✅ Hiding loading screen: ${reason} (emergency: ${isEmergency}, conditions met: ${bothConditionsMet})`);
+            loadingScreenHidden = true;
+            loadingOverlay.classList.add('hidden');
+            setTimeout(() => {
+                if (loadingOverlay) {
+                    loadingOverlay.remove();
+                }
+            }, 500);
+        } else {
+            console.log(`❌ Refusing to hide loading screen: ${reason} - conditions not met or already hidden`);
+        }
+    }    // Fallback timeout to hide loading screen after 30 seconds
+    setTimeout(() => {
+        hideLoadingScreen('30-second timeout reached');
+    }, 30000);
+
+    // Debug: Allow manual loading screen hide with Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && !loadingScreenHidden) {
+            hideLoadingScreen('Escape key pressed');
+        }
+    });
+      // Listen for custom events that indicate loading progress
+    window.addEventListener('omniparser-ready', function() {
+        console.log('OmniParser ready event received');
+        omniParserReady = true;
+        checkLoadingComplete();
+    });    window.addEventListener('ui-zoomed', function() {
+        console.log('UI zoom completion event received - zoom has been verified as applied!');
+        uiZoomed = true;
+        console.log(`After ui-zoomed: uiZoomed=${uiZoomed}, systemReady=${systemReady}`);
+        checkLoadingComplete();
+    });
+    
+    window.addEventListener('system-ready', function() {
+        console.log('System ready event received - system initialization completed!');
+        systemReady = true;
+        console.log(`After system-ready: uiZoomed=${uiZoomed}, systemReady=${systemReady}`);
+        checkLoadingComplete();
+    });
+    
+    // Initial check for OmniParser status immediately
+    setTimeout(() => {
+        console.log('Performing initial OmniParser status check...');
+        checkOmniParserStatus();
+    }, 500);
+    
+    // Check OmniParser status more frequently during startup (every 2 seconds for first 30 seconds)
+    let startupChecks = 0;
+    const maxStartupChecks = 15; // 30 seconds / 2 seconds
+    const startupInterval = setInterval(() => {
+        startupChecks++;
+        console.log(`Startup OmniParser check ${startupChecks}/${maxStartupChecks}`);
+        checkOmniParserStatus();
+        
+        if (startupChecks >= maxStartupChecks || omniParserReady) {
+            clearInterval(startupInterval);
+            console.log('Startup OmniParser checking complete');
+        }
+    }, 2000);
     
     // Animated ellipsis for placeholder
     let ellipsisCount = 0;
@@ -7,10 +123,11 @@ document.addEventListener('DOMContentLoaded', function() {
     setInterval(() => {
         ellipsisCount = (ellipsisCount + 1) % 4;
         placeholderEl.textContent = 'Waiting for frame' + '.'.repeat(ellipsisCount);
-    }, 500);
-
-    // Initial screenshot load 
-    // setTimeout(refreshScreenshot, 500); // No longer needed, will be triggered by notification
+    }, 500);    // Initial screenshot load 
+    setTimeout(() => {
+        console.log("Attempting initial screenshot load...");
+        refreshScreenshot('raw');
+    }, 1000); // Try loading a screenshot after 1 second
     
     // Setup periodic refresh (every 3 seconds) - Keep this as a fallback or for general updates
     // setInterval(refreshScreenshot, 3000); // Commenting out to rely on notification primarily
@@ -136,42 +253,49 @@ document.addEventListener('DOMContentLoaded', function() {
                     } else if (!isPaused) {
                         currentOperationDisplay.textContent = data.current_operation;
                     }
+                }                if (visualAnalysisDisplay && data.current_visual_analysis) {
+                    visualAnalysisDisplay.textContent = data.current_visual_analysis;
                 }
-
-                if (visualAnalysisDisplay && data.visual_analysis_output) { // Corrected from data.current_visual_analysis
-                    visualAnalysisDisplay.textContent = data.visual_analysis_output;
+                if (thinkingProcessDisplay && data.current_thinking_process) {
+                    thinkingProcessDisplay.textContent = data.current_thinking_process;
                 }
-                if (thinkingProcessDisplay && data.thinking_process_output) { // Corrected from data.current_thinking_process
-                    thinkingProcessDisplay.textContent = data.thinking_process_output;
-                }
-                if (stepsGeneratedDisplay && data.steps_generated) { // Corrected from data.current_steps_generated
-                    if (Array.isArray(data.steps_generated) && data.steps_generated.length > 0) {
-                        stepsGeneratedDisplay.innerHTML = data.steps_generated.map(step => `<li>${escapeHtml(step)}</li>`).join('');
-                    } else if (Array.isArray(data.steps_generated) && data.steps_generated.length === 0 && stepsGeneratedDisplay.innerHTML !== "<li>Waiting for steps...</li>") {
+                if (stepsGeneratedDisplay && data.current_steps_generated) {
+                    if (Array.isArray(data.current_steps_generated) && data.current_steps_generated.length > 0) {
+                        stepsGeneratedDisplay.innerHTML = data.current_steps_generated.map(step => `<li>${escapeHtml(step.description || step)}</li>`).join('');
+                    } else if (Array.isArray(data.current_steps_generated) && data.current_steps_generated.length === 0 && stepsGeneratedDisplay.innerHTML !== "<li>Waiting for steps...</li>") {
                         stepsGeneratedDisplay.innerHTML = "<li>No steps generated yet.</li>";
-                    } else if (typeof data.steps_generated === 'string') { // Handle if it's a string by mistake
-                        stepsGeneratedDisplay.innerHTML = `<li>${escapeHtml(data.steps_generated)}</li>`;
+                    } else if (typeof data.current_steps_generated === 'string') { // Handle if it's a string by mistake
+                        stepsGeneratedDisplay.innerHTML = `<li>${escapeHtml(data.current_steps_generated)}</li>`;
                     }
                 }
                 // Update for Operations Generated
-                if (operationsGeneratedDisplay && data.operations_generated) { // Already corrected to data.operations_generated
-                    // Assuming data.operations_generated will be a string (e.g., JSON string of the operation)
+                if (operationsGeneratedDisplay && data.current_operations_generated) {
+                    // Assuming data.current_operations_generated will be a string (e.g., JSON string of the operation)
                     // If it's an object, you might want to JSON.stringify it here with indentation
-                    if (typeof data.operations_generated === 'object') { // Corrected: Check data.operations_generated
-                        operationsGeneratedDisplay.textContent = JSON.stringify(data.operations_generated, null, 2); // Corrected: Use data.operations_generated
+                    if (typeof data.current_operations_generated === 'object') {
+                        operationsGeneratedDisplay.textContent = JSON.stringify(data.current_operations_generated, null, 2);
                     } else {
-                        operationsGeneratedDisplay.textContent = data.operations_generated; // Corrected: Use data.operations_generated
+                        operationsGeneratedDisplay.textContent = data.current_operations_generated;
                     }
                 } else if (operationsGeneratedDisplay) {
                     // Clear or set to default if no operations data
                     operationsGeneratedDisplay.textContent = 'Waiting for operations...'; // Set a default message
                 }
-                
-                // LLM Query, Response, Execution Result, History Log - not explicitly in current HTML focus
+                  // LLM Query, Response, Execution Result, History Log - not explicitly in current HTML focus
                 // if (llmQueryDisplay && data.llm_query) { ... }
                 // if (llmResponseDisplay && data.llm_response) { ... }
                 // if (executionResultDisplay && data.execution_result) { ... }
-                // if (historyLogDisplay && data.history_log) { ... }
+                // if (historyLogDisplay && data.history_log) { ... }                // Check if processed screenshot is available and switch to it
+                if (data.processed_screenshot_available && data.processed_screenshot_available === true) {
+                    const screenshotImg = document.getElementById('screenshotImage');
+                    if (screenshotImg && !screenshotImg.src.includes('processed_screenshot.png')) {
+                        console.log("Processed screenshot is available, switching display to processed screenshot");
+                        refreshScreenshot('processed');
+                    }
+                } else {
+                    // Debug: Log the state of processed_screenshot_available
+                    console.log("Processed screenshot availability:", data.processed_screenshot_available);
+                }
 
                 // LLM Stream content is handled by SSE, but we can update from polling as a fallback
                 // or if SSE is not active. However, this might cause jumpy text if SSE is also working.
@@ -254,36 +378,44 @@ document.addEventListener('DOMContentLoaded', function() {
     /*
     function refreshOperatorState() { ... }
     function updateUIFromState(state) { ... }
-    */
+    */    // Function to refresh the screenshot
+    function refreshScreenshot(type = 'raw') { // Added type parameter, default to 'raw'
+        const timestamp = new Date().getTime();
+        const screenshotImg = document.getElementById('screenshotImage');
+        const placeholderEl = document.getElementById('screenshotPlaceholder');
 
-    // Function to refresh the screenshot
-    function refreshScreenshot() {
-        const imgElement = document.getElementById('screenshotImage');
-        const placeholder = document.getElementById('screenshotPlaceholder');
-        if (!imgElement || !placeholder) {
-            console.error('Screenshot image element or placeholder not found.');
+        if (!screenshotImg) {
+            console.error("Screenshot image element not found.");
             return;
         }
 
-        // Add a cache-busting query parameter
-        const timestamp = new Date().getTime();
-        // Corrected URL to point to the copied processed screenshot in the static directory
-        const screenshotUrl = `/static/processed_screenshot.png?t=${timestamp}`; 
-        console.log("Refreshing screenshot from:", screenshotUrl);
-
-        imgElement.src = screenshotUrl; 
-
-        imgElement.onload = () => {
-            console.log("Screenshot loaded successfully.");
-            imgElement.style.display = 'block';
-            placeholder.style.display = 'none';
-        };
-        imgElement.onerror = () => {
-            console.error("Error loading screenshot. It might not be available yet or path is incorrect.");
-            imgElement.style.display = 'none';
-            placeholder.style.display = 'block';
-            placeholder.textContent = 'Error loading screenshot. Waiting for next update...';
-        };
+        if (type === 'processed') {
+            // Try to load processed screenshot first
+            const processedImageUrl = `/processed_screenshot.png?t=${timestamp}`;
+            console.log("Refreshing processed screenshot from: ", processedImageUrl);
+            screenshotImg.src = processedImageUrl;
+            screenshotImg.style.display = 'block';
+            if (placeholderEl) placeholderEl.style.display = 'none';
+            screenshotImg.onload = () => console.log("Processed screenshot loaded successfully.");
+            screenshotImg.onerror = () => {
+                console.warn("Error loading processed screenshot, falling back to raw.");
+                // Fallback to raw screenshot if processed fails
+                refreshScreenshot('raw');
+            };
+        } else {
+            // Load raw screenshot (default)
+            const rawImageUrl = `/automoy_current.png?t=${timestamp}`;
+            console.log("Refreshing raw screenshot from: ", rawImageUrl);
+            screenshotImg.src = rawImageUrl;
+            screenshotImg.style.display = 'block';
+            if (placeholderEl) placeholderEl.style.display = 'none';
+            screenshotImg.onload = () => console.log("Raw screenshot loaded successfully.");
+            screenshotImg.onerror = () => {
+                console.error("Error loading raw screenshot.");
+                screenshotImg.style.display = 'none';
+                if (placeholderEl) placeholderEl.style.display = 'flex';
+            };
+        }
     }
 
     // Expose refreshScreenshot to global scope if not already (e.g., for pywebview evaluate_js)
@@ -369,4 +501,85 @@ function updateOperationalState(data) {
             currentStepDisplayElement.innerHTML = '<strong>Current:</strong> Not started';
         }
     }
+
+    // Update operations generated list (newly added)
+    if (data.operations_generated && data.operations_generated.operations) {
+        const operationsList = document.getElementById('operations-generated-list');
+        if (operationsList) {
+            operationsList.innerHTML = ''; // Clear previous operations
+            if (Array.isArray(data.operations_generated.operations)) {
+                data.operations_generated.operations.forEach(op => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = `${op.type}: ${op.summary}`;
+                    if (op.details) {
+                        const detailsText = document.createElement('small');
+                        detailsText.textContent = ` (${op.details})`;
+                        listItem.appendChild(detailsText);
+                    }
+                    operationsList.appendChild(listItem);
+                });
+            } else {
+                console.warn("data.operations_generated.operations is not an array:", data.operations_generated.operations);
+            }
+            // Update thinking process if available within operations_generated
+            if (data.operations_generated.thinking_process) {
+                document.getElementById('thinking-process-content').textContent = data.operations_generated.thinking_process;
+            }
+        } else {
+            console.error('Operations generated list element not found.');
+        }
+    } else {
+        // console.log("No operations_generated data or missing .operations property"); // Keep this for debugging if needed
+        const operationsList = document.getElementById('operations-generated-list');
+        if (operationsList) {
+            operationsList.innerHTML = '<li>No operations generated yet.</li>';
+        }
+    }
 }
+
+// OmniParser status checking functionality
+let omniParserEventDispatched = false;
+function checkOmniParserStatus() {
+    const statusDot = document.getElementById('omniparserStatusDot');
+    const statusText = document.getElementById('omniparserStatusText');
+    
+    console.log('Checking OmniParser status...');
+    
+    if (!statusDot || !statusText) {
+        console.log('Status elements not found in DOM yet');
+        return;
+    }
+    
+    // Try to ping OmniParser server directly
+    fetch('http://localhost:8111/probe/')
+        .then(response => {
+            console.log(`OmniParser probe response: ${response.status}`);
+            if (response.ok) {
+                statusDot.className = 'status-dot ready';
+                statusText.textContent = 'OmniParser Ready';
+                
+                // Dispatch custom event for loading screen management (only once)
+                if (!omniParserEventDispatched) {
+                    window.dispatchEvent(new CustomEvent('omniparser-ready'));
+                    omniParserEventDispatched = true;
+                    console.log('OmniParser ready event dispatched for the first time');
+                }
+            } else {
+                statusDot.className = 'status-dot error';
+                statusText.textContent = 'OmniParser Error';
+                console.log('OmniParser returned error status');
+            }
+        })
+        .catch(error => {
+            statusDot.className = 'status-dot';
+            statusText.textContent = 'OmniParser Offline';
+            console.log('OmniParser connection failed:', error.message);
+        });
+}
+
+// Regular OmniParser status checking (after startup period)
+setInterval(() => {
+    if (!omniParserReady) {
+        checkOmniParserStatus();
+    }
+}, 5000);

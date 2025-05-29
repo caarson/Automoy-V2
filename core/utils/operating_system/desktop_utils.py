@@ -1,5 +1,10 @@
 import winreg
 import ctypes
+import os
+from pathlib import Path
+from datetime import datetime
+import pyautogui
+from typing import Optional # Added
 
 class DesktopUtils:
     _original_settings = None
@@ -137,3 +142,23 @@ class DesktopUtils:
         
         print("[INFO][DesktopUtils] Desktop background settings restoration command issued.")
         DesktopUtils._original_settings = None # Clear after restoring to allow fresh fetch next time
+
+    @staticmethod
+    def capture_current_screen(filename_prefix: str = "automoy_capture", 
+                                 screenshots_dir: Path = Path("debug/screenshots")) -> Optional[Path]:
+        """Captures the current screen and saves it to a file."""
+        try:
+            # Ensure the screenshots directory exists
+            screenshots_dir.mkdir(parents=True, exist_ok=True)
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            filename = f"{filename_prefix}_{timestamp}.png"
+            filepath = screenshots_dir / filename
+
+            screenshot = pyautogui.screenshot()
+            screenshot.save(filepath)
+            print(f"[INFO][DesktopUtils] Screenshot saved to {filepath}")
+            return filepath
+        except Exception as e:
+            print(f"[ERROR][DesktopUtils] Failed to capture screen: {e}")
+            return None

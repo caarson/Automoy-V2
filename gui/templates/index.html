@@ -13,6 +13,105 @@
     />
 
     <style>
+      /* -------  LOADING SCREEN STYLES  ------- */
+      .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #212121;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        transition: opacity 0.5s ease-out, visibility 0.5s ease-out;
+      }
+
+      .loading-overlay.hidden {
+        opacity: 0;
+        visibility: hidden;
+      }      .loading-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 60px;
+      }
+
+      .loading-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        animation: rot 16s linear infinite;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        gap: 2px;
+      }
+
+      @keyframes rot {
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .loading-square {
+        width: 40px;
+        height: 40px;
+        background: #FFFFFF;
+        border-radius: 4px;
+        box-shadow: 0 0 1px #fff, 0 0 5px #fff, 0 0 10px #fff, 0 0 15px #fff, 0 0 25px #fff, 0 0 55px #fff;
+        animation: scale 0.8s linear alternate infinite;
+      }
+
+      @keyframes scale {
+        100% {
+          transform: scale(0.1);
+          opacity: 0;
+        }
+      }
+
+      /* Animation delays for each square */
+      .loading-square:nth-child(1) { animation-delay: 0.1s; z-index: 24; }
+      .loading-square:nth-child(2) { animation-delay: 0.2s; z-index: 23; }
+      .loading-square:nth-child(3) { animation-delay: 0.3s; z-index: 22; }
+      .loading-square:nth-child(4) { animation-delay: 0.4s; z-index: 21; }
+      .loading-square:nth-child(5) { animation-delay: 0.5s; z-index: 20; }
+      .loading-square:nth-child(6) { animation-delay: 0.1s; z-index: 19; }
+      .loading-square:nth-child(7) { animation-delay: 0.3s; z-index: 18; }
+      .loading-square:nth-child(8) { animation-delay: 0.4s; z-index: 17; }
+      .loading-square:nth-child(9) { animation-delay: 0.5s; z-index: 16; }
+      .loading-square:nth-child(10) { animation-delay: 0.6s; z-index: 15; }
+      .loading-square:nth-child(11) { animation-delay: 0.1s; z-index: 14; }
+      .loading-square:nth-child(12) { animation-delay: 0.3s; z-index: 13; }
+      .loading-square:nth-child(13) { animation-delay: 0.5s; z-index: 12; }
+      .loading-square:nth-child(14) { animation-delay: 0.6s; z-index: 11; }
+      .loading-square:nth-child(15) { animation-delay: 0.7s; z-index: 10; }
+      .loading-square:nth-child(16) { animation-delay: 0.1s; z-index: 9; }
+      .loading-square:nth-child(17) { animation-delay: 0.3s; z-index: 8; }
+      .loading-square:nth-child(18) { animation-delay: 0.5s; z-index: 7; }
+      .loading-square:nth-child(19) { animation-delay: 0.7s; z-index: 6; }
+      .loading-square:nth-child(20) { animation-delay: 0.8s; z-index: 5; }
+      .loading-square:nth-child(21) { animation-delay: 0.1s; z-index: 4; }
+      .loading-square:nth-child(22) { animation-delay: 0.3s; z-index: 3; }
+      .loading-square:nth-child(23) { animation-delay: 0.5s; z-index: 2; }
+      .loading-square:nth-child(24) { animation-delay: 0.7s; z-index: 1; }
+      .loading-square:nth-child(25) { animation-delay: 0.9s; z-index: 0; }
+
+      .loading-text {
+        font-family: "Inter", sans-serif;
+        font-size: 24px;
+        font-weight: 500;
+        color: #FFFFFF;
+        text-align: center;
+        animation: loading-pulse 2s ease-in-out infinite;
+      }
+
+      @keyframes loading-pulse {
+        0%, 100% { opacity: 0.6; }
+        50% { opacity: 1; }
+      }
+
       /* -------  GLOBAL  ------- */
       html,
       body {
@@ -22,9 +121,7 @@
         font-family: "Inter", sans-serif;
         background: #000; /* full‑black like the mock‑up */
         color: #fff;
-      }
-
-      /* top nav  */
+      }      /* top nav  */
       .top-nav {
         display: flex;
         gap: 32px;
@@ -32,6 +129,12 @@
         border-bottom: 1px solid #222;
         font-size: 14px;
         letter-spacing: 0.02em;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .top-nav-left {
+        display: flex;
+        gap: 32px;
       }
       .top-nav span {
         cursor: pointer;
@@ -39,6 +142,28 @@
       }
       .top-nav span:hover {
         color: #50a7ff;
+      }
+      
+      /* OmniParser status indicator */
+      .omniparser-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+      }
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: #666;
+        transition: background-color 0.3s ease;
+      }
+      .status-dot.ready {
+        background-color: #fff;
+        box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
+      }
+      .status-dot.error {
+        background-color: #ff4444;
       }
 
       /* main grid  */
@@ -220,9 +345,46 @@
   </head>
 
   <body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">      <div class="loading-wrapper">
+        <ul class="loading-grid">
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>
+          <li class="loading-square"></li>        </ul>
+      </div>
+    </div>
+
     <!-- ========= NAV ========= -->
     <div class="top-nav">
-      <span>Help</span><span>Configuration</span><span>Settings</span>
+      <div class="top-nav-left">
+        <span>Help</span><span>Configuration</span><span>Settings</span>
+      </div>
+      <div class="omniparser-status">
+        <div class="status-dot" id="omniparserStatusDot"></div>
+        <span id="omniparserStatusText">OmniParser</span>
+      </div>
     </div>
 
     <!-- ========= LAYOUT ========= -->
@@ -262,11 +424,14 @@
             <ul id="stepsGeneratedList">
               <li>No steps generated yet.</li>
             </ul>
+          </div>          <div class="reasoning-section">
+            <div class="reasoning-label">Operations Generated:</div>
+            <pre id="operationsGeneratedText">Waiting for operations...</pre>
           </div>
 
           <div class="reasoning-section">
-            <div class="reasoning-label">Operations Generated:</div>
-            <pre id="operationsGeneratedText">Waiting for operations...</pre>
+            <div class="reasoning-label">LLM Stream:</div>
+            <span id="llmStreamContent">No stream content.</span>
           </div>
 
         </div>
@@ -327,9 +492,8 @@
         <div class="operation-status">
           <div class="operation-label">Execution Result:</div>
           <span id="executionResultDisplay"></span>
-        </div> -->
-        <div class="pause-btn" id="pauseButton" title="Toggle Pause/Resume">
-            <img id="pauseIcon" src="/static/imgs/pause_icon.png" alt="Pause" />
+        </div> -->        <div class="pause-btn" id="pauseButton" title="Toggle Pause/Resume">
+            <img id="pauseIcon" src="/static/imgs/pause_button.png" alt="Pause" />
         </div>
       </div>
     </div>

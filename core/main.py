@@ -1,140 +1,144 @@
-import asyncio
+import sys
 import os
+import asyncio
+import json
 import signal
 import subprocess
-import sys # sys needs to be imported before use
+import threading
 import time
-import webbrowser
-from contextlib import contextmanager
-import shutil # Add this import
-import re # Add re module for regex operations
-import pygetwindow as gw # Added for find_automoy_gui_window
-import functools # Added for functools.partial
-import httpx # Added for async API calls
-import psutil # Added for process cleanup
-import requests # Added for synchronous health check
-
-# Add project root to sys.path BEFORE attempting to import from core or config
-# This ensures that modules like 'core' and 'config' can be found.
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
-
-# Now import project-specific modules
-from core.utils.operating_system.desktop_utils import DesktopUtils
-from core.utils.omniparser.omniparser_server_manager import OmniParserServerManager
-from core.operate import AutomoyOperator, _update_gui_state 
-from config import Config
-from core.lm.lm_interface import MainInterface
-from core.prompts.prompts import FORMULATE_OBJECTIVE_SYSTEM_PROMPT, FORMULATE_OBJECTIVE_USER_PROMPT_TEMPLATE
-
+import webview
+import requests
+import httpx
 import logging
 import logging.handlers
+import platform
+import atexit
 
-LOG_FILE_PATH = os.path.join(PROJECT_ROOT, "debug", "logs", "core", "output.log") # Updated path
+from typing import Any, Dict, Optional, List, Union, TYPE_CHECKING
 
-def setup_logging():
-    log_dir = os.path.dirname(LOG_FILE_PATH)
-    os.makedirs(log_dir, exist_ok=True)
+# Adjust sys.path to include the project root
+PROJECT_ROOT_FOR_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT_FOR_PATH not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT_FOR_PATH)
 
-    root_logger = logging.getLogger()
-    
-    # Clear existing handlers to avoid duplication if this function is called multiple times
-    if root_logger.hasHandlers():
-        root_logger.handlers.clear()
+# Configuration and utility imports
+import config.config as app_config
 
-    root_logger.setLevel(logging.DEBUG) 
+from core.operate import AutomoyOperator
+from core.data_models import AutomoyStatus, OperatorState
+from core.utils.operating_system.process_utils import is_process_running_on_port, kill_process_on_port
 
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - [%(module)s.%(funcName)s:%(lineno)d] - %(message)s')
+if TYPE_CHECKING:
+    from core.operate import AutomoyOperator
+    from core.utils.omniparser.omniparser_server_manager import OmniParserServerManager
 
-    # File Handler for detailed debug logs
-    fh = logging.FileHandler(LOG_FILE_PATH, mode='w') # Changed mode to 'w'
-    fh.setLevel(logging.DEBUG)
-    fh.setFormatter(formatter)
-    root_logger.addHandler(fh)
+# Global variables
+gui_process: Optional[subprocess.Popen] = None
+webview_window_global: Optional[webview.Window] = None
+current_gui_visibility: bool = False
+operator: 'AutomoyOperator' = None
+omniparser_manager: Optional['OmniParserServerManager' ] = None  # Track OmniParser server manager
 
-    # Console Handler for general info logs
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.INFO) 
+# For managing the asyncio event loop in a dedicated thread
+main_loop: Optional[asyncio.AbstractEventLoop] = None
+async_main_task: Optional[asyncio.Task] = None
+
+# --- Configuration & Constants ---
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+# Event for signaling graceful shutdown
+stop_event: Optional[asyncio.Event] = None
+
+# Lock for thread-safe access to current_operator_state
+operator_state_lock = asyncio.Lock()
+current_operator_state = OperatorState() 
+
+# Setup logger
+logger = logging.getLogger(app_config.AUTOMOY_APP_NAME)
+
+def setup_logging(console_level=logging.INFO, file_level=logging.DEBUG):
+    logger.setLevel(min(console_level, file_level))
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(threadName)s - %(levelname)s - %(message)s')
+
+    # Console Handler
+    ch = logging.StreamHandler()
+    ch.setLevel(console_level)
     ch.setFormatter(formatter)
-    root_logger.addHandler(ch)
+    logger.addHandler(ch)
+
+    # File Handler (Rotating)
+    log_dir = os.path.dirname(app_config.LOG_FILE_PATH) 
+    if log_dir and not os.path.exists(log_dir):
+        try:
+            os.makedirs(log_dir)
+        except OSError as e:
+            print(f"Could not create log directory {log_dir}: {e}", file=sys.stderr)
+            return
     
-    # Use the root logger for the initial message, or a specific logger if preferred
-    logging.info(f"Logging initialized. Log file: {LOG_FILE_PATH}. Console level: INFO, File level: DEBUG.")
+    if log_dir: 
+        fh = logging.handlers.RotatingFileHandler(
+            app_config.LOG_FILE_PATH, maxBytes=app_config.MAX_LOG_FILE_SIZE, backupCount=app_config.LOG_BACKUP_COUNT
+        )
+        fh.setLevel(file_level)
+        fh.setFormatter(formatter)
+        logger.addHandler(fh)
+    
+    logger.info("Logging setup complete.")
 
-# Call setup_logging() once, early in the script.
-setup_logging()
-logger = logging.getLogger(__name__) # Logger for this module
 
-logger.debug("Script execution started.")
+def on_window_closed():
+    """Handler for when the webview window is closed."""
+    logger.info("PyWebview window closed by user - initiating cleanup...")
+    # Call cleanup immediately when window is closed
+    cleanup_processes()
 
-# Define the prefix for the Automoy GUI window title
-AUTOMOY_GUI_TITLE_PREFIX = "Automoy - Access via"
-
-gui_process = None
-omniparser_server_process = None 
-pause_event = asyncio.Event() 
-
-# Function to find the Automoy GUI window (using the corrected title prefix)
-def find_automoy_gui_window():
-    prefix = AUTOMOY_GUI_TITLE_PREFIX
-    try:
-        for w in gw.getAllWindows():
-            if w.title and w.title.startswith(prefix):
-                return w
-        return None
-    except Exception as e:
-        logger.error(f"Error finding Automoy GUI window: {e}")
-        return None
-
-def start_gui_subprocess():
-    global gui_process
-    # Correctly determine the project root and gui_script_path
-    # PROJECT_ROOT is already defined globally
-    gui_script_path = os.path.join(PROJECT_ROOT, "gui", "gui.py")
-
+def start_gui_and_create_webview_window():
+    global gui_process, webview_window_global
+    gui_script_path = os.path.join(PROJECT_ROOT, "gui", "gui.py") 
+    
     if not os.path.exists(gui_script_path):
         logger.error(f"GUI script not found at {gui_script_path}")
-        return None
+        return False
 
     try:
-        # Determine creation flags for subprocess.Popen
+        if is_process_running_on_port(app_config.GUI_PORT):
+            logger.warning(f"Process already running on port {app_config.GUI_PORT}. Attempting to kill it.")
+            if kill_process_on_port(app_config.GUI_PORT):
+                logger.info(f"Successfully killed existing process on port {app_config.GUI_PORT}.")
+                time.sleep(1) 
+            else:
+                logger.error(f"Failed to kill existing process on port {app_config.GUI_PORT}. GUI start might fail.")
+        
         creation_flags = 0
         if sys.platform == "win32":
-            # This will open a new console window for the gui.py process,
-            # allowing its stdout/stderr (prints, errors) to be visible.
-            creation_flags = subprocess.CREATE_NEW_CONSOLE
+            creation_flags = subprocess.CREATE_NO_WINDOW
         
-        logger.info(f"Starting GUI: {sys.executable} \\\"{gui_script_path}\\\"")
-        # CREATE_NO_WINDOW can be added back for production if GUI console is not needed
-        # creationflags = subprocess.CREATE_NO_WINDOW 
-        # Ensure gui.py runs in a new console window to see its output
-        creationflags = subprocess.CREATE_NEW_CONSOLE
-        gui_process = subprocess.Popen([sys.executable, gui_script_path], creationflags=creationflags)
+        logger.info(f'Starting GUI: "{sys.executable}" "{gui_script_path}" --host {app_config.GUI_HOST} --port {app_config.GUI_PORT}')
+        gui_process = subprocess.Popen([
+            sys.executable, 
+            gui_script_path, 
+            "--host", app_config.GUI_HOST,
+            "--port", str(app_config.GUI_PORT)
+        ], creationflags=creation_flags)
         logger.info(f"GUI process started with PID: {gui_process.pid}. Waiting for it to be healthy...")
 
-        max_wait_time = 30  # seconds
+        max_wait_time = 60 
         start_time = time.time()
         gui_ready = False
         while time.time() - start_time < max_wait_time:
             try:
-                # Standard requests for synchronous health check
-                response = requests.get("http://127.0.0.1:8000/health", timeout=2)
+                response = requests.get(f"http://{app_config.GUI_HOST}:{app_config.GUI_PORT}/health", timeout=2)
                 if response.status_code == 200:
-                    content = response.json()
-                    if content.get("status") == "healthy":
-                        logger.info("GUI is healthy and responsive.")
-                        gui_ready = True
-                        break
-                    else:
-                        logger.warning(f"GUI health check status not healthy: {content.get('status')}, retrying...")
+                    logger.info("GUI is healthy and responsive.")
+                    gui_ready = True
+                    break
                 else:
-                    logger.warning(f"GUI health check failed with status {response.status_code}, retrying...")
+                    logger.warning(f"GUI health check returned status {response.status_code}, retrying...")
             except requests.exceptions.ConnectionError:
                 logger.warning("GUI not ready yet (connection error), retrying...")
             except requests.exceptions.Timeout:
                 logger.warning("GUI health check timed out, retrying...")
-            except Exception as e:
+            except requests.RequestException as e:
                 logger.error(f"Error checking GUI health: {e}, retrying...")
             time.sleep(1)
 
@@ -146,430 +150,756 @@ def start_gui_subprocess():
                 try:
                     gui_process.wait(timeout=5)
                 except subprocess.TimeoutExpired:
-                    logger.warning("GUI process did not terminate gracefully, killing.")
+                    logger.warning("GUI process did not terminate gracefully, killing...")
                     gui_process.kill()
             gui_process = None
-            return None
+            return False
 
         logger.info("GUI subprocess started and reported healthy.")
-        return gui_process
-    except Exception as e:
-        logger.error(f"Failed to start GUI subprocess: {e}")
-        if gui_process and gui_process.poll() is None:
-            gui_process.kill() # Ensure it's killed if something went wrong after Popen
-        gui_process = None
-        return None
-
-async def _control_gui_window_api(action: str, retries=3, delay=1) -> bool:
-    if not gui_process:
-        logger.error(f"GUI process not available. Cannot {action} window.")
-        return False
-
-    gui_base_url = "http://127.0.0.1:8000"
-    url = f"{gui_base_url}/control/window/{action}"
-    logger.info(f"Attempting to {action} GUI window via API: {url}")
-
-    for attempt in range(retries):
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(url, timeout=10) # Increased timeout slightly
-
-            if response.status_code == 200:
-                logger.info(f"Successfully sent {action} command to GUI API. Response: {response.text}")
-                return True
-            else:
-                logger.error(f"Failed to {action} GUI window via API. Attempt {attempt + 1}/{retries}. Status: {response.status_code}, Response: {response.text}")
-        except httpx.RequestError as e:
-            logger.error(f"httpx.RequestError on attempt {attempt + 1}/{retries} when trying to {action} GUI: {e}")
-        except Exception as e:
-            logger.error(f"Unexpected error on attempt {attempt + 1}/{retries} when trying to {action} GUI: {e}")
+        logger.info("Attempting to create PyWebview window object for the GUI...")
+        gui_url = f"http://{app_config.GUI_HOST}:{app_config.GUI_PORT}"
+        window_title = f"{app_config.AUTOMOY_GUI_TITLE_PREFIX} {gui_url}"
         
-        if attempt < retries - 1:
-            logger.info(f"Retrying in {delay}s...")
-            await asyncio.sleep(delay)
+        webview_window_global = webview.create_window(
+            window_title,
+            gui_url,
+            width=1088,  # 15% smaller than 1280 (1280 * 0.85)
+            height=680,  # 15% smaller than 800 (800 * 0.85)
+            resizable=True,
+            frameless=True,  # Make window borderless
+            easy_drag=True,
+            min_size=(510, 340),  # 15% smaller min size
+            js_api=None,  # We'll add zoom control after window creation
+            on_top=False,
+            shadow=True
+        )
+        if webview_window_global:
+             logger.info(f"PyWebview window object '{window_title}' created successfully. It will be started on the main thread.")
+             return True
         else:
-            logger.error(f"Failed to {action} GUI window via API after {retries} attempts.")
-    return False
+             logger.error(f"PyWebview window object creation returned None.")
+             return False
 
-def _pygetwindow_show_and_position(window):
-    if window:
-        logger.info(f"pygetwindow: Restoring and activating window '{window.title}'.")
-        if window.isMinimized:
-            window.restore()
-        
-        if not window.visible:
-            window.show()
-            logger.info(f"pygetwindow: Window '{window.title}' was not visible, called show().")
-         
-        try:
-            window.activate()
-        except gw.PyGetWindowException as e: # Assuming 'import pygetwindow as gw' is at the top
-            if "Error code from Windows: 0" in str(e):
-                logger.warning(f"pygetwindow.activate() raised known benign exception (error code 0): {e}. Continuing.")
-            else:
-                logger.error(f"pygetwindow.activate() failed: {e}")
-                raise # Re-raise other pygetwindow exceptions
-        logger.info(f"pygetwindow: Window '{window.title}' shown and activated.")
-    else:
-        logger.warning("pygetwindow: Window not provided for show_and_position.")
-
-async def async_manage_automoy_gui_visibility(action: str, window_title: str = AUTOMOY_GUI_TITLE_PREFIX) -> bool:
-    normalized = action.lower()
-    if normalized in ('hide', 'minimize'):
-        logger.info(f"Minimizing Automoy GUI ('{window_title}') via pygetwindow.")
-        window = None
-        for _ in range(10):  # 10 x 0.3s = 3s
-            window = find_automoy_gui_window()
-            if window:
-                break
-            await asyncio.sleep(0.3)
-        if not window:
-            logger.warning(f"Timeout: No GUI window found with prefix '{window_title}' to minimize.")
-            return False
-        try:
-            window.minimize()
-            await asyncio.sleep(1.0)  # ensure window is hidden
-            logger.info(f"GUI window '{window.title}' minimized via pygetwindow.")
-            return True
-        except Exception as e:
-            logger.error(f"Error minimizing window '{window.title}' via pygetwindow: {e}")
-            return False
-            
-    logger.info(f"Attempting to show Automoy GUI ('{window_title}') via API.")
-    if await _control_gui_window_api('show'):
-        await asyncio.sleep(0.5)  # allow show to complete
-        return True
-    logger.warning(f"API show failed for '{window_title}', falling back to pygetwindow.")
-    window = find_automoy_gui_window()
-    if not window:
-        logger.warning(f"No GUI window found with prefix '{window_title}' to show via pygetwindow fallback.")
+    except Exception as e:
+        logger.error(f"Failed to start GUI or create PyWebview window object: {e}", exc_info=True)
+        if gui_process and gui_process.poll() is None:
+            gui_process.kill()
+        gui_process = None
+        webview_window_global = None
         return False
-    _pygetwindow_show_and_position(window)
-    return True
 
-async def hide_gui_for_screenshot(window_title: str = AUTOMOY_GUI_TITLE_PREFIX):
-    logger.info(f"Preparing to minimize GUI ('{window_title}') for screenshot.")
-    minimized_successfully = await async_manage_automoy_gui_visibility("minimize", window_title)
+async def set_webview_zoom(zoom_level: float = 0.7):
+    """Set zoom level for the webview window and ensure content fills the entire window."""
+    global webview_window_global
+    if webview_window_global:
+        try:
+            # Wait for page to be fully loaded first
+            await asyncio.sleep(1)
+            
+            # Apply proper CSS scaling that makes content fill the window completely
+            zoom_js = f"""
+            try {{
+                // Wait for page to be ready
+                if (document.readyState !== 'complete') {{
+                    window.addEventListener('load', function() {{
+                        applyZoom();
+                    }});
+                }} else {{
+                    applyZoom();
+                }}
+                
+                function applyZoom() {{
+                    console.log('Applying Automoy zoom: {zoom_level}');
+                    
+                    // Get the actual window dimensions
+                    const windowWidth = window.innerWidth;
+                    const windowHeight = window.innerHeight;
+                    
+                    // Calculate the inverse scale to make content fill the scaled space
+                    const inverseScale = 1 / {zoom_level};
+                    
+                    // Remove existing zoom styles first
+                    const existingStyle = document.getElementById('automoy-zoom-style');
+                    if (existingStyle) {{
+                        existingStyle.remove();
+                    }}
+                    
+                    // Create comprehensive zoom styles
+                    const style = document.createElement('style');
+                    style.id = 'automoy-zoom-style';
+                    style.textContent = `
+                        html {{
+                            margin: 0 !important;
+                            padding: 0 !important;
+                            width: 100% !important;
+                            height: 100% !important;
+                            overflow: hidden !important;
+                            box-sizing: border-box !important;
+                        }}
+                        
+                        body {{
+                            margin: 0 !important;
+                            padding: 0 !important;
+                            transform-origin: top left !important;
+                            transform: scale({zoom_level}) !important;
+                            width: ${{windowWidth * inverseScale}}px !important;
+                            height: ${{windowHeight * inverseScale}}px !important;
+                            overflow: auto !important;
+                            box-sizing: border-box !important;
+                        }}
+                        
+                        * {{
+                            box-sizing: border-box !important;
+                        }}
+                        
+                        .main-flex, .top-nav {{
+                            width: 100% !important;
+                        }}
+                        
+                        .left-panel, .right-panel {{
+                            min-height: 100% !important;
+                        }}
+                    `;
+                    
+                    document.head.appendChild(style);
+                    
+                    // Force layout recalculation
+                    document.body.offsetHeight;
+                    
+                    console.log('Automoy zoom applied successfully: ' + {zoom_level} + 'x scale');
+                    console.log('Body dimensions: ' + document.body.style.width + ' x ' + document.body.style.height);
+                }}
+            }} catch (e) {{
+                console.error('Error applying zoom:', e);
+            }}
+            """
+              # Execute the zoom JavaScript
+            webview_window_global.evaluate_js(zoom_js)
+            logger.info(f"Set webview zoom level to {zoom_level} with improved scaling and error handling")
+              # Give it another moment and try again to ensure it sticks
+            await asyncio.sleep(0.5)
+            webview_window_global.evaluate_js(f"console.log('Zoom check: body scale is', getComputedStyle(document.body).transform);")
+            
+            # Dispatch UI zoom completion event for loading screen AFTER zoom verification
+            zoom_complete_js = """
+            try {
+                // Check if zoom was actually applied before dispatching
+                function checkAndDispatchZoom() {
+                    const body = document.body;
+                    const computedStyle = getComputedStyle(body);
+                    const transform = computedStyle.transform;
+                    
+                    console.log('Checking zoom application - transform:', transform);
+                    console.log('Body computed style transform:', transform);
+                    
+                    // Force layout recalculation to ensure styles are applied
+                    document.body.offsetHeight;
+                      // Check if transform contains scale (matrix format means transform is applied)
+                    if (transform && transform !== 'none' && transform.includes('matrix')) {
+                        console.log('✅ Zoom confirmed to be applied - dispatching ui-zoomed event');
+                        // Add a substantial visual confirmation delay to ensure the zoom effect is visually complete
+                        setTimeout(() => {
+                            window.dispatchEvent(new CustomEvent('ui-zoomed'));
+                            console.log('🎯 UI zoom event dispatched after extended visual confirmation delay');
+                        }, 3000); // 3 second delay to ensure visual effect is definitely complete
+                        return true;
+                    } else {
+                        console.log('❌ Zoom not yet applied, waiting... (transform=' + transform + ')');
+                        return false;
+                    }
+                }
+                
+                // Try to verify zoom application, with retries
+                let retryCount = 0;
+                const maxRetries = 30; // 15 seconds total (30 * 500ms)
+                
+                function verifyZoomWithRetry() {
+                    console.log(`🔍 Zoom verification attempt ${retryCount + 1}/${maxRetries}`);
+                    if (checkAndDispatchZoom()) {
+                        console.log('UI zoom completion event will be dispatched after visual delay');
+                    } else if (retryCount < maxRetries) {
+                        retryCount++;
+                        setTimeout(verifyZoomWithRetry, 500); // Check every 500ms
+                    } else {
+                        console.warn('⚠️ Zoom verification timeout - dispatching event anyway');
+                        window.dispatchEvent(new CustomEvent('ui-zoomed'));
+                    }
+                }
+                
+                // Wait a bit longer before starting verification to allow CSS to be applied
+                setTimeout(() => {
+                    console.log('🚀 Starting zoom verification process...');
+                    verifyZoomWithRetry();
+                }, 1500); // Wait 1.5 seconds before starting verification
+                
+            } catch (e) {
+                console.error('Error in zoom verification:', e);
+                // Fallback - dispatch event anyway
+                window.dispatchEvent(new CustomEvent('ui-zoomed'));
+            }
+            """
+            webview_window_global.evaluate_js(zoom_complete_js)
+        except Exception as e:
+            logger.warning(f"Failed to set webview zoom: {e}")
+            # Fallback: try a simpler zoom approach
+            try:
+                simple_zoom = f"document.body.style.zoom = '{zoom_level}';"
+                webview_window_global.evaluate_js(simple_zoom)
+                logger.info(f"Applied fallback zoom: {zoom_level}")                # Dispatch UI zoom completion event for fallback zoom with verification
+                zoom_complete_js = """
+                try {
+                    // Check if fallback zoom was actually applied
+                    function checkFallbackZoom() {
+                        const body = document.body;
+                        const zoom = body.style.zoom;
+                        
+                        console.log('Checking fallback zoom application - zoom:', zoom);
+                        
+                        // Force layout recalculation
+                        document.body.offsetHeight;
+                          if (zoom && zoom !== '1' && zoom !== '') {
+                            console.log('✅ Fallback zoom confirmed - dispatching ui-zoomed event');
+                            // Add substantial visual confirmation delay
+                            setTimeout(() => {
+                                window.dispatchEvent(new CustomEvent('ui-zoomed'));
+                                console.log('🎯 UI zoom event dispatched (fallback) after extended visual confirmation delay');
+                            }, 3000); // 3 second delay for fallback too
+                            return true;
+                        } else {
+                            console.log('❌ Fallback zoom not yet applied, waiting...');
+                            return false;
+                        }
+                    }
+                    
+                    // Try to verify fallback zoom with retries
+                    let retryCount = 0;
+                    const maxRetries = 20; // 10 seconds total
+                    
+                    function verifyFallbackZoomWithRetry() {
+                        console.log(`🔍 Fallback zoom verification attempt ${retryCount + 1}/${maxRetries}`);
+                        if (checkFallbackZoom()) {
+                            console.log('UI zoom completion event will be dispatched (fallback) after visual delay');
+                        } else if (retryCount < maxRetries) {
+                            retryCount++;
+                            setTimeout(verifyFallbackZoomWithRetry, 500);
+                        } else {
+                            console.warn('⚠️ Fallback zoom verification timeout - dispatching event anyway');
+                            window.dispatchEvent(new CustomEvent('ui-zoomed'));
+                        }
+                    }
+                    
+                    // Wait before starting fallback verification
+                    setTimeout(() => {
+                        console.log('🚀 Starting fallback zoom verification process...');
+                        verifyFallbackZoomWithRetry();
+                    }, 1500);
+                    
+                } catch (e) {
+                    console.error('Error in fallback zoom verification:', e);
+                    window.dispatchEvent(new CustomEvent('ui-zoomed'));
+                }
+                """
+                webview_window_global.evaluate_js(zoom_complete_js)
+            except Exception as e2:
+                logger.error(f"Fallback zoom also failed: {e2}")
 
-    if minimized_successfully:
-        logger.info(f"GUI ('{window_title}') minimization attempt completed.")
-    else:
-        logger.warning(f"Failed to minimize GUI ('{window_title}'). Screenshot might capture the GUI.")
+async def dispatch_system_ready_event():
+    """Dispatch system-ready event to indicate all initialization is complete."""
+    global webview_window_global
+    if webview_window_global:
+        try:
+            system_ready_js = """
+            try {
+                // Dispatch system-ready event to indicate all initialization is complete
+                window.dispatchEvent(new CustomEvent('system-ready'));
+                console.log('System-ready event dispatched - all initialization complete');
+            } catch (e) {
+                console.error('Error dispatching system-ready event:', e);
+            }
+            """
+            webview_window_global.evaluate_js(system_ready_js)
+            logger.info("System-ready event dispatched to GUI")
+        except Exception as e:
+            logger.warning(f"Failed to dispatch system-ready event: {e}")
 
-async def show_gui_after_screenshot(window_title: str = AUTOMOY_GUI_TITLE_PREFIX):
-    logger.info(f"Preparing to show GUI ('{window_title}') after screenshot.")
-    shown_successfully = await async_manage_automoy_gui_visibility("show", window_title)
+async def async_manage_automoy_gui_visibility(target_visibility: bool):
+    global current_gui_visibility
+    # PyWebview windows are visible by default when created and shown
+    # We can't easily hide/show them programmatically without custom API
+    # For now, just log the request and update the state
+    logger.debug(f"Request to change GUI visibility to: {'visible' if target_visibility else 'hidden'}")
+    current_gui_visibility = target_visibility
+    logger.debug(f"GUI visibility state updated to: {'visible' if target_visibility else 'hidden'}")
 
-    if shown_successfully:
-        logger.info(f"GUI ('{window_title}') show attempt completed.")
-    else:
-        logger.warning(f"Failed to show GUI ('{window_title}').")
+
+# Global flag to prevent double cleanup
+_cleanup_called = False
 
 def cleanup_processes():
-    global gui_process, omniparser_server_process
-    logger.info("Cleaning up processes...")
+    global gui_process, webview_window_global, operator, async_main_task, main_loop, stop_event, omniparser_manager, _cleanup_called
 
-    if gui_process:
-        logger.info(f"Terminating GUI process (PID: {gui_process.pid})...")
-        if gui_process.poll() is None: # Check if process is still running
-            # Try to terminate gracefully first
-            if sys.platform == "win32":
-                # Send CTRL_BREAK_EVENT to the process group on Windows to allow graceful FastAPI shutdown
-                # This requires starting the subprocess with creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
-                # For now, using terminate() which sends SIGTERM (or TerminateProcess on Windows)
-                gui_process.terminate()
-            else:
-                # For non-Windows, send SIGTERM to the process group if Popen started it with one.
-                # If not, gui_process.terminate() sends SIGTERM to the process itself.
-                # os.killpg(os.getpgid(gui_process.pid), signal.SIGTERM) # Use if process group is managed
-                gui_process.terminate()
+    # Make cleanup idempotent to prevent issues with double calls
+    if _cleanup_called:
+        logger.debug("Cleanup already called, skipping duplicate cleanup")
+        return
+    
+    _cleanup_called = True
+    logger.info("Initiating Automoy cleanup...")
 
-            try:
-                gui_process.wait(timeout=10) # Wait for graceful termination
-                logger.info("GUI process terminated gracefully.")
-            except subprocess.TimeoutExpired:
-                logger.warning("GUI process did not terminate gracefully, killing...")
-                gui_process.kill() # Force kill if it doesn't terminate
-                try:
-                    gui_process.wait(timeout=5) # Wait for kill
-                except subprocess.TimeoutExpired:
-                    logger.error("GUI process kill command timed out.")
-            except Exception as e: # Catch other potential errors during termination
-                logger.error(f"Error during GUI process termination: {e}")
+    if stop_event and not stop_event.is_set():
+        logger.info("Signaling async tasks to stop via stop_event...")
+        if main_loop and main_loop.is_running():
+            main_loop.call_soon_threadsafe(stop_event.set)
+        else: 
+            stop_event.set()
+
+    if async_main_task and not async_main_task.done():
+        logger.info("Cancelling main async task...")
+        if main_loop and main_loop.is_running():
+            main_loop.call_soon_threadsafe(async_main_task.cancel)
         else:
-            logger.info("GUI process already terminated.")
-        gui_process = None
+            async_main_task.cancel()
+    
+    # PyWebview window destruction should happen on the main thread,
+    # typically by webview.start() exits naturally.
+    if webview_window_global:
+        logger.info("PyWebview window will be destroyed when webview.start() exits")
+        webview_window_global = None
 
-    if omniparser_server_process and omniparser_server_process.poll() is None:
-        logger.info(f"Terminating OmniParser server process (PID: {omniparser_server_process.pid})...")
-        omniparser_server_process.terminate()
+    if gui_process and gui_process.poll() is None:
+        logger.info(f"Terminating GUI subprocess (PID: {gui_process.pid})...")
         try:
-            omniparser_server_process.wait(timeout=5)
-            logger.info("OmniParser server process terminated.")
+            gui_process.terminate()
+            gui_process.wait(timeout=5)
+            logger.info("GUI subprocess terminated.")
         except subprocess.TimeoutExpired:
-            logger.warning("OmniParser server process did not terminate gracefully, killing...")
-            omniparser_server_process.kill()
-            try:
-                omniparser_server_process.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                logger.error("OmniParser server process kill command timed out.")
-        omniparser_server_process = None
-    elif omniparser_server_process: # Process exists but poll() is not None (already terminated)
-        logger.info(f"OmniParser server process (PID: {omniparser_server_process.pid if hasattr(omniparser_server_process, 'pid') else 'unknown'}) already terminated.")
-        omniparser_server_process = None
+            logger.warning("GUI process did not terminate gracefully, killing...")
+            gui_process.kill()
+            gui_process.wait(timeout=2) 
+            logger.info("GUI subprocess killed.")
+        except Exception as e:
+            logger.error(f"Error terminating GUI process: {e}", exc_info=True)
+        gui_process = None
     
-    # Additional cleanup for any OmniParser server processes that might have been missed
-    # This is a more aggressive cleanup based on process name, use with caution
-    try:
-        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-            # Adjust "omniparser_script_name.py" to the actual script name if different
-            # Or check for a unique part of the command line arguments
-            if proc.info['name'] and proc.info['name'].lower() in ('python.exe', 'python'): # Check if it's a python process
-                 cmdline = proc.info['cmdline']
-                 if cmdline and any("omniparser" in arg.lower() for arg in cmdline): # Heuristic
-                    logger.info(f"Found lingering OmniParser-related process: PID {proc.info['pid']}, Cmd: {' '.join(cmdline)}. Terminating.")
-                    try:
-                        p = psutil.Process(proc.info['pid'])
-                        p.terminate() # or p.kill()
-                        p.wait(timeout=3)
-                    except psutil.NoSuchProcess:
-                        logger.info(f"Process {proc.info['pid']} already terminated.")
-                    except Exception as e:
-                        logger.error(f"Failed to terminate lingering OmniParser process {proc.info['pid']}: {e}")
-    except Exception as e:
-        logger.error(f"Error during psutil cleanup for OmniParser: {e}")
-    logger.info("Process cleanup finished.")
-
-async def manage_pause_event_concurrently(pause_event_ref: asyncio.Event):
-    logger.info("Pause manager task started.")
-    while True:
+    if operator and hasattr(operator, 'stop_gracefully'):
+        logger.info("Stopping AutomoyOperator...")
         try:
-            async with httpx.AsyncClient() as client:
-                resp = await client.get("http://127.0.0.1:8000/operator_state", timeout=2)
+            operator.stop_gracefully() 
+            logger.info("AutomoyOperator stopped.")
+        except Exception as e:
+            logger.error(f"Error stopping AutomoyOperator: {e}", exc_info=True)
+    
+    # Cleanup OmniParser server if we started it
+    if omniparser_manager:
+        logger.info("Stopping OmniParser server...")
+        try:
+            omniparser_manager.stop_server()
+            logger.info("OmniParser server stopped.")
+        except Exception as e:
+            logger.error(f"Error stopping OmniParser server: {e}", exc_info=True)
+        omniparser_manager = None
+    
+    logger.info("Automoy cleanup sequence finished.")
 
-            if resp.status_code == 200:
-                state = resp.json()
-                is_gui_paused = state.get("is_paused", False)
 
-                if is_gui_paused: # GUI wants to pause
-                    if pause_event_ref.is_set(): # Operator is currently running
-                        logger.info("GUI requests PAUSE. Clearing asyncio.Event (pausing operator).")
-                        pause_event_ref.clear()
-                else: # GUI wants to run (not paused)
-                    if not pause_event_ref.is_set(): # Operator is currently paused
-                        logger.info("GUI requests RESUME. Setting asyncio.Event (resuming operator).")
-                        pause_event_ref.set()
-            else: # Optional: log if GUI state cannot be fetched
-                logger.warning(f"Could not get operator_state from GUI (status: {resp.status_code}). Retrying.")
+async def async_manage_gui_window(action: str) -> bool:
+    """GUI window management function for AutomoyOperator."""
+    logger.debug(f"Managing GUI window: {action}")
+    try:
+        if action == "show":
+            await async_manage_automoy_gui_visibility(True)
+            return True
+        elif action == "hide":
+            await async_manage_automoy_gui_visibility(False)
+            return True
+        else:
+            logger.warning(f"Unknown GUI window action: {action}")
+            return False
+    except Exception as e:
+        logger.error(f"Error managing GUI window ({action}): {e}", exc_info=True)
+        return False
 
-        except httpx.RequestError as e_httpx: # More specific exception for network issues with httpx
-            logger.warning(f"HTTP Error polling GUI state: {e_httpx}. Retrying.")
-            # Removed flush=True as it's not a valid argument for logger methods
-        except Exception as e: # Catch other unexpected errors
-            logger.error(f"Unexpected error in pause manager: {e}. Retrying.")
-            # Removed flush=True
+async def async_update_gui_state(endpoint: str, payload: dict):
+    """GUI state update function for AutomoyOperator."""
+    try:
+        # Ensure the endpoint starts with a slash
+        if not endpoint.startswith("/"):
+            url_endpoint = f"/state/{endpoint}" # Default to /state/ if not a full path
+        else:
+            url_endpoint = endpoint
+
+        # MODIFIED: Use app_config for GUI_HOST and GUI_PORT
+        url = f"http://{app_config.GUI_HOST}:{app_config.GUI_PORT}{url_endpoint}"
         
-        await asyncio.sleep(0.2) # Poll interval (e.g., 0.2 seconds)
-
-async def main():
-    logger.debug("main() coroutine entered.")
-    global gui_process, omniparser_server_process, pause_event 
-    
-    try:
-        config = Config()
-    except Exception as e:
-        logger.critical(f"Failed to initialize Config: {e}", exc_info=True)
-        return # Cannot proceed without config
-
-    try:
-        desktop_utils = DesktopUtils() 
-    except Exception as e:
-        logger.critical(f"Failed to initialize DesktopUtils: {e}", exc_info=True)
-        return
-
-    try:
-        omniparser_manager = OmniParserServerManager()
-        if not omniparser_manager.is_server_ready():
-            logger.info("OmniParser server is not running. Attempting to start...")
-            omniparser_server_process = omniparser_manager.start_server()
-            if not omniparser_server_process or not omniparser_manager.wait_for_server(timeout=30):
-                logger.error("OmniParser server failed to start or become ready. Exiting.")
-                cleanup_processes() 
-                if hasattr(omniparser_manager, 'stop_server'): omniparser_manager.stop_server()
-                return
-            logger.info("OmniParser server started and ready.")
+        # Ensure payload is not None, default to empty dict if it is
+        async with httpx.AsyncClient(timeout=5) as client:
+            response = await client.post(url, json=payload if payload is not None else {})
+        
+        if response.status_code == 200:
+            logger.debug(f"[GUI_UPDATE] Successfully sent payload to {url}.")
         else:
-            logger.info("OmniParser server is already running or started successfully.")
+            # For 422 errors, log more of the response to see validation details
+            if response.status_code == 422:
+                logger.warning(f"[GUI_UPDATE] Failed to send payload to {url}. Response status: {response.status_code}, text: {response.text}")
+            else:
+                logger.warning(f"[GUI_UPDATE] Failed to send payload to {url}. Response status: {response.status_code}, text: {response.text[:200] if response.text else 'N/A'}")
+            
+    except httpx.RequestError as e:
+        logger.warning(f"Failed to update GUI state at {url} (RequestError): {e}")
     except Exception as e:
-        logger.critical(f"Failed to initialize or start OmniParserServerManager: {e}", exc_info=True)
-        cleanup_processes()
-        return
+        logger.error(f"Unexpected error in async_update_gui_state sending to {url}: {e}", exc_info=True)
 
-    gui_process = start_gui_subprocess()  
-    if not gui_process:  
-        logger.error("GUI process failed to start. Exiting.")  
-        cleanup_processes()   
-        if hasattr(omniparser_manager, 'stop_server'): omniparser_manager.stop_server()  
-        return  
-
-    pause_event.set() # Ensure Automoy is not paused by default when starting
-
-    # Start the concurrent task for managing the pause event
-    # This task will run alongside the objective formulation and operator loop
-    pause_manager_task = asyncio.create_task(manage_pause_event_concurrently(pause_event))
-
-    # Wait for the user to set a goal via the GUI
-    logger.info("Waiting for user to set a goal via the GUI...")
-    user_goal = None
-    formulated_objective = None
-    initial_objective_for_operator = None
+async def main_async_operations():
+    global operator_state_lock, current_operator_state, operator, stop_event, omniparser_manager
     
-    # This loop is now only for objective formulation, not pause management.
-    while True:
+    logger.debug("main_async_operations() coroutine entered.")
+    
+    if stop_event is None: 
+        stop_event = asyncio.Event()
+    
+    omniparser_port = app_config.OMNIPARSER_PORT
+    omniparser_base_url = f"http://localhost:{omniparser_port}"
+    
+    # Check if OmniParser server is running
+    omniparser_running = False
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            response = await client.get(f"{omniparser_base_url}/probe/")
+        if response.status_code == 200:
+            logger.info("OmniParser server is already running.")
+            omniparser_running = True
+        else:
+            logger.info(f"OmniParser server probe returned status {response.status_code}.")
+    except httpx.RequestError:
+        logger.info("OmniParser server is not running or not responding. Attempting to start it automatically...")
+      # Auto-start OmniParser server if not running
+    if not omniparser_running:
         try:
-            logger.debug("Objective loop: Top of try block.") # ADDED
-            # Use httpx for async GET request
-            async with httpx.AsyncClient() as client:
-                logger.debug("Objective loop: Attempting to GET /operator_state") # ADDED
-                resp = await client.get("http://127.0.0.1:8000/operator_state", timeout=2)
-                logger.debug(f"Objective loop: GET /operator_state response status: {resp.status_code}") # ADDED
-
-            if resp.status_code == 200:
-                logger.debug("Objective loop: Response 200 OK. Attempting to parse JSON.") # ADDED
-                try:
-                    # Log raw text first in case .json() fails
-                    raw_resp_text = resp.text 
-                    logger.debug(f"Objective loop: Raw response text from /operator_state: {raw_resp_text}") # ADDED
-                    state = resp.json()
-                    logger.debug(f"Objective loop: Parsed state from /operator_state: {state}") # ADDED
-                except Exception as e_json:
-                    logger.error(f"Objective loop: Failed to parse JSON response from /operator_state: {e_json}", exc_info=True) # ADDED
-                    state = {} # Initialize to empty dict to prevent further errors with 'state'
-
-                current_gui_goal = state.get("user_goal", "").strip()
-                logger.debug(f"Objective loop: Extracted current_gui_goal='{current_gui_goal}'") # ADDED
-
-                current_gui_formulated_objective = state.get("formulated_objective", "").strip()
-                operator_status = state.get("operator_status", "Idle")
-                logger.debug(f"Objective loop: Current value of user_goal (before check)='{user_goal}'") # ADDED
-
-                # Evaluate and log the condition for processing a new goal
-                condition_to_process_goal = bool(current_gui_goal and not user_goal) 
-                logger.debug(f"Objective loop: Condition (current_gui_goal AND not user_goal) is {condition_to_process_goal}")
-
-                if condition_to_process_goal:
-                    logger.debug("Objective loop: Entered 'condition_to_process_goal' block.") # NEW
-                    user_goal = current_gui_goal
-                    logger.info(f"User Goal received from GUI: {user_goal}")
-                    
-                    logger.info(f"Requesting AI to formulate objective for goal: {user_goal}")
-                    logger.debug("Objective loop: Instantiating MainInterface...") # NEW
-                    llm_interface = MainInterface()
-                    logger.debug("Objective loop: MainInterface instantiated.") # NEW
-
-                    formulation_messages = [
-                        {"role": "system", "content": FORMULATE_OBJECTIVE_SYSTEM_PROMPT},
-                        {"role": "user", "content": FORMULATE_OBJECTIVE_USER_PROMPT_TEMPLATE.format(user_goal=user_goal)}
-                    ]
-                    logger.debug(f"Objective loop: Formulation messages prepared: {formulation_messages}") # NEW
-
-                    try:
-                        logger.debug("Objective loop: Attempting to formulate objective with LLM...") # NEW
-                        cfg = Config()
-                        logger.debug("Objective loop: Config instantiated.") # NEW
-                        model_for_formulation = cfg.get_model()
-                        logger.debug(f"Objective loop: Model for formulation: {model_for_formulation}") # NEW
-
-                        response_text, _, _ = await llm_interface.get_next_action(
-                            model=model_for_formulation,
-                            messages=formulation_messages,
-                            objective="Formulate a detailed objective from the user\\'s goal.",
-                            session_id="automoy-objective-formulation",
-                            screenshot_path=None 
-                        )
-                        logger.debug(f"Objective loop: LLM raw response_text: {response_text[:200] if response_text else 'None'}...") # NEW with check
-
-                        raw_formulated_objective = response_text.strip() if response_text else "" # NEW with check
-                        # Use re.DOTALL flag to make . match newlines
-                        formulated_objective_for_gui = re.sub(r"<think>.*?</think>", "", raw_formulated_objective, flags=re.DOTALL).strip()
-                        logger.debug(f"Objective loop: Formulated objective for GUI (after stripping): {formulated_objective_for_gui[:200]}...") # NEW
-                        
-                        if not formulated_objective_for_gui: 
-                            logger.error("AI failed to formulate a valid objective after stripping tags. Using a fallback.")
-                            formulated_objective_for_gui = f"Fallback objective: Complete user goal \'{user_goal}\'"
-                        
-                        formulated_objective = formulated_objective_for_gui
-                        logger.debug(f"Objective loop: Final formulated_objective: {formulated_objective[:200]}...") # NEW
-
-                    except Exception as e_formulate:
-                        logger.error(f"Error during AI objective formulation: {e_formulate}", exc_info=True) # MODIFIED to add exc_info
-                        formulated_objective = f"Error fallback objective for: {user_goal}"
-
-                    logger.info(f"AI Formulated Objective (for GUI): {formulated_objective}")
-                    logger.debug("Objective loop: Attempting to POST formulated_objective to GUI...") # NEW
-                    
-                    async with httpx.AsyncClient() as client_post_obj: # Use a different name for this client
-                        await client_post_obj.post("http://127.0.0.1:8000/state/formulated_objective", 
-                                          json={"objective": formulated_objective}, timeout=5) # Send the cleaned version
-                    logger.debug("Objective loop: Successfully POSTed formulated_objective to GUI.") # NEW
-                
-                if user_goal and formulated_objective and current_gui_formulated_objective == formulated_objective and operator_status == "ObjectiveFormulated":
-                    initial_objective_for_operator = formulated_objective # Use the cleaned version for the operator too
-                    logger.info(f"Confirmed AI formulated objective (for operator): {initial_objective_for_operator}")
-                    break # Exit loop once objective is formulated and confirmed
-
-        except httpx.RequestError as e_httpx_obj: # Catch httpx specific errors
-            logger.warning(f"[MAIN] Objective loop: httpx.RequestError polling GUI state: {e_httpx_obj}") # MODIFIED for clarity
-            pass 
-        except Exception as e_obj_loop: # Catch other errors in this loop
-            logger.error(f"Unexpected error in objective polling loop: {e_obj_loop}", exc_info=True) # MODIFIED for clarity
-        await asyncio.sleep(0.1) # Poll every 0.1 seconds for objective setup
+            from core.utils.omniparser.omniparser_server_manager import OmniParserServerManager
+            logger.info("Starting OmniParser server automatically...")
+            omniparser_manager = OmniParserServerManager(server_url=omniparser_base_url)
+            
+            # Start the server (this is a blocking operation that spawns the server)
+            server_process = omniparser_manager.start_server('automoy_env')
+            
+            if server_process:
+                logger.info("OmniParser server started successfully. Waiting for it to be ready...")
+                # Wait for server to be ready (with a reasonable timeout)
+                server_ready = omniparser_manager.wait_for_server(timeout=45)
+                if server_ready:
+                    logger.info("OmniParser server is now ready!")
+                    omniparser_running = True
+                else:
+                    logger.error("OmniParser server failed to become ready within timeout.")
+            else:
+                logger.error("Failed to start OmniParser server automatically.")
+        except Exception as e:
+            logger.error(f"Exception occurred while auto-starting OmniParser server: {e}", exc_info=True)
     
-    logger.info(f"Proceeding with AI Formulated Objective: {initial_objective_for_operator}")
-
+    if not omniparser_running:
+        logger.warning("OmniParser server is not available. Visual analysis will not work properly.")    # Initialize OmniParser interface
     try:
-        operator = AutomoyOperator(
-            objective=initial_objective_for_operator, 
-            manage_gui_window_func=functools.partial(async_manage_automoy_gui_visibility, window_title=AUTOMOY_GUI_TITLE_PREFIX),
-            omniparser=omniparser_manager.get_interface(), # Ensure this returns a valid interface
-            pause_event=pause_event 
-        )
+        from core.utils.omniparser.omniparser_interface import OmniParserInterface
+        omniparser = OmniParserInterface(server_url=omniparser_base_url)
+        logger.info("OmniParser interface initialized.")
     except Exception as e:
-        logger.critical(f"Failed to initialize AutomoyOperator: {e}", exc_info=True)
-        cleanup_processes()
-        if hasattr(omniparser_manager, 'stop_server'): omniparser_manager.stop_server()
-        # Cancel pause manager task if it was started
-        if 'pause_manager_task' in locals() and pause_manager_task and not pause_manager_task.done():
-            pause_manager_task.cancel()
+        logger.error(f"Failed to initialize OmniParser interface: {e}", exc_info=True)
+        if stop_event: 
+            stop_event.set()
         return
 
-    logger.info(f"Starting operator with objective: {initial_objective_for_operator}")
+    # Create pause event for the operator
+    pause_event = asyncio.Event()
+    pause_event.set()  # Start unpaused
+
     try:
-        await operator.operate_loop()
-    except Exception as e_op_loop:
-        logger.error(f"Error during operator.operate_loop: {e_op_loop}", exc_info=True)
+        # Initialize AutomoyOperator with all required parameters
+        operator = AutomoyOperator(
+            objective="",  # Will be set later when user provides a goal
+            manage_gui_window_func=async_manage_gui_window,
+            omniparser=omniparser,
+            pause_event=pause_event,
+            update_gui_state_func=async_update_gui_state
+        )
+        logger.info("AutomoyOperator initialized.")
+    except Exception as e:
+        logger.error(f"Failed to initialize AutomoyOperator: {e}", exc_info=True)
+        if stop_event: 
+            stop_event.set()
+        return
+      # Wait a brief moment for webview window to potentially be shown by main thread
+    await asyncio.sleep(1)
+    await async_manage_automoy_gui_visibility(True)
+    logger.info("Initial GUI visibility set to True (attempted).")
+      # Set zoom level to make GUI smaller/more compact
+    await asyncio.sleep(3)  # Longer delay to ensure window and DOM are fully ready
+    logger.info("Applying zoom level...")
+    await set_webview_zoom(0.7)  # 70% zoom - adjusted for more compact view
+    logger.info("Zoom application completed - zoom verification is now running in JavaScript")
+    
+    # Wait a moment for the JavaScript zoom verification to complete
+    logger.info("Waiting for JavaScript zoom verification to complete...")
+    await asyncio.sleep(2)  # Brief delay to allow JS verification to start
+    
+    # Dispatch system-ready event to indicate all initialization is complete
+    logger.info("ALL INITIALIZATION COMPLETE - dispatching system-ready event...")
+    await dispatch_system_ready_event()
+    logger.info("System-ready event dispatched - loading screen should now hide when BOTH zoom verification AND system ready are complete")
+    
+    logger.info("Waiting for user to set a goal via the GUI...")
+
+    # Main loop - wait for user goal and run operator
+    current_goal = None
+    operator_running = False
+
+    while not stop_event.is_set():
+        try:
+            # Check for new goal from GUI
+            operator_state_url = f"http://{app_config.GUI_HOST}:{app_config.GUI_PORT}/operator_state"
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(operator_state_url)
+            
+            if response.status_code == 200:
+                new_state_data = response.json()
+                new_goal = new_state_data.get("goal")
+                  # Update our local state
+                async with operator_state_lock:
+                    current_operator_state.goal = new_goal or current_operator_state.goal
+                    
+                    # Parse status with error handling
+                    status_value = new_state_data.get("status", current_operator_state.status.value)
+                    try:
+                        # Handle status messages that contain "Failed:" prefix
+                        if isinstance(status_value, str) and status_value.startswith("Failed:"):
+                            current_operator_state.status = AutomoyStatus.FAILED
+                        else:
+                            current_operator_state.status = AutomoyStatus(status_value)
+                    except ValueError:
+                        logger.warning(f"Invalid status value received: '{status_value}', defaulting to ERROR")
+                        current_operator_state.status = AutomoyStatus.ERROR
+                    
+                    current_operator_state.objective = new_state_data.get("objective")
+                    current_operator_state.parsed_steps = new_state_data.get("parsed_steps")
+                    current_operator_state.current_step_index = new_state_data.get("current_step_index", -1)
+                    current_operator_state.errors = new_state_data.get("errors", [])                # Check if we have a new goal to process
+                if new_goal and new_goal != current_goal and not operator_running:
+                    logger.info(f"New goal received: '{new_goal}'. Formulating objective...")
+                    current_goal = new_goal
+                    operator_running = True
+                    
+                    # Formulate objective from user goal using LLM
+                    try:
+                        from core.prompts.prompts import FORMULATE_OBJECTIVE_SYSTEM_PROMPT, FORMULATE_OBJECTIVE_USER_PROMPT_TEMPLATE
+                        from core.lm.lm_interface import MainInterface, handle_llm_response
+                        
+                        # Create LLM interface for objective formulation
+                        lm_interface = MainInterface()
+                        
+                        # Format the objective formulation prompt
+                        objective_prompt = FORMULATE_OBJECTIVE_USER_PROMPT_TEMPLATE.format(
+                            user_goal=new_goal
+                        )
+                        logger.info("Sending objective formulation request to LLM...")
+                        
+                        # Create messages for LLM request
+                        messages = [
+                            {"role": "system", "content": FORMULATE_OBJECTIVE_SYSTEM_PROMPT},
+                            {"role": "user", "content": objective_prompt}
+                        ]
+                        
+                        # Make LLM request using the correct method
+                        raw_response, thinking_output, error = await lm_interface.get_llm_response(
+                            model=lm_interface.config.get_model(),
+                            messages=messages,
+                            objective="Formulate clear objective from user goal",
+                            session_id="objective_formulation",
+                            response_format_type="default"                        )
+                        
+                        if error:
+                            logger.error(f"LLM request failed: {error}")
+                            formulated_objective = new_goal
+                        elif raw_response and raw_response.strip():
+                            # Process the raw response to remove <think> tags and clean it
+                            cleaned_response = handle_llm_response(
+                                raw_response, 
+                                "objective_formulation", 
+                                is_json=False
+                            )
+                            formulated_objective = cleaned_response.strip() if cleaned_response else new_goal
+                            logger.info(f"Objective formulated: '{formulated_objective}'")
+                            
+                            # Update GUI with formulated objective
+                            await async_update_gui_state("/set_formulated_objective", {"objective": formulated_objective})
+                            
+                            # Update operator with formulated objective
+                            operator.objective = formulated_objective
+                        else:
+                            logger.warning("LLM returned empty response for objective formulation. Using original goal.")
+                            formulated_objective = new_goal
+                            operator.objective = new_goal
+                            
+                    except Exception as e:
+                        logger.error(f"Error during objective formulation: {e}", exc_info=True)
+                        logger.info("Using original user goal as objective.")
+                        formulated_objective = new_goal
+                        operator.objective = new_goal
+                    
+                    try:
+                        # Run the operator's main loop
+                        await operator.operate_loop()
+                        logger.info("Operator loop completed successfully.")
+                    except Exception as e:
+                        logger.error(f"Error in operator loop: {e}", exc_info=True)
+                        await async_update_gui_state("/state/operator_status", {"text": f"Error: {str(e)}"})
+                    finally:
+                        operator_running = False
+                        logger.info("Operator is ready for next goal.")
+
+            elif response.status_code == 204:
+                logger.debug("No new goal set by the user yet (204 No Content from /operator_state).")
+            else:
+                logger.error(f"Failed to get operator state from GUI. Status: {response.status_code}, Response: {response.text}")
+
+            # Sleep between checks
+            await asyncio.sleep(app_config.MAIN_LOOP_SLEEP_INTERVAL) 
+
+        except httpx.RequestError as e:
+            logger.error(f"HTTP request error in main loop: {e}. Check if GUI server is running.", exc_info=False)
+            await asyncio.sleep(5) 
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error processing operator state: {e}. Response: {response.text if 'response' in locals() else 'N/A'}", exc_info=True)
+        except asyncio.CancelledError:
+            logger.info("Main loop cancelled.")
+            break 
+        except Exception as e:
+            logger.error(f"Unexpected error in main loop: {e}", exc_info=True)
+            async with operator_state_lock:
+                current_operator_state.status = AutomoyStatus.ERROR
+                current_operator_state.errors.append(f"Core loop error: {str(e)}")
+            await asyncio.sleep(app_config.MAIN_LOOP_ERROR_SLEEP_INTERVAL)
+
+    logger.info("main_async_operations() finished or was stopped.")
+
+
+def run_async_operations_in_thread():
+    global main_loop, async_main_task, stop_event
+    
+    logger.info("Async operations thread started.")
+    if stop_event is None:
+        stop_event = asyncio.Event()
+
+    main_loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(main_loop)
+    
+    try:
+        async_main_task = main_loop.create_task(main_async_operations())
+        main_loop.run_until_complete(async_main_task)
+    except asyncio.CancelledError:
+        logger.info("Main async task was cancelled externally.")
+    except Exception as e:
+        logger.error(f"Exception in async operations thread: {e}", exc_info=True)
     finally:
-        logger.info("Operator loop finished or an error occurred. Cancelling pause manager task.")
-        if pause_manager_task and not pause_manager_task.done():
-            pause_manager_task.cancel()
-            try:
-                await pause_manager_task
-            except asyncio.CancelledError:
-                logger.info("Pause manager task successfully cancelled.")
-            except Exception as e_task_cleanup:
-                logger.error(f"Exception during pause manager task cleanup: {e_task_cleanup}", exc_info=True)
-        else:
-            logger.info("Pause manager task was already done or not initialized.")
+        logger.info("Shutting down asyncio event loop in async thread...")
+        if main_loop.is_running():
+            tasks = [t for t in asyncio.all_tasks(loop=main_loop) if t is not asyncio.current_task(loop=main_loop)]
+            if tasks:
+                logger.info(f"Cancelling {len(tasks)} outstanding asyncio tasks...")
+                for task in tasks:
+                    task.cancel()
+                try:
+                    main_loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
+                    logger.info("Outstanding asyncio tasks cancelled/completed.")
+                except Exception as e_gather:
+                    logger.error(f"Error during gathering of cancelled tasks: {e_gather}", exc_info=True)
+            
+            logger.info("Stopping asyncio event loop...")
+            main_loop.stop() 
+            
+        if not main_loop.is_closed():
+            logger.info("Closing asyncio event loop...")
+            main_loop.close()
+        logger.info("Asyncio event loop closed.")
+        logger.info("Async operations thread finished.")
+
+def signal_handler(signum, frame):
+    logger.warning(f"Signal {signal.Signals(signum).name} received. Initiating shutdown...")
+    if stop_event and main_loop and main_loop.is_running():
+        main_loop.call_soon_threadsafe(stop_event.set)
+    # cleanup_processes will be called by atexit.
+    # Forcing another call here might be redundant or cause issues if not fully idempotent.
+    # If PyWebview is blocking the main thread, this signal handler (on main thread)
+    # might need to call webview.destroy_window() directly if atexit doesn't fire soon enough
+    # or if webview doesn't handle the signal itself to break its loop.
+    # For now, rely on atexit and webview's own signal handling.
+
 
 if __name__ == "__main__":
-    logger.debug("Inside __main__ block, before asyncio.run.")
+    print("=== AUTOMOY V2 STARTING ===")
+    print("Setting up logging...")    # Setup logging as the very first step
+    setup_logging()
+    print("Logging setup complete.")
+    logger.debug(f"Script execution started in __main__ block. Main thread ID: {threading.get_ident()}")
+    print(f"Main thread ID: {threading.get_ident()}")
+    
+    print("Registering cleanup function...")
+    # Register cleanup function
+    atexit.register(cleanup_processes)
+    
+    print("Setting up signal handlers...")
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    if platform.system() != "Windows":
+        signal.signal(signal.SIGHUP, signal_handler)
+        signal.signal(signal.SIGQUIT, signal_handler)
+
+    print("Initializing stop event...")
+    stop_event = asyncio.Event() # Initialize the global stop_event
+
+    print("Starting GUI and creating webview window...")
+    if not start_gui_and_create_webview_window(): # This is synchronous
+        print("ERROR: Failed to initialize GUI!")
+        logger.error("Failed to initialize GUI and/or PyWebview window object. Automoy cannot start.")
+        sys.exit(1)
+
+    logger.info("GUI process started and PyWebview window object created.")
+    logger.info("Starting asyncio operations in a separate thread...")
+    
+    async_thread = threading.Thread(target=run_async_operations_in_thread, name="AsyncioOperationsThread", daemon=True)
+    async_thread.start()
+
     try:
-        asyncio.run(main())
+        logger.info("Starting PyWebview event loop on the main thread... (This will block)")        # Pass the created window object to webview.start() if it's not already the default
+        # However, webview.start() uses all created windows if not specified.
+        webview.start(debug=False)  # Set debug=False to disable DevTools
+        logger.info("PyWebview event loop finished.")
     except KeyboardInterrupt:
-        logger.info("Process interrupted by user (Ctrl+C).")
+        logger.info("KeyboardInterrupt on main thread (webview.start). Relying on signal_handler and atexit.")
     except Exception as e:
-        logger.critical(f"An unhandled exception occurred at the top level: {e}", exc_info=True)
+        logger.error(f"Unhandled exception in PyWebview event loop (main thread): {e}", exc_info=True)
     finally:
-        logger.info("Starting final cleanup...")
+        logger.info("Main thread's PyWebview loop has ended. Initiating final cleanup sequence...")
+        if stop_event and not stop_event.is_set(): # Ensure async thread is signaled to stop
+            logger.info("Main thread explicitly signaling stop_event for async operations post-webview.")
+            if main_loop and main_loop.is_running(): # Check if loop is available and running
+                main_loop.call_soon_threadsafe(stop_event.set)
+            else: # Fallback if loop is not running or not available
+                stop_event.set()
+
+        # Explicitly call cleanup when window is closed to ensure immediate OmniParser cleanup
+        logger.info("Calling cleanup_processes explicitly since GUI window was closed...")
         cleanup_processes()
-        logger.info("Application shutdown complete.")
+
+        if async_thread.is_alive():
+            logger.info("Waiting for asyncio operations thread to complete...")
+            async_thread.join(timeout=15) 
+            if async_thread.is_alive():
+                logger.warning("Asyncio operations thread did not complete in the allocated time.")
+            else:
+                logger.info("Asyncio operations thread has completed.")
+        else:
+            logger.info("Asyncio operations thread has already completed.")
+            
+        # MODIFIED: Use app_config
+        logger.info(f"{app_config.AUTOMOY_APP_NAME} application shutdown complete.")
+        # sys.exit(0) # Let the script exit naturally after main thread finishes.
+                      # atexit will run before full termination.

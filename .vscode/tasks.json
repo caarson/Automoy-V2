@@ -1,0 +1,16 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"args": [
+				"core/main.py"
+			],
+			"command": "python",
+			"group": "build",
+			"isBackground": true,
+			"label": "Run Automoy V2",
+			"problemMatcher": [],
+			"type": "shell"
+		}
+	]
+}

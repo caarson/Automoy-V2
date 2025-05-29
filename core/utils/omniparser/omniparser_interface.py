@@ -40,7 +40,7 @@ def _auto_find_conda() -> Optional[str]:
     if conda and os.path.isfile(conda):
         return conda
     try:
-        out = subprocess.check_output(["where", "conda"], shell=True, text=True)
+        out = subprocess.check_output(["where.exe", "conda"], shell=True, text=True)
         return next(line for line in out.splitlines() if line.strip())
     except Exception:
         return None
@@ -204,7 +204,7 @@ class OmniParserInterface:
         url = f"{self.server_url}/parse/"
 
         for label, encoded in _encoding_sequence(img_path):
-            print(f"[DEBUG] Sending {label} → {len(encoded):,} bytes")
+            print(f"[DEBUG] Sending {label} → {len(encoded):,} bytes to {url}")
             try:
                 r = requests.post(url, json={"base64_image": encoded}, timeout=120)
                 r.raise_for_status()
