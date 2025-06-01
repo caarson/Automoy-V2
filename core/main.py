@@ -118,11 +118,10 @@ def start_gui_and_create_webview_window():
             sys.executable, 
             gui_script_path, 
             "--host", app_config.GUI_HOST,
-            "--port", str(app_config.GUI_PORT)
-        ], creationflags=creation_flags)
+            "--port", str(app_config.GUI_PORT)        ], creationflags=creation_flags)
         logger.info(f"GUI process started with PID: {gui_process.pid}. Waiting for it to be healthy...")
 
-        max_wait_time = 60 
+        max_wait_time = 60
         start_time = time.time()
         gui_ready = False
         while time.time() - start_time < max_wait_time:
@@ -159,7 +158,6 @@ def start_gui_and_create_webview_window():
         logger.info("Attempting to create PyWebview window object for the GUI...")
         gui_url = f"http://{app_config.GUI_HOST}:{app_config.GUI_PORT}"
         window_title = f"{app_config.AUTOMOY_GUI_TITLE_PREFIX} {gui_url}"
-        
         webview_window_global = webview.create_window(
             window_title,
             gui_url,
@@ -173,6 +171,10 @@ def start_gui_and_create_webview_window():
             on_top=False,
             shadow=True
         )
+        
+        # Register the window close callback
+        if webview_window_global:
+            webview_window_global.events.closed += on_window_closed
         if webview_window_global:
              logger.info(f"PyWebview window object '{window_title}' created successfully. It will be started on the main thread.")
              return True
@@ -193,243 +195,247 @@ async def set_webview_zoom(zoom_level: float = 0.7):
     global webview_window_global
     if webview_window_global:
         try:
+            logger.info(f"Setting webview zoom to {zoom_level}...")
+            
             # Wait for page to be fully loaded first
             await asyncio.sleep(1)
             
+            # Check if webview window is still available before proceeding
+            if not webview_window_global:
+                logger.warning("Webview window became unavailable during zoom setup")
+                return
+                
             # Apply proper CSS scaling that makes content fill the window completely
             zoom_js = f"""
             try {{
+                console.log('🔍 Starting zoom application: {zoom_level}');
+                
                 // Wait for page to be ready
                 if (document.readyState !== 'complete') {{
+                    console.log('🔍 Page not ready, waiting for load event...');
                     window.addEventListener('load', function() {{
                         applyZoom();
                     }});
                 }} else {{
+                    console.log('🔍 Page ready, applying zoom immediately...');
                     applyZoom();
                 }}
                 
                 function applyZoom() {{
-                    console.log('Applying Automoy zoom: {zoom_level}');
+                    console.log('🔍 Applying Automoy zoom: {zoom_level}');
                     
                     // Get the actual window dimensions
                     const windowWidth = window.innerWidth;
                     const windowHeight = window.innerHeight;
+                    console.log('🔍 Window dimensions:', windowWidth, 'x', windowHeight);
                     
-                    // Calculate the inverse scale to make content fill the scaled space
-                    const inverseScale = 1 / {zoom_level};
-                    
+                    // Use a simpler, less intrusive zoom approach
                     // Remove existing zoom styles first
                     const existingStyle = document.getElementById('automoy-zoom-style');
                     if (existingStyle) {{
                         existingStyle.remove();
+                        console.log('🔍 Removed existing zoom style');
                     }}
                     
-                    // Create comprehensive zoom styles
+                    // Apply CSS zoom which is less likely to interfere with form behavior
                     const style = document.createElement('style');
                     style.id = 'automoy-zoom-style';
                     style.textContent = `
-                        html {{
-                            margin: 0 !important;
-                            padding: 0 !important;
-                            width: 100% !important;
-                            height: 100% !important;
-                            overflow: hidden !important;
-                            box-sizing: border-box !important;
-                        }}
-                        
                         body {{
-                            margin: 0 !important;
-                            padding: 0 !important;
-                            transform-origin: top left !important;
-                            transform: scale({zoom_level}) !important;
-                            width: ${{windowWidth * inverseScale}}px !important;
-                            height: ${{windowHeight * inverseScale}}px !important;
-                            overflow: auto !important;
-                            box-sizing: border-box !important;
-                        }}
-                        
-                        * {{
-                            box-sizing: border-box !important;
-                        }}
-                        
-                        .main-flex, .top-nav {{
-                            width: 100% !important;
-                        }}
-                        
-                        .left-panel, .right-panel {{
-                            min-height: 100% !important;
+                            zoom: {zoom_level} !important;
                         }}
                     `;
                     
                     document.head.appendChild(style);
                     
-                    // Force layout recalculation
-                    document.body.offsetHeight;
-                    
-                    console.log('Automoy zoom applied successfully: ' + {zoom_level} + 'x scale');
-                    console.log('Body dimensions: ' + document.body.style.width + ' x ' + document.body.style.height);
+                    console.log('🔍 Automoy zoom applied successfully: ' + {zoom_level} + 'x scale');
+                    console.log('🔍 Using CSS zoom property for better form compatibility');
                 }}
             }} catch (e) {{
-                console.error('Error applying zoom:', e);
+                console.error('🔍 Error applying zoom:', e);
             }}
             """
-              # Execute the zoom JavaScript
+            
+            # Execute the zoom JavaScript with error handling
+            logger.info("Executing zoom JavaScript...")
             webview_window_global.evaluate_js(zoom_js)
             logger.info(f"Set webview zoom level to {zoom_level} with improved scaling and error handling")
-              # Give it another moment and try again to ensure it sticks
-            await asyncio.sleep(0.5)
-            webview_window_global.evaluate_js(f"console.log('Zoom check: body scale is', getComputedStyle(document.body).transform);")
             
-            # Dispatch UI zoom completion event for loading screen AFTER zoom verification
-            zoom_complete_js = """
-            try {
-                // Check if zoom was actually applied before dispatching
-                function checkAndDispatchZoom() {
-                    const body = document.body;
-                    const computedStyle = getComputedStyle(body);
-                    const transform = computedStyle.transform;
-                    
-                    console.log('Checking zoom application - transform:', transform);
-                    console.log('Body computed style transform:', transform);
-                    
-                    // Force layout recalculation to ensure styles are applied
-                    document.body.offsetHeight;
-                      // Check if transform contains scale (matrix format means transform is applied)
-                    if (transform && transform !== 'none' && transform.includes('matrix')) {
-                        console.log('✅ Zoom confirmed to be applied - dispatching ui-zoomed event');
-                        // Add a substantial visual confirmation delay to ensure the zoom effect is visually complete
-                        setTimeout(() => {
-                            window.dispatchEvent(new CustomEvent('ui-zoomed'));
-                            console.log('🎯 UI zoom event dispatched after extended visual confirmation delay');
-                        }, 3000); // 3 second delay to ensure visual effect is definitely complete
-                        return true;
-                    } else {
-                        console.log('❌ Zoom not yet applied, waiting... (transform=' + transform + ')');
-                        return false;
-                    }
-                }
+            # Give it another moment and try again to ensure it sticks
+            await asyncio.sleep(0.5)
+            
+            # Final verification (but don't let this block if it fails)
+            try:
+                webview_window_global.evaluate_js(f"console.log('🔍 Zoom check: body scale is', getComputedStyle(document.body).transform);")
+                logger.info("Zoom verification completed")
+            except Exception as verify_e:
+                logger.warning(f"Zoom verification failed (non-critical): {verify_e}")
                 
-                // Try to verify zoom application, with retries
-                let retryCount = 0;
-                const maxRetries = 30; // 15 seconds total (30 * 500ms)
-                
-                function verifyZoomWithRetry() {
-                    console.log(`🔍 Zoom verification attempt ${retryCount + 1}/${maxRetries}`);
-                    if (checkAndDispatchZoom()) {
-                        console.log('UI zoom completion event will be dispatched after visual delay');
-                    } else if (retryCount < maxRetries) {
-                        retryCount++;
-                        setTimeout(verifyZoomWithRetry, 500); // Check every 500ms
-                    } else {
-                        console.warn('⚠️ Zoom verification timeout - dispatching event anyway');
-                        window.dispatchEvent(new CustomEvent('ui-zoomed'));
-                    }
-                }
-                
-                // Wait a bit longer before starting verification to allow CSS to be applied
-                setTimeout(() => {
-                    console.log('🚀 Starting zoom verification process...');
-                    verifyZoomWithRetry();
-                }, 1500); // Wait 1.5 seconds before starting verification
-                
-            } catch (e) {
-                console.error('Error in zoom verification:', e);
-                // Fallback - dispatch event anyway
-                window.dispatchEvent(new CustomEvent('ui-zoomed'));
-            }
-            """
-            webview_window_global.evaluate_js(zoom_complete_js)
         except Exception as e:
             logger.warning(f"Failed to set webview zoom: {e}")
+            
             # Fallback: try a simpler zoom approach
             try:
+                logger.info("Attempting fallback zoom approach...")
                 simple_zoom = f"document.body.style.zoom = '{zoom_level}';"
                 webview_window_global.evaluate_js(simple_zoom)
-                logger.info(f"Applied fallback zoom: {zoom_level}")                # Dispatch UI zoom completion event for fallback zoom with verification
-                zoom_complete_js = """
-                try {
-                    // Check if fallback zoom was actually applied
-                    function checkFallbackZoom() {
-                        const body = document.body;
-                        const zoom = body.style.zoom;
-                        
-                        console.log('Checking fallback zoom application - zoom:', zoom);
-                        
-                        // Force layout recalculation
-                        document.body.offsetHeight;
-                          if (zoom && zoom !== '1' && zoom !== '') {
-                            console.log('✅ Fallback zoom confirmed - dispatching ui-zoomed event');
-                            // Add substantial visual confirmation delay
-                            setTimeout(() => {
-                                window.dispatchEvent(new CustomEvent('ui-zoomed'));
-                                console.log('🎯 UI zoom event dispatched (fallback) after extended visual confirmation delay');
-                            }, 3000); // 3 second delay for fallback too
-                            return true;
-                        } else {
-                            console.log('❌ Fallback zoom not yet applied, waiting...');
-                            return false;
-                        }
-                    }
-                    
-                    // Try to verify fallback zoom with retries
-                    let retryCount = 0;
-                    const maxRetries = 20; // 10 seconds total
-                    
-                    function verifyFallbackZoomWithRetry() {
-                        console.log(`🔍 Fallback zoom verification attempt ${retryCount + 1}/${maxRetries}`);
-                        if (checkFallbackZoom()) {
-                            console.log('UI zoom completion event will be dispatched (fallback) after visual delay');
-                        } else if (retryCount < maxRetries) {
-                            retryCount++;
-                            setTimeout(verifyFallbackZoomWithRetry, 500);
-                        } else {
-                            console.warn('⚠️ Fallback zoom verification timeout - dispatching event anyway');
-                            window.dispatchEvent(new CustomEvent('ui-zoomed'));
-                        }
-                    }
-                    
-                    // Wait before starting fallback verification
-                    setTimeout(() => {
-                        console.log('🚀 Starting fallback zoom verification process...');
-                        verifyFallbackZoomWithRetry();
-                    }, 1500);
-                    
-                } catch (e) {
-                    console.error('Error in fallback zoom verification:', e);
-                    window.dispatchEvent(new CustomEvent('ui-zoomed'));
-                }
-                """
-                webview_window_global.evaluate_js(zoom_complete_js)
+                logger.info(f"Applied fallback zoom: {zoom_level}")
             except Exception as e2:
                 logger.error(f"Fallback zoom also failed: {e2}")
+    else:
+        logger.warning("Cannot set zoom - webview window not available")
+
+async def safety_system_ready_fallback():
+    """Safety fallback that dispatches system-ready event after 15 seconds to prevent permanent loading."""
+    logger.info("🛡️ SAFETY FALLBACK: Started 15-second timer for system-ready event dispatch")
+    await asyncio.sleep(15)
+    logger.warning("🛡️ SAFETY FALLBACK: 15 seconds elapsed - dispatching emergency system-ready event")
+    await dispatch_system_ready_event()
+    logger.info("🛡️ SAFETY FALLBACK: Emergency system-ready event dispatched")
 
 async def dispatch_system_ready_event():
     """Dispatch system-ready event to indicate all initialization is complete."""
     global webview_window_global
+    logger.info("🚀 DISPATCH_SYSTEM_READY_EVENT: Function called!")
+    
     if webview_window_global:
         try:
+            logger.info("🚀 DISPATCH_SYSTEM_READY_EVENT: WebView window available, dispatching event...")
             system_ready_js = """
             try {
-                // Dispatch system-ready event to indicate all initialization is complete
-                window.dispatchEvent(new CustomEvent('system-ready'));
-                console.log('System-ready event dispatched - all initialization complete');
+                console.log('🚀 JS: About to dispatch system-ready event...');
+                console.log('🚀 JS: Current document.readyState:', document.readyState);
+                console.log('🚀 JS: window.hideLoadingScreen function exists:', typeof window.hideLoadingScreen);
+                
+                // AGGRESSIVE: Try multiple methods to hide loading screen
+                function aggressiveHideLoading() {
+                    console.log('🚀 JS: AGGRESSIVE loading screen hiding...');
+                    
+                    // Method 1: Use global function if available
+                    if (typeof window.hideLoadingScreen === 'function') {
+                        console.log('🚀 JS: Calling window.hideLoadingScreen...');
+                        window.hideLoadingScreen('System ready - aggressive mode');
+                    }
+                    
+                    // Method 2: Direct DOM manipulation - MULTIPLE approaches
+                    const overlay = document.getElementById('loadingOverlay');
+                    if (overlay) {
+                        console.log('🚀 JS: Found loading overlay, applying ALL hiding methods...');
+                        
+                        // CSS class method
+                        overlay.classList.add('hidden');
+                        
+                        // Direct style manipulation
+                        overlay.style.display = 'none';
+                        overlay.style.visibility = 'hidden';
+                        overlay.style.opacity = '0';
+                        overlay.style.zIndex = '-9999';
+                        overlay.style.pointerEvents = 'none';
+                        
+                        // NUCLEAR OPTION: Remove from DOM completely
+                        overlay.remove();
+                        
+                        console.log('🚀 JS: Loading overlay removed from DOM completely');
+                    } else {
+                        console.log('🚀 JS: Loading overlay not found - might already be removed');
+                    }
+                    
+                    // Method 3: Find ANY element with loading-related classes
+                    const loadingElements = document.querySelectorAll('.loading-overlay, .loading-wrapper, .loading-grid, [class*="loading"]');
+                    loadingElements.forEach(el => {
+                        console.log('🚀 JS: Removing loading element:', el.className);
+                        el.remove();
+                    });
+                    
+                    // Method 4: Force CSS to hide any remaining loading elements
+                    const style = document.createElement('style');
+                    style.innerHTML = `
+                        .loading-overlay,
+                        #loadingOverlay,
+                        [class*="loading"] {
+                            display: none !important;
+                            visibility: hidden !important;
+                            opacity: 0 !important;
+                            z-index: -9999 !important;
+                            pointer-events: none !important;
+                        }
+                    `;
+                    document.head.appendChild(style);
+                    
+                    // Set flags
+                    window.loadingScreenHidden = true;
+                    window.loadingScreenPermanentlyHidden = true;
+                    
+                    console.log('🚀 JS: AGGRESSIVE loading screen hiding complete');
+                }
+                
+                // Wait a bit for DOM to be ready if needed, then try multiple times
+                function tryDispatch() {
+                    console.log('🚀 JS: Trying to dispatch system-ready event...');
+                    
+                    // Dispatch system-ready event
+                    window.dispatchEvent(new CustomEvent('system-ready'));
+                    console.log('🚀 JS: System-ready event dispatched');
+                    
+                    // Immediate aggressive hiding
+                    aggressiveHideLoading();
+                    
+                    // Try again after 500ms in case something re-shows it
+                    setTimeout(() => {
+                        console.log('🚀 JS: Secondary aggressive hide attempt...');
+                        aggressiveHideLoading();
+                    }, 500);
+                    
+                    // And once more after 2 seconds
+                    setTimeout(() => {
+                        console.log('🚀 JS: Final aggressive hide attempt...');
+                        aggressiveHideLoading();
+                    }, 2000);
+                }
+                
+                if (document.readyState === 'loading') {
+                    console.log('🚀 JS: Document still loading, waiting for DOMContentLoaded...');
+                    document.addEventListener('DOMContentLoaded', tryDispatch);
+                } else {
+                    console.log('🚀 JS: Document already loaded, dispatching immediately...');
+                    tryDispatch();
+                }
+                
             } catch (e) {
-                console.error('Error dispatching system-ready event:', e);
+                console.error('🚀 JS: Error dispatching system-ready event:', e);
             }
             """
             webview_window_global.evaluate_js(system_ready_js)
-            logger.info("System-ready event dispatched to GUI")
+            logger.info("🚀 DISPATCH_SYSTEM_READY_EVENT: Event dispatched successfully to GUI")
         except Exception as e:
-            logger.warning(f"Failed to dispatch system-ready event: {e}")
+            logger.warning(f"🚀 DISPATCH_SYSTEM_READY_EVENT: Failed to dispatch event: {e}")
+    else:
+        logger.warning("🚀 DISPATCH_SYSTEM_READY_EVENT: WebView window not available!")
 
 async def async_manage_automoy_gui_visibility(target_visibility: bool):
-    global current_gui_visibility
-    # PyWebview windows are visible by default when created and shown
-    # We can't easily hide/show them programmatically without custom API
-    # For now, just log the request and update the state
+    global current_gui_visibility, webview_window_global
+    
     logger.debug(f"Request to change GUI visibility to: {'visible' if target_visibility else 'hidden'}")
-    current_gui_visibility = target_visibility
-    logger.debug(f"GUI visibility state updated to: {'visible' if target_visibility else 'hidden'}")
+    logger.debug(f"webview_window_global is: {webview_window_global}")
+    
+    if webview_window_global:
+        try:
+            if target_visibility:
+                # Show the window
+                webview_window_global.show()
+                logger.info("GUI window shown successfully")
+            else:
+                # Hide the window
+                webview_window_global.hide()
+                logger.info("GUI window hidden successfully")
+            current_gui_visibility = target_visibility
+            return True
+        except Exception as e:
+            logger.error(f"Error changing GUI visibility to {target_visibility}: {e}", exc_info=True)
+            return False
+    else:
+        logger.warning("Cannot change GUI visibility - webview window not available")
+        return False
 
 
 # Global flag to prevent double cleanup
@@ -626,25 +632,28 @@ async def main_async_operations():
         logger.error(f"Failed to initialize AutomoyOperator: {e}", exc_info=True)
         if stop_event: 
             stop_event.set()
-        return
-      # Wait a brief moment for webview window to potentially be shown by main thread
+        return    # Wait a brief moment for webview window to potentially be shown by main thread
     await asyncio.sleep(1)
     await async_manage_automoy_gui_visibility(True)
     logger.info("Initial GUI visibility set to True (attempted).")
-      # Set zoom level to make GUI smaller/more compact
-    await asyncio.sleep(3)  # Longer delay to ensure window and DOM are fully ready
-    logger.info("Applying zoom level...")
-    await set_webview_zoom(0.7)  # 70% zoom - adjusted for more compact view
-    logger.info("Zoom application completed - zoom verification is now running in JavaScript")
+      # Apply zoom after loading screen is handled
+    try:
+        logger.info("Applying zoom level...")
+        await asyncio.wait_for(set_webview_zoom(0.85), timeout=3.0)
+        logger.info("Zoom applied successfully")
+    except Exception as e:
+        logger.warning(f"Zoom failed but continuing: {e}")
     
-    # Wait a moment for the JavaScript zoom verification to complete
-    logger.info("Waiting for JavaScript zoom verification to complete...")
-    await asyncio.sleep(2)  # Brief delay to allow JS verification to start
+    logger.info("INITIALIZATION COMPLETE - ready for user goals!")
     
-    # Dispatch system-ready event to indicate all initialization is complete
-    logger.info("ALL INITIALIZATION COMPLETE - dispatching system-ready event...")
+    # NOW dispatch the system ready event AFTER initialization is complete
+    logger.info("🚀 Dispatching system-ready event to hide loading screen...")
     await dispatch_system_ready_event()
-    logger.info("System-ready event dispatched - loading screen should now hide when BOTH zoom verification AND system ready are complete")
+    
+    # EXTRA AGGRESSIVE: Wait a moment and try to force hide loading screen directly
+    await asyncio.sleep(2)
+    logger.info("🚨 AGGRESSIVE FALLBACK: Attempting to force hide loading screen...")
+    await force_hide_loading_screen_immediately()
     
     logger.info("Waiting for user to set a goal via the GUI...")
 
@@ -903,3 +912,65 @@ if __name__ == "__main__":
         logger.info(f"{app_config.AUTOMOY_APP_NAME} application shutdown complete.")
         # sys.exit(0) # Let the script exit naturally after main thread finishes.
                       # atexit will run before full termination.
+
+async def force_hide_loading_screen_immediately():
+    """Force hide the loading screen immediately using multiple aggressive methods."""
+    global webview_window_global
+    logger.info("🚨 FORCE_HIDE_LOADING_SCREEN: Starting immediate removal")
+    
+    if webview_window_global:
+        try:
+            # Ultra-aggressive loading screen removal JavaScript
+            immediate_hide_js = """
+            console.log('🚨 IMMEDIATE HIDE: Starting ultra-aggressive loading screen removal');
+            
+            // Method 1: Find and destroy loading overlay
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                console.log('🚨 Found loading overlay - removing it completely');
+                overlay.remove();
+                console.log('🚨 Loading overlay removed from DOM');
+            } else {
+                console.log('🚨 Loading overlay not found by ID');
+            }
+            
+            // Method 2: Find any elements with loading classes and remove them
+            const loadingElements = document.querySelectorAll('.loading-overlay, .loading-wrapper, .loading-grid');
+            loadingElements.forEach(el => {
+                console.log('🚨 Removing loading element:', el.className);
+                el.remove();
+            });
+            
+            // Method 3: Force CSS to hide any remaining loading elements
+            const style = document.createElement('style');
+            style.innerHTML = `
+                .loading-overlay,
+                #loadingOverlay,
+                [class*="loading"] {
+                    display: none !important;
+                    visibility: hidden !important;
+                    opacity: 0 !important;
+                    z-index: -9999 !important;
+                    pointer-events: none !important;
+                }
+            `;
+            document.head.appendChild(style);
+            
+            // Method 4: Set a global flag
+            window.loadingScreenHidden = true;
+            
+            // Method 5: Trigger hideLoadingScreen if it exists
+            if (typeof hideLoadingScreen === 'function') {
+                hideLoadingScreen('Force immediate removal');
+            }
+            
+            console.log('🚨 IMMEDIATE HIDE: All removal methods applied');
+            """
+            
+            webview_window_global.evaluate_js(immediate_hide_js)
+            logger.info("🚨 FORCE_HIDE_LOADING_SCREEN: Immediate removal JavaScript executed")
+            
+        except Exception as e:
+            logger.error(f"🚨 FORCE_HIDE_LOADING_SCREEN: Failed to execute JavaScript: {e}")
+    else:
+        logger.warning("🚨 FORCE_HIDE_LOADING_SCREEN: WebView window not available")

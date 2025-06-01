@@ -36,10 +36,11 @@ logger = logging.getLogger(__name__)
 class OperationParser:
     """Parser for DEFAULT_PROMPT format operations with real execution capabilities."""
     
-    def __init__(self, os_interface: OSInterface, desktop_utils: DesktopUtils):
+    def __init__(self, os_interface: OSInterface, desktop_utils: DesktopUtils, manage_gui_window_func=None):
         self.os_interface = os_interface
         self.desktop_utils = desktop_utils
         self.last_visual_analysis = None  # Store last visual analysis for text-based operations
+        self.manage_gui_window_func = manage_gui_window_func  # Function to hide/show GUI during screenshots
         
     def set_visual_analysis(self, visual_analysis_data: Optional[Dict[str, Any]]):
         """Set the current visual analysis data for text-based operations."""
@@ -58,8 +59,7 @@ class OperationParser:
             # Extract operation from action_dict
             if not isinstance(action_dict, dict):
                 return False, f"Invalid action format: expected dict, got {type(action_dict)}"
-            
-            # Look for operation in various possible formats
+              # Look for operation in various possible formats
             operation = None
             if "operation" in action_dict:
                 operation = action_dict["operation"]
@@ -102,7 +102,7 @@ class OperationParser:
         except Exception as e:
             logger.error(f"Error executing operation: {e}", exc_info=True)
             return False, f"Exception during operation execution: {e}"
-    
+
     async def _execute_click(self, action_dict: Dict[str, Any]) -> Tuple[bool, str]:
         """Execute click operation."""
         try:
@@ -111,19 +111,33 @@ class OperationParser:
                 text = action_dict["text"].strip()
                 logger.info(f"Attempting to click on text: '{text}'")
                 
+                # Debug: Check if visual analysis data is available
+                if self.last_visual_analysis:
+                    logger.info(f"Visual analysis data is available, type: {type(self.last_visual_analysis)}")
+                    if isinstance(self.last_visual_analysis, dict):
+                        logger.debug(f"Visual analysis data keys: {list(self.last_visual_analysis.keys())}")
+                    else:
+                        logger.warning(f"Visual analysis data is not a dict: {self.last_visual_analysis}")
+                else:
+                    logger.warning("No visual analysis data available for text-based clicking")
+                
                 # Try to find coordinates for the text using visual analysis
                 if self.last_visual_analysis and isinstance(self.last_visual_analysis, dict):
                     coords = self._find_text_coordinates(text, self.last_visual_analysis)
                     if coords:
                         x, y = coords
+                        logger.info(f"Moving mouse to coordinates ({x}, {y}) before clicking")
                         self.os_interface.move_mouse(x, y, duration=0.5)
                         await asyncio.sleep(0.2)  # Brief pause before click
+                        logger.info(f"Clicking at coordinates ({x}, {y})")
                         self.os_interface.click_mouse("left")
                         await asyncio.sleep(0.5)  # Wait after click for UI response
                         return True, f"Successfully clicked on text '{text}' at coordinates ({x}, {y})"
                     else:
+                        logger.error(f"Could not find coordinates for text: '{text}' in visual analysis data")
                         return False, f"Could not find coordinates for text: '{text}'"
                 else:
+                    logger.error(f"No valid visual analysis data available for text-based clicking: '{text}'")
                     return False, f"No visual analysis data available for text-based clicking: '{text}'"
             
             # Look for location-based click
@@ -186,45 +200,145 @@ class OperationParser:
         """
         try:
             target_lower = target_text.lower().strip()
+            logger.info(f"Searching for coordinates of text: '{target_text}' (normalized: '{target_lower}')")
+            
+            # Debug: Log the structure of visual analysis data
+            logger.debug(f"Visual analysis data keys: {list(visual_analysis_data.keys()) if isinstance(visual_analysis_data, dict) else 'Not a dict'}")
             
             # Look for coords data in the visual analysis
             coords_data = visual_analysis_data.get("coords", [])
             if not coords_data:
                 logger.warning("No coords data found in visual analysis")
-                return None
+                # Try alternative keys that OmniParser might use
+                for alt_key in ["elements", "items", "objects", "text_elements"]:
+                    if alt_key in visual_analysis_data:
+                        coords_data = visual_analysis_data[alt_key]
+                        logger.info(f"Found coordinate data under alternative key: '{alt_key}'")
+                        break
+                
+                if not coords_data:
+                    logger.warning(f"No coordinate data found in visual analysis. Available keys: {list(visual_analysis_data.keys())}")
+                    return None
+            
+            logger.info(f"Found {len(coords_data)} elements in coordinate data")
             
             # Search through all detected elements
-            for item in coords_data:
+            best_match = None
+            best_match_score = 0
+            
+            for i, item in enumerate(coords_data):
                 if not isinstance(item, dict):
+                    logger.debug(f"Skipping non-dict item {i}: {type(item)}")
                     continue
                     
                 content = item.get("content", "").lower().strip()
                 bbox = item.get("bbox", [])
+                  # Log each element for debugging
+                logger.debug(f"Element {i}: content='{content}', bbox={bbox}")
                 
                 # Check if the target text matches or is contained in the content
-                if target_lower in content or content in target_lower:
-                    if len(bbox) >= 4:
-                        # bbox format: [x1, y1, x2, y2] (normalized coordinates)
-                        # Calculate center point
-                        center_x = (bbox[0] + bbox[2]) / 2
-                        center_y = (bbox[1] + bbox[3]) / 2
+                if target_lower in content:
+                    match_score = len(target_lower) / len(content) if content else 0
+                    logger.info(f"Found potential match: '{content}' (score: {match_score:.2f}, bbox: {item.get('bbox', [])})")
+                    
+                    if match_score > best_match_score:
+                        best_match = item
+                        best_match_score = match_score
+                elif content in target_lower:
+                    match_score = len(content) / len(target_lower) if target_lower else 0
+                    logger.info(f"Found potential reverse match: '{content}' (score: {match_score:.2f}, bbox: {item.get('bbox', [])})")
+                    
+                    if match_score > best_match_score:
+                        best_match = item
+                        best_match_score = match_score
+            
+            if best_match:
+                content = best_match.get("content", "")
+                bbox = best_match.get("bbox", [])
+                
+                if len(bbox) >= 4:
+                    # bbox format: [x1, y1, x2, y2] (normalized coordinates 0-1 relative to screenshot)
+                    # Calculate center point
+                    center_x = (bbox[0] + bbox[2]) / 2
+                    center_y = (bbox[1] + bbox[3]) / 2
+                    
+                    logger.info(f"Raw bbox coordinates: {bbox}")
+                    logger.info(f"Calculated center (normalized): ({center_x:.3f}, {center_y:.3f})")
+                    
+                    # CRITICAL FIX: Get screenshot dimensions instead of screen dimensions
+                    # The bbox coordinates are normalized to the screenshot image, not the full screen
+                    try:
+                        # Try to get screenshot dimensions from the last screenshot file
+                        from PIL import Image
+                        import pyautogui
                         
-                        # Convert to pixel coordinates (assuming 1920x1080 for now)
-                        # In a real implementation, you'd get actual screen dimensions
+                        # Look for the current screenshot file
+                        screenshot_files = [
+                            Path("automoy_current.png"),
+                            Path("gui/static/automoy_current.png"),
+                            Path("screenshot.png")
+                        ]
+                        
+                        screenshot_width, screenshot_height = None, None
+                        
+                        for screenshot_file in screenshot_files:
+                            if screenshot_file.exists():
+                                try:
+                                    with Image.open(screenshot_file) as img:
+                                        screenshot_width, screenshot_height = img.size
+                                        logger.info(f"Found screenshot dimensions from {screenshot_file}: {screenshot_width}x{screenshot_height}")
+                                        break
+                                except Exception as e:
+                                    logger.debug(f"Could not read {screenshot_file}: {e}")
+                        
+                        # Fallback to screen dimensions if screenshot not found
+                        if screenshot_width is None or screenshot_height is None:
+                            logger.warning("Could not find screenshot file, falling back to screen dimensions")
+                            screenshot_width, screenshot_height = pyautogui.size()
+                        
+                        logger.info(f"Using dimensions for coordinate conversion: {screenshot_width}x{screenshot_height}")
+                        
+                        # Convert normalized coordinates to pixel coordinates
+                        pixel_x = int(center_x * screenshot_width)
+                        pixel_y = int(center_y * screenshot_height)
+                        
+                        # Ensure coordinates are within bounds
+                        pixel_x = max(0, min(pixel_x, screenshot_width - 1))
+                        pixel_y = max(0, min(pixel_y, screenshot_height - 1))
+                        
+                    except ImportError:
+                        logger.error("PIL (Pillow) not available for image dimension reading")
+                        # Fallback to screen dimensions
                         import pyautogui
                         screen_width, screen_height = pyautogui.size()
-                        
                         pixel_x = int(center_x * screen_width)
                         pixel_y = int(center_y * screen_height)
+                        pixel_x = max(0, min(pixel_x, screen_width - 1))
+                        pixel_y = max(0, min(pixel_y, screen_height - 1))
+                    
+                    logger.info(f"Found text '{target_text}' in content '{content}' at normalized ({center_x:.3f}, {center_y:.3f}) -> pixel ({pixel_x}, {pixel_y})")
+                    
+                    # Additional validation: ensure coordinates are reasonable
+                    if pixel_x == 0 and pixel_y == 0:
+                        logger.warning(f"Suspicious coordinates (0,0) detected! This might indicate a conversion issue.")
+                        logger.warning(f"Original bbox: {bbox}, center: ({center_x:.3f}, {center_y:.3f})")
+                        logger.warning(f"Used dimensions: {screenshot_width}x{screenshot_height}")
                         
-                        logger.info(f"Found text '{target_text}' in content '{content}' at normalized ({center_x:.3f}, {center_y:.3f}) -> pixel ({pixel_x}, {pixel_y})")
-                        return (pixel_x, pixel_y)
+                        # If we get (0,0), it might be because the normalized coordinates are actually 0
+                        # Let's check if the bbox values are truly zero or very small
+                        if all(coord < 0.01 for coord in bbox):
+                            logger.error(f"Bbox coordinates are too small/zero: {bbox}. This indicates an issue with visual analysis.")
+                            return None
+                    
+                    return (pixel_x, pixel_y)
+                else:
+                    logger.warning(f"Best match found but bbox has insufficient coordinates: {bbox}")
             
-            logger.warning(f"Text '{target_text}' not found in visual analysis data")
+            logger.warning(f"Text '{target_text}' not found in visual analysis data. Searched through {len(coords_data)} elements.")
             return None
             
         except Exception as e:
-            logger.error(f"Error finding text coordinates: {e}")
+            logger.error(f"Error finding text coordinates: {e}", exc_info=True)
             return None
     
     async def _execute_write(self, action_dict: Dict[str, Any]) -> Tuple[bool, str]:
@@ -268,10 +382,8 @@ class OperationParser:
                 # Single key
                 self.os_interface.press(keys)
                 key_description = str(keys)
-            
-            # Wait for system to process the key press
+              # Wait for system to process the key press
             await asyncio.sleep(0.8)
-            
             return True, f"Successfully pressed: {key_description}"
             
         except Exception as e:
@@ -282,13 +394,22 @@ class OperationParser:
         try:
             logger.info("Taking screenshot")
             
-            # Brief delay to ensure screen is ready
-            await asyncio.sleep(0.5)
+            # Hide GUI window before taking screenshot to avoid interference
+            if self.manage_gui_window_func:
+                logger.debug("Hiding GUI window before screenshot")
+                await self.manage_gui_window_func("hide")
+                await asyncio.sleep(0.5)  # Wait for GUI to hide
             
             # Take screenshot using desktop_utils
             screenshot_path = self.desktop_utils.capture_current_screen(
                 filename_prefix="automoy_operation_screenshot"
             )
+            
+            # Show GUI window again after screenshot
+            if self.manage_gui_window_func:
+                logger.debug("Showing GUI window after screenshot")
+                await self.manage_gui_window_func("show")
+                await asyncio.sleep(0.3)  # Brief wait for GUI to show
             
             if screenshot_path and screenshot_path.exists():
                 return True, f"Successfully captured screenshot: {screenshot_path}"
@@ -296,6 +417,12 @@ class OperationParser:
                 return False, "Failed to capture screenshot"
                 
         except Exception as e:
+            # Ensure GUI is shown again even if there's an error
+            if self.manage_gui_window_func:
+                try:
+                    await self.manage_gui_window_func("show")
+                except Exception as gui_error:
+                    logger.error(f"Failed to show GUI after screenshot error: {gui_error}")
             return False, f"Error during screenshot execution: {e}"
     
     async def _execute_save_screenshot(self, action_dict: Dict[str, Any]) -> Tuple[bool, str]:
@@ -473,7 +600,7 @@ class AutomoyOperator:
         self.llm_interface = MainInterface()
         self.desktop_utils = DesktopUtils() # Instantiate DesktopUtils
         self.os_interface = OSInterface()  # Initialize OS interface for real operations
-        self.operation_parser = OperationParser(self.os_interface, self.desktop_utils)  # Initialize operation parser
+        self.operation_parser = OperationParser(self.os_interface, self.desktop_utils, manage_gui_window_func)  # Initialize operation parser with GUI management
 
         self.steps: List[Dict[str, Any]] = []
         self.steps_for_gui: List[Dict[str, Any]] = []
@@ -498,16 +625,17 @@ class AutomoyOperator:
         # Log omniparser type
         logger.debug(f"OmniParser interface type: {type(self.omniparser)}")
         if not hasattr(self.omniparser, 'get_analysis'):
-            logger.error("OmniParser interface does not have 'get_analysis' method!")
-            # Potentially raise an error or handle this state
+            logger.error("OmniParser interface does not have 'get_analysis' method!")            # Potentially raise an error or handle this state
             # For now, logging it. This could be a source of issues if not addressed.
-
+    
     async def _perform_visual_analysis(self, screenshot_path: Path, task_context: str) -> Tuple[Optional[Path], Optional[str], Optional[Dict[str, Any]]]:
         """
         Perform visual analysis on the screenshot using OmniParser and process through LLM.
         Returns the processed screenshot path, the visual analysis text output, and raw parsed data.
         """
         logger.info(f"Performing visual analysis for task: {task_context} on screenshot: {screenshot_path}")
+        await self._update_gui_state_func("/state/current_operation", {"text": f"Performing visual analysis for: {task_context[:50]}..."})
+        
         processed_screenshot_path: Optional[Path] = None
         analysis_results_text: Optional[str] = None
         parsed_data: Optional[Dict[str, Any]] = None
@@ -597,7 +725,9 @@ class AutomoyOperator:
                     await self._update_gui_state_func("/state/screenshot_processed", {})
                 else:
                     logger.warning(f"Processed screenshot also not found in GUI static folder: {gui_static_processed_path}. Using original screenshot path as fallback for processed path.")
-                processed_screenshot_path = screenshot_path # Fallback            logger.debug(f"Processed visual analysis text: {analysis_results_text}")
+                processed_screenshot_path = screenshot_path # Fallback
+            
+            logger.debug(f"Processed visual analysis text: {analysis_results_text}")
             await self._update_gui_state_func("/state/visual", {"text": analysis_results_text or "No visual analysis generated."})
             self.visual_analysis_output = analysis_results_text # Store it
             return processed_screenshot_path, analysis_results_text, parsed_data
@@ -824,8 +954,7 @@ class AutomoyOperator:
                     logger.error(f"LLM error during action generation: {llm_error}")
                     await self._update_gui_state_func("/state/operations_generated", {
                         "operations": [{"type": "error", "summary": f"LLM Error: {llm_error}"}],
-                        "thinking_process": self.thinking_process_output or f"LLM Error: {llm_error}"
-                    })
+                        "thinking_process": self.thinking_process_output or f"LLM Error: {llm_error}"                    })
                     step_retry_count += 1
                     await asyncio.sleep(1)
                     continue
@@ -834,14 +963,15 @@ class AutomoyOperator:
                     logger.warning("LLM returned no response for action generation.")
                     await self._update_gui_state_func("/state/operations_generated", {
                         "operations": [{"type": "info", "summary": "LLM provided no action this attempt."}],
-                        "thinking_process": self.thinking_process_output or "LLM gave empty response."
-                    })
+                        "thinking_process": self.thinking_process_output or "LLM gave empty response."                    })
                     step_retry_count += 1
                     await asyncio.sleep(1) 
                     continue
                 
-                action_json_str = handle_llm_response(raw_llm_response, "action_generation")
-                logger.debug(f"LLM response (action_json_str) for action generation: {action_json_str[:500] if action_json_str else 'None'}")
+                action_json_str = handle_llm_response(raw_llm_response, "action_generation", is_json=True)
+                logger.debug(f"Raw LLM response for action generation (first 500 chars): {raw_llm_response[:500] if raw_llm_response else 'None'}")
+                logger.debug(f"Processed action_json_str type: {type(action_json_str)}")
+                logger.debug(f"Processed action_json_str content: {str(action_json_str)[:500] if action_json_str else 'None'}")
 
                 if not action_json_str:
                     logger.warning("handle_llm_response returned None or empty for action_json_str.")
@@ -853,8 +983,38 @@ class AutomoyOperator:
                     await asyncio.sleep(1)
                     continue
 
+                # Check if handle_llm_response returned an error dict
+                if isinstance(action_json_str, dict) and "error" in action_json_str:
+                    logger.error(f"handle_llm_response returned error: {action_json_str}")
+                    await self._update_gui_state_func("/state/operations_generated", {                        "operations": [{"type": "error", "summary": f"JSON parsing error: {action_json_str.get('message', 'Unknown error')}"}],
+                        "thinking_process": self.thinking_process_output or f"JSON Error: {action_json_str.get('message', 'Unknown error')}"
+                    })
+                    step_retry_count += 1
+                    await asyncio.sleep(1)
+                    continue
+                
                 try:
-                    parsed_action = json.loads(action_json_str)
+                    # Handle case where handle_llm_response already parsed the JSON (when is_json=True)
+                    if isinstance(action_json_str, (list, dict)):
+                        parsed_action = action_json_str
+                        logger.info(f"DEBUG - _get_action_for_current_step - handle_llm_response already returned parsed data")
+                    else:
+                        parsed_action = json.loads(action_json_str)
+                    
+                    # Handle case where LLM returns an array of actions - take the first one
+                    if isinstance(parsed_action, list) and len(parsed_action) > 0:
+                        logger.info(f"LLM returned array of actions, taking first: {parsed_action}")
+                        parsed_action = parsed_action[0]
+                    elif isinstance(parsed_action, list) and len(parsed_action) == 0:
+                        logger.warning("LLM returned empty array of actions")
+                        await self._update_gui_state_func("/state/operations_generated", {
+                            "operations": [{"type": "error", "summary": "LLM returned empty action array."}],
+                            "thinking_process": self.thinking_process_output or "Empty action array from LLM."
+                        })
+                        step_retry_count += 1
+                        await asyncio.sleep(1)
+                        continue
+                        
                     # Check for the new format with "operation" field (used by OperationParser)
                     if isinstance(parsed_action, dict) and "operation" in parsed_action:
                         action_to_execute = parsed_action 
@@ -1126,20 +1286,27 @@ class AutomoyOperator:
         logger.info(f"DEBUG - operate_loop - len(self.steps): {len(self.steps) if self.steps else 'self.steps is None'}")
         logger.info(f"DEBUG - operate_loop - Loop condition (self.current_step_index < len(self.steps)): {self.current_step_index < len(self.steps) if self.steps else 'Cannot evaluate - self.steps is None'}")
         logger.info(f"DEBUG - operate_loop - About to enter while loop")
-
+        
         while self.current_step_index < len(self.steps):
-            await self.pause_event.wait() 
+            await self.pause_event.wait()
+            
             if not self.pause_event.is_set():
-                 logger.info("Operation paused by user (before step execution). Waiting for resume...")
-                 await self._update_gui_state_func("/state/operator_status", {"text": "Paused"}) # MODIFIED (payload key)
-                 await self.pause_event.wait()
-                 logger.info("Operation resumed by user.")
+                logger.info("Operation paused by user (before step execution). Waiting for resume...")
+                await self._update_gui_state_func("/state/operator_status", {"text": "Paused"}) # MODIFIED (payload key)
+                await self.pause_event.wait()
+                logger.info("Operation resumed by user.")
             
             current_step = self.steps[self.current_step_index]
             current_step_description = current_step.get("description", "No description")
             logger.info(f"Processing step {self.current_step_index + 1}/{len(self.steps)}: {current_step_description}")
             await self._update_gui_state_func("/state/current_step", {"step_index": self.current_step_index, "description": current_step_description, "total_steps": len(self.steps)})
             await self._update_gui_state_func("/state/operator_status", {"text": f"Executing step {self.current_step_index + 1}"}) # MODIFIED (payload key)
+            
+            # Update current operation display with comprehensive info
+            current_op_info = f"Step {self.current_step_index + 1}/{len(self.steps)}: {current_step_description}"
+            if hasattr(self, 'thinking_process_output') and self.thinking_process_output:
+                current_op_info += f" | Thinking: {self.thinking_process_output[:50]}..."
+            await self._update_gui_state_func("/state/current_operation", {"text": current_op_info})
             
             # Initialize action_to_execute for the current step
             action_to_execute: Optional[Dict[str, Any]] = None 
@@ -1156,8 +1323,7 @@ class AutomoyOperator:
                 
                 # Real execution using the initialized OperationParser
                 success, execution_details = await self.operation_parser.parse_and_execute_operation(action_to_execute)
-                
-                # Get dynamic wait time based on operation type
+                  # Get dynamic wait time based on operation type
                 operation_type = action_to_execute.get("operation") or action_to_execute.get("type", "unknown")
                 wait_time = self.operation_parser.get_operation_wait_time(operation_type)
                 
@@ -1172,6 +1338,11 @@ class AutomoyOperator:
                     })
                     logger.info(f"Step {self.current_step_index + 1} executed successfully. Summary: {self.last_action_summary}")
                     await self._update_gui_state_func("/state/last_action_summary", {"summary": self.last_action_summary, "status": "success"})
+                    
+                    # Update past operation display with comprehensive info
+                    past_op_info = f"Completed Step {self.current_step_index + 1}: {current_step_description} | Result: {self.last_action_summary}"
+                    await self._update_gui_state_func("/state/last_action_result", {"text": past_op_info})
+                    
                     self.consecutive_error_count = 0 # Reset error count on success
                     
                     # Apply dynamic wait time based on operation type

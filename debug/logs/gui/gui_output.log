@@ -1,3 +1,3 @@
-2025-05-28 22:42:32,522 - GUI - INFO - [gui.setup_gui_logging:47] - GUI Logging initialized. Log file: C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\debug\logs\gui\gui_output.log. Console level: INFO, File level: DEBUG.
-2025-05-28 22:42:33,408 - GUI - INFO - [gui.<module>:164] - FastAPI app created with lifespan.
-2025-05-28 22:42:33,427 - GUI - INFO - [gui.<module>:456] - Starting Uvicorn server for Automoy GUI on http://127.0.0.1:8001
+2025-06-01 12:27:25,782 - GUI - INFO - [gui.setup_gui_logging:47] - GUI Logging initialized. Log file: C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\debug\logs\gui\gui_output.log. Console level: INFO, File level: DEBUG.
+2025-06-01 12:27:26,683 - GUI - INFO - [gui.<module>:164] - FastAPI app created with lifespan.
+2025-06-01 12:27:26,710 - GUI - INFO - [gui.<module>:466] - Starting Uvicorn server for Automoy GUI on http://127.0.0.1:8001

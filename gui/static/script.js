@@ -1,100 +1,125 @@
+// Global configuration variables
+let omniparserPort = 8111; // Default value, will be updated by loadConfig
+let omniParserReady = false;
+let loadingScreenHidden = false;
+
+// GLOBAL loading screen hide function (accessible from backend's direct call)
+window.hideLoadingScreen = function(reason) {
+    if (loadingScreenHidden) {
+        console.log(`Loading screen already hidden, ignoring request: ${reason}`);
+        return;
+    }
+    
+    console.log(`🎯 HIDING LOADING SCREEN - Reason: ${reason}`);
+    
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        console.log('Loading overlay found, applying hiding methods...');
+        
+        // CSS class method
+        overlay.classList.add('hidden');
+        
+        // Direct style manipulation
+        overlay.style.display = 'none';
+        overlay.style.visibility = 'hidden';
+        overlay.style.opacity = '0';
+        
+        // EXTRA DEFENSIVE: Remove from DOM completely to prevent re-appearance
+        overlay.remove();
+        
+        console.log('Loading screen hidden successfully and removed from DOM');
+    } else {
+        console.warn('Loading overlay element not found!');
+    }
+    
+    loadingScreenHidden = true;
+    console.log('Loading screen hide complete');
+    
+    // DEFENSIVE: Prevent any future attempts to show loading screen
+    window.loadingScreenPermanentlyHidden = true;
+};
+
+// SINGLE system-ready event listener (moved outside DOMContentLoaded for reliability)
+console.log('🎯 SCRIPT: Registering MULTIPLE system-ready event listeners...');
+
+// Primary event listener
+window.addEventListener('system-ready', function(event) {
+    console.log('✅ PRIMARY: System-ready event received - hiding loading screen');
+    console.log('Event details:', event);
+    window.hideLoadingScreen('System ready event received - PRIMARY');
+});
+
+// Backup event listener on document
+document.addEventListener('system-ready', function(event) {
+    console.log('✅ BACKUP: System-ready event received on document - hiding loading screen');
+    console.log('Event details:', event);
+    window.hideLoadingScreen('System ready event received - BACKUP');
+});
+
+console.log('🎯 SCRIPT: Multiple system-ready event listeners registered!');
+
+// EMERGENCY: If loading screen is still visible after 8 seconds, force hide it
+setTimeout(() => {
+    if (!loadingScreenHidden) {
+        console.warn('🚨 EMERGENCY: Loading screen still visible after 8 seconds - forcing hide');
+        window.hideLoadingScreen('8-second emergency fallback');
+    }
+}, 8000);
+
+// POLLING: Check every 2 seconds if backend is trying to hide the loading screen
+let pollCount = 0;
+const loadingPollInterval = setInterval(() => {
+    pollCount++;
+    console.log(`🔄 POLL ${pollCount}: Checking if loading screen should be hidden...`);
+    
+    if (loadingScreenHidden) {
+        console.log('🔄 POLL: Loading screen already hidden, stopping poll');
+        clearInterval(loadingPollInterval);
+        return;
+    }
+    
+    // After 6 polls (12 seconds), force hide
+    if (pollCount >= 6) {
+        console.warn('🔄 POLL: Reached maximum polls - forcing loading screen hide');
+        window.hideLoadingScreen('Polling timeout fallback');
+        clearInterval(loadingPollInterval);
+    }
+}, 2000);
+
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing UI');      
+    console.log('DOM loaded, initializing UI');
+    console.log('🎯 DOM: window.hideLoadingScreen available:', typeof window.hideLoadingScreen);
     
-    // Loading screen management
-    let omniParserReady = false;
-    let uiZoomed = false;
-    let systemReady = false;
-    let loadingScreenHidden = false;
+    // Load configuration first
+    loadConfig();
+    
     const loadingOverlay = document.getElementById('loadingOverlay');
-    
-    // Add a flag to ensure we don't hide too early
-    let initializationStarted = false;
-    
     console.log('Loading screen variables initialized:', {
         omniParserReady,
-        uiZoomed, 
-        systemReady,
         loadingScreenHidden,
         loadingOverlay: !!loadingOverlay
-    });    function checkLoadingComplete() {
-        console.log(`Loading status check: omniParserReady=${omniParserReady}, uiZoomed=${uiZoomed}, systemReady=${systemReady}, loadingScreenHidden=${loadingScreenHidden}`);
-        
-        if (loadingScreenHidden) {
-            console.log('Loading screen already hidden, skipping...');
-            return;
-        }
-        
-        // STRICT REQUIREMENT: Both uiZoomed AND systemReady must be true
-        const bothConditionsMet = uiZoomed && systemReady;
-        console.log(`Both conditions met check: uiZoomed(${uiZoomed}) && systemReady(${systemReady}) = ${bothConditionsMet}`);
-        
-        // Hide loading screen only when both UI zoom and system initialization are complete
-        if (bothConditionsMet && loadingOverlay) {
-            console.log('✅ BOTH UI zoom and system initialization completed - hiding loading screen to reveal GUI...');
-            loadingScreenHidden = true;
-            loadingOverlay.classList.add('hidden');
-            
-            // Remove the loading overlay from DOM after transition
-            setTimeout(() => {
-                if (loadingOverlay && loadingOverlay.classList.contains('hidden')) {
-                    loadingOverlay.remove();
-                    console.log('Loading overlay removed from DOM');
-                }
-            }, 500); // Match the CSS transition duration
-        } else {
-            console.log(`❌ Still waiting: uiZoomed=${uiZoomed}, systemReady=${systemReady} - both must be true to hide loading screen`);
-        }
-    }
-      function hideLoadingScreen(reason) {
-        console.log(`⚠️ hideLoadingScreen called with reason: ${reason}`);
-        console.log(`Current state: uiZoomed=${uiZoomed}, systemReady=${systemReady}, loadingScreenHidden=${loadingScreenHidden}`);
-        
-        // Only allow hiding if both conditions are met OR it's a timeout/emergency
-        const emergencyReasons = ['30-second timeout reached', 'Escape key pressed'];
-        const isEmergency = emergencyReasons.includes(reason);
-        const bothConditionsMet = uiZoomed && systemReady;
-        
-        if (!loadingScreenHidden && loadingOverlay && (bothConditionsMet || isEmergency)) {
-            console.log(`✅ Hiding loading screen: ${reason} (emergency: ${isEmergency}, conditions met: ${bothConditionsMet})`);
-            loadingScreenHidden = true;
-            loadingOverlay.classList.add('hidden');
-            setTimeout(() => {
-                if (loadingOverlay) {
-                    loadingOverlay.remove();
-                }
-            }, 500);
-        } else {
-            console.log(`❌ Refusing to hide loading screen: ${reason} - conditions not met or already hidden`);
-        }
-    }    // Fallback timeout to hide loading screen after 30 seconds
+    });
+    
+    // PROPER loading screen management - wait for system-ready event
+    console.log('⏳ Loading screen will remain visible until system-ready event is received');    // Safety fallback - hide after 20 seconds if no system-ready event
     setTimeout(() => {
-        hideLoadingScreen('30-second timeout reached');
-    }, 30000);
+        if (!loadingScreenHidden) {
+            console.log('⚠️ Safety timeout - hiding loading screen after 20 seconds');
+            window.hideLoadingScreen('20-second safety timeout');
+        }
+    }, 20000);
 
     // Debug: Allow manual loading screen hide with Escape key
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && !loadingScreenHidden) {
-            hideLoadingScreen('Escape key pressed');
+            window.hideLoadingScreen('Escape key pressed');
         }
     });
-      // Listen for custom events that indicate loading progress
+      
+    // Simplified event listeners - no complex loading screen logic needed
     window.addEventListener('omniparser-ready', function() {
         console.log('OmniParser ready event received');
         omniParserReady = true;
-        checkLoadingComplete();
-    });    window.addEventListener('ui-zoomed', function() {
-        console.log('UI zoom completion event received - zoom has been verified as applied!');
-        uiZoomed = true;
-        console.log(`After ui-zoomed: uiZoomed=${uiZoomed}, systemReady=${systemReady}`);
-        checkLoadingComplete();
-    });
-    
-    window.addEventListener('system-ready', function() {
-        console.log('System ready event received - system initialization completed!');
-        systemReady = true;
-        console.log(`After system-ready: uiZoomed=${uiZoomed}, systemReady=${systemReady}`);
-        checkLoadingComplete();
     });
     
     // Initial check for OmniParser status immediately
@@ -102,8 +127,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Performing initial OmniParser status check...');
         checkOmniParserStatus();
     }, 500);
-    
-    // Check OmniParser status more frequently during startup (every 2 seconds for first 30 seconds)
+      // Check OmniParser status more frequently during startup (every 2 seconds for first 30 seconds)
     let startupChecks = 0;
     const maxStartupChecks = 15; // 30 seconds / 2 seconds
     const startupInterval = setInterval(() => {
@@ -115,7 +139,22 @@ document.addEventListener('DOMContentLoaded', function() {
             clearInterval(startupInterval);
             console.log('Startup OmniParser checking complete');
         }
-    }, 2000);
+    }, 2000);    // EMERGENCY FALLBACK: Force hide loading screen after 10 seconds if events don't fire
+    setTimeout(() => {
+        if (!loadingScreenHidden) {
+            console.warn('🚨 EMERGENCY FALLBACK: Loading screen still visible after 10 seconds - forcing hide');
+            console.log(`Current state: loadingScreenHidden=${loadingScreenHidden}`);
+            hideLoadingScreen('Emergency timeout fallback');
+        }
+    }, 10000); // 10 second emergency fallback
+
+    // Add manual override for testing (Ctrl+H to force hide)
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key === 'h' && !loadingScreenHidden) {
+            console.log('🔧 MANUAL OVERRIDE: Ctrl+H pressed - forcing loading screen hide');
+            hideLoadingScreen('Manual override (Ctrl+H)');
+        }
+    });
     
     // Animated ellipsis for placeholder
     let ellipsisCount = 0;
@@ -147,14 +186,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const llmResponseDisplay = document.getElementById('llmResponseDisplay');
     const executionResultDisplay = document.getElementById('executionResultDisplay');
     const historyLogDisplay = document.getElementById('historyLogDisplay');
-    
-    const pauseButton = document.getElementById('pauseButton');
+      const pauseButton = document.getElementById('pauseButton');
     const pauseIcon = document.getElementById('pauseIcon');
     let isPaused = false; // Local state to track pause status for UI updates
-
+    
     if (goalForm && goalInput && userGoalDisplay && formulatedObjectiveDisplay) { // Updated condition
         goalForm.addEventListener('submit', function(e) {
             e.preventDefault(); 
+            
+            // Prevent zoom interference with form submission
+            console.log('Form submitted - preventing any zoom interference');
+            
             const goalValue = goalInput.value;
 
             fetch('/set_goal', { // Changed from /set_objective
@@ -179,6 +221,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     formulatedObjectiveDisplay.textContent = data.formulated_objective;
                 }
                 goalInput.value = ''; // Clear input after submission
+                
+                // Ensure zoom stability after form submission
+                console.log('Form submission completed - zoom should remain stable');
             })
             .catch(error => {
                 console.error('Error setting goal:', error);
@@ -242,18 +287,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 if (formulatedObjectiveDisplay && data.formulated_objective && formulatedObjectiveDisplay.textContent !== data.formulated_objective) {
                     formulatedObjectiveDisplay.textContent = data.formulated_objective;
-                }
-                // Update current operation display, but be mindful of pause state
-                if (currentOperationDisplay && data.current_operation) {
-                    if (isPaused && !data.current_operation.toLowerCase().includes('paused')) {
+                }                // Update current operation display, but be mindful of pause state
+                if (currentOperationDisplay && data.current_operation_display) {
+                    if (isPaused && !data.current_operation_display.toLowerCase().includes('paused')) {
                         // If locally we think it's paused, but server says something else (and not already 'paused')
                         // We keep the 'Paused by user' message from the click handler for immediate feedback.
                         // Or, we can let the server state override:
-                        // currentOperationDisplay.textContent = data.current_operation;
+                        // currentOperationDisplay.textContent = data.current_operation_display;
                     } else if (!isPaused) {
-                        currentOperationDisplay.textContent = data.current_operation;
+                        currentOperationDisplay.textContent = data.current_operation_display;
                     }
-                }                if (visualAnalysisDisplay && data.current_visual_analysis) {
+                }
+                  // Update past operation display
+                const pastOperationDisplay = document.getElementById('pastOperationDisplay');
+                if (pastOperationDisplay && data.past_operation_display) {
+                    pastOperationDisplay.textContent = data.past_operation_display;
+                }
+                
+                if (visualAnalysisDisplay && data.current_visual_analysis) {
                     visualAnalysisDisplay.textContent = data.current_visual_analysis;
                 }
                 if (thinkingProcessDisplay && data.current_thinking_process) {
@@ -280,12 +331,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else if (operationsGeneratedDisplay) {
                     // Clear or set to default if no operations data
                     operationsGeneratedDisplay.textContent = 'Waiting for operations...'; // Set a default message
-                }
-                  // LLM Query, Response, Execution Result, History Log - not explicitly in current HTML focus
+                }                // LLM Query, Response, Execution Result, History Log - not explicitly in current HTML focus
                 // if (llmQueryDisplay && data.llm_query) { ... }
                 // if (llmResponseDisplay && data.llm_response) { ... }
                 // if (executionResultDisplay && data.execution_result) { ... }
-                // if (historyLogDisplay && data.history_log) { ... }                // Check if processed screenshot is available and switch to it
+                // if (historyLogDisplay && data.history_log) { ... }
+                
+                // Check if processed screenshot is available and switch to it
                 if (data.processed_screenshot_available && data.processed_screenshot_available === true) {
                     const screenshotImg = document.getElementById('screenshotImage');
                     if (screenshotImg && !screenshotImg.src.includes('processed_screenshot.png')) {
@@ -368,17 +420,18 @@ document.addEventListener('DOMContentLoaded', function() {
         // Update other UI elements as needed
     };
     eventSource.onerror = function(error) {
-        console.error('EventSource failed:', error);
-        eventSource.close();
+        console.error('EventSource failed:', error);        eventSource.close();
     };
     */
-
+    
     // REMOVE refreshOperatorState and updateUIFromState as their functionality
     // is covered by fetchAndUpdateOperatorState and the new SSE stream logic.
     /*
     function refreshOperatorState() { ... }
     function updateUIFromState(state) { ... }
-    */    // Function to refresh the screenshot
+    */
+    
+    // Function to refresh the screenshot
     function refreshScreenshot(type = 'raw') { // Added type parameter, default to 'raw'
         const timestamp = new Date().getTime();
         const screenshotImg = document.getElementById('screenshotImage');
@@ -451,122 +504,119 @@ function updateOperationalState(data) {
     }
     console.log("Updating operational state with data:", data); // General log
 
-    // Update User Goal
-    const userGoalElement = document.getElementById('user-goal-content');
+    // Update User Goal - using correct element ID
+    const userGoalElement = document.getElementById('userGoalDisplay');
     if (userGoalElement) {
-        userGoalElement.textContent = data.user_goal || 'Not set';
+        userGoalElement.textContent = data.user_goal || 'Enter your goal below and press Send.';
     }
 
-    // Update AI Formulated Objective
-    const aiObjectiveElement = document.getElementById('ai-formulated-objective-content');
+    // Update AI Formulated Objective - using correct element ID
+    const aiObjectiveElement = document.getElementById('formulatedObjectiveDisplay');
     if (aiObjectiveElement) {
-        aiObjectiveElement.textContent = data.formulated_objective || 'Waiting for user goal...';
+        aiObjectiveElement.textContent = data.formulated_objective || 'Waiting for AI...';
     }
 
-    // Update Steps Generated (Visual Analysis Output)
-    const visualAnalysisElement = document.getElementById('visual-analysis-content');
+    // Update Visual Analysis - using correct element ID
+    const visualAnalysisElement = document.getElementById('visualAnalysisDisplay');
     if (visualAnalysisElement) {
-        // Assuming visual_analysis_output contains the steps (plain text or pre-formatted)
-        visualAnalysisElement.textContent = data.visual_analysis_output || 'No visual analysis yet.';
-    }
-    
-    // Update Operations Generated
-    const operationsElement = document.getElementById('operations-generated-content');
-    if (operationsElement) {
-        console.log('Raw operations_generated from backend:', data.operations_generated); // Specific log for operations
-        const operationsContent = data.operations_generated && Object.keys(data.operations_generated).length > 0
-            ? JSON.stringify(data.operations_generated, null, 2)
-            : '{}'; // Default to '{}' string if empty or undefined
-        operationsElement.textContent = escapeHtml(operationsContent);
+        visualAnalysisElement.textContent = data.visual_analysis_output || data.current_visual_analysis || 'Waiting for visual analysis...';
     }
 
-    // Update Thinking Process
-    const thinkingProcessElement = document.getElementById('thinking-process-content');
+    // Update Thinking Process - using correct element ID
+    const thinkingProcessElement = document.getElementById('thinkingProcessDisplay');
     if (thinkingProcessElement) {
-        thinkingProcessElement.textContent = data.thinking_process_output || 'No thinking process logged yet.';
+        thinkingProcessElement.textContent = data.thinking_process_output || data.current_thinking_process || 'Waiting for thinking process...';
     }
 
-    // Update Operator Status
-    const operatorStatusElement = document.getElementById('operator-status-content');
-    if (operatorStatusElement) {
-        operatorStatusElement.textContent = data.operator_status || 'Idle';
-    }
-
-    // Update current step display
-    const currentStepDisplayElement = document.getElementById('current-step-display');
-    if (currentStepDisplayElement) {
-        if (data.current_step_description) {
-            currentStepDisplayElement.innerHTML = `<strong>Current:</strong> ${escapeHtml(data.current_step_description)}`;
+    // Update Operations Generated - using correct element ID
+    const operationsElement = document.getElementById('operationsGeneratedText');
+    if (operationsElement) {
+        console.log('Raw current_operations_generated from backend:', data.current_operations_generated); // Specific log for operations
+        if (data.current_operations_generated && Object.keys(data.current_operations_generated).length > 0) {
+            operationsElement.textContent = JSON.stringify(data.current_operations_generated, null, 2);
         } else {
-            currentStepDisplayElement.innerHTML = '<strong>Current:</strong> Not started';
+            operationsElement.textContent = 'Waiting for operations...';
         }
     }
 
-    // Update operations generated list (newly added)
-    if (data.operations_generated && data.operations_generated.operations) {
-        const operationsList = document.getElementById('operations-generated-list');
-        if (operationsList) {
-            operationsList.innerHTML = ''; // Clear previous operations
-            if (Array.isArray(data.operations_generated.operations)) {
-                data.operations_generated.operations.forEach(op => {
-                    const listItem = document.createElement('li');
-                    listItem.textContent = `${op.type}: ${op.summary}`;
-                    if (op.details) {
-                        const detailsText = document.createElement('small');
-                        detailsText.textContent = ` (${op.details})`;
-                        listItem.appendChild(detailsText);
-                    }
-                    operationsList.appendChild(listItem);
-                });
-            } else {
-                console.warn("data.operations_generated.operations is not an array:", data.operations_generated.operations);
-            }
-            // Update thinking process if available within operations_generated
-            if (data.operations_generated.thinking_process) {
-                document.getElementById('thinking-process-content').textContent = data.operations_generated.thinking_process;
-            }
-        } else {
-            console.error('Operations generated list element not found.');
-        }
-    } else {
-        // console.log("No operations_generated data or missing .operations property"); // Keep this for debugging if needed
-        const operationsList = document.getElementById('operations-generated-list');
-        if (operationsList) {
-            operationsList.innerHTML = '<li>No operations generated yet.</li>';
+    // Update Current Operation - using correct element ID
+    const currentOperationElement = document.getElementById('currentOperationDisplay');
+    if (currentOperationElement) {
+        currentOperationElement.textContent = data.current_operation_display || data.operator_status || 'Idle';
+    }
+
+    // Update Past Operation - using correct element ID  
+    const pastOperationElement = document.getElementById('pastOperationDisplay');
+    if (pastOperationElement) {
+        pastOperationElement.textContent = data.past_operation_display || 'None';
+    }
+
+    // Update Steps Generated List - using correct element ID
+    const stepsListElement = document.getElementById('stepsGeneratedList');
+    if (stepsListElement && data.current_steps_generated) {
+        if (Array.isArray(data.current_steps_generated) && data.current_steps_generated.length > 0) {
+            stepsListElement.innerHTML = data.current_steps_generated.map(step => 
+                `<li>${escapeHtml(step.description || step)}</li>`
+            ).join('');
+        } else if (Array.isArray(data.current_steps_generated) && data.current_steps_generated.length === 0) {
+            stepsListElement.innerHTML = "<li>No steps generated yet.</li>";
+        } else if (typeof data.current_steps_generated === 'string') {
+            stepsListElement.innerHTML = `<li>${escapeHtml(data.current_steps_generated)}</li>`;
         }
     }
+
+    // Update LLM Stream Content - using correct element ID
+    const llmStreamElement = document.getElementById('llmStreamContent');
+    if (llmStreamElement && data.llm_stream_content !== undefined) {
+        llmStreamElement.textContent = data.llm_stream_content || 'No stream content.';
+    }
+}
 }
 
 // OmniParser status checking functionality
 let omniParserEventDispatched = false;
+let omniparserPort = 8111; // Default port
+
+// Fetch configuration on page load
+async function loadConfig() {
+    try {
+        const response = await fetch('/config');
+        if (response.ok) {
+            const config = await response.json();
+            omniparserPort = config.OMNIPARSER_PORT || 8111;
+            console.log(`Configuration loaded: OmniParser port ${omniparserPort}`);
+        }
+    } catch (error) {
+        console.warn('Failed to load configuration, using defaults:', error);
+    }
+}
+
 function checkOmniParserStatus() {
     const statusDot = document.getElementById('omniparserStatusDot');
     const statusText = document.getElementById('omniparserStatusText');
     
-    console.log('Checking OmniParser status...');
+    console.log(`Checking OmniParser status on port ${omniparserPort}...`);
     
     if (!statusDot || !statusText) {
-        console.log('Status elements not found in DOM yet');
-        return;
+        console.log('Status elements not found in DOM yet');        return;
     }
     
-    // Try to ping OmniParser server directly
-    fetch('http://localhost:8111/probe/')
+    // Try to ping OmniParser server directly using the loaded configuration
+    fetch(`http://localhost:${omniparserPort}/probe/`)
         .then(response => {
             console.log(`OmniParser probe response: ${response.status}`);
             if (response.ok) {
                 statusDot.className = 'status-dot ready';
                 statusText.textContent = 'OmniParser Ready';
+                  // Set the flag but keep checking in case server goes down
+                omniParserReady = true;
                 
-                // Dispatch custom event for loading screen management (only once)
-                if (!omniParserEventDispatched) {
-                    window.dispatchEvent(new CustomEvent('omniparser-ready'));
-                    omniParserEventDispatched = true;
-                    console.log('OmniParser ready event dispatched for the first time');
+                // Hide loading screen once OmniParser is ready
+                if (!loadingScreenHidden) {
+                    hideLoadingScreen('OmniParser is ready');
                 }
             } else {
-                statusDot.className = 'status-dot error';
-                statusText.textContent = 'OmniParser Error';
+                statusDot.className = 'status-dot error';                statusText.textContent = 'OmniParser Error';
                 console.log('OmniParser returned error status');
             }
         })
@@ -574,12 +624,41 @@ function checkOmniParserStatus() {
             statusDot.className = 'status-dot';
             statusText.textContent = 'OmniParser Offline';
             console.log('OmniParser connection failed:', error.message);
+            omniParserReady = false; // Reset flag when connection fails
         });
 }
 
-// Regular OmniParser status checking (after startup period)
+// Regular OmniParser status checking - check continuously to handle server restarts/crashes
 setInterval(() => {
-    if (!omniParserReady) {
-        checkOmniParserStatus();
-    }
+    checkOmniParserStatus();
 }, 5000);
+
+    // Fallback: Hide loading screen after a maximum timeout even if events don't fire
+setTimeout(() => {
+    if (!loadingScreenHidden) {
+        console.log('⚠️ Loading screen timeout reached - forcing loading screen to hide');
+        hideLoadingScreen('Timeout fallback');
+    }
+}, 10000); // 10 second maximum timeout
+
+// IMMEDIATE fallback based on page readiness - hide after 5 seconds if page is complete
+if (document.readyState === 'complete') {
+    setTimeout(() => {
+        console.log('⚠️ Document complete fallback - 5 second timer');
+        if (!loadingScreenHidden) {
+            hideLoadingScreen('Document complete 5-second fallback');
+        }
+    }, 5000); // 5 seconds after document complete
+} else {
+    // If document isn't complete yet, add a listener
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(() => {
+            console.log('⚠️ DOMContentLoaded fallback - 5 second timer');
+            if (!loadingScreenHidden) {
+                hideLoadingScreen('DOMContentLoaded 5-second fallback');
+            }
+        }, 5000);
+    });
+}
+
+}); // Closing brace for main DOMContentLoaded event listener

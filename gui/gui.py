@@ -310,13 +310,6 @@ async def update_thinking_state(data: StateUpdateText):
 
 
 
-@app.post("/state/operations_generated") # Added endpoint
-async def update_operations_state(data: StateUpdateDict): # Assuming StateUpdateDict is appropriate
-    global current_operations_generated
-    logger.info(f"[GUI /state/operations_generated] Received operations update: {data.json}", flush=True) # Corrected logging
-    current_operations_generated = data.json # Corrected assignment
-    return {"message": "Operations generated state updated"}
-
 @app.post("/state/current_operation") # Added endpoint
 async def update_current_operation_state(data: StateUpdateText):
     global current_operation_display
@@ -433,9 +426,14 @@ async def update_steps_state(data: StateUpdateSteps): # Using the correctly defi
 async def update_operations_state(data: StateUpdateOperations): # Using the correctly defined StateUpdateOperations model
     global current_operations_generated, current_thinking_process
     logger.info(f"[GUI /state/operations_generated] Received operations update: {data.operations}")
+    logger.info(f"[GUI /state/operations_generated] Thinking process: {data.thinking_process}")
+    logger.info(f"[GUI /state/operations_generated] Raw data: {data}")
+    
     current_operations_generated = {"operations": data.operations} # Store as a dict with 'operations' key as expected by JS
     if data.thinking_process:
         current_thinking_process = data.thinking_process # Update thinking process if provided
+    
+    logger.info(f"[GUI /state/operations_generated] Updated current_operations_generated: {current_operations_generated}")
     return {"message": "Operations generated state updated"}
 
 @app.post("/set_formulated_objective")
@@ -445,6 +443,18 @@ async def set_formulated_objective(data: dict):
     logger.info(f"[GUI /set_formulated_objective] Received formulated objective: {formulated_objective}")
     current_formulated_objective = formulated_objective
     return {"message": "Formulated objective updated"}
+
+@app.get("/config")
+async def get_config():
+    """Endpoint to expose configuration to frontend"""
+    logger.debug("[GUI /config] Configuration requested")
+    # Import config here to avoid circular imports
+    from config.config import app_config
+    return {
+        "OMNIPARSER_PORT": app_config.OMNIPARSER_PORT,
+        "GUI_HOST": app_config.GUI_HOST, 
+        "GUI_PORT": app_config.GUI_PORT
+    }
 
 # ADDED main execution block
 if __name__ == "__main__":
