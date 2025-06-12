@@ -1,8 +1,2 @@
 watchdog
 pywebview
-requests
-httpx
-psutil
-fastapi
-uvicorn
-jinja2

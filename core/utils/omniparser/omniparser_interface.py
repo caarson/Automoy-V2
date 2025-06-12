@@ -40,7 +40,7 @@ def _auto_find_conda() -> Optional[str]:
     if conda and os.path.isfile(conda):
         return conda
     try:
-        out = subprocess.check_output(["where.exe", "conda"], shell=True, text=True)
+        out = subprocess.check_output(["where", "conda"], shell=True, text=True)
         return next(line for line in out.splitlines() if line.strip())
     except Exception:
         return None

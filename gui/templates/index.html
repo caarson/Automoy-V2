@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<html lang="en">  <head>
+<html lang="en">
+  <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Automoy</title>
 
     <!-- modern font & basic reset  -->
@@ -11,109 +11,225 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-
+    <!-- NEW LOADER CSS START -->
     <style>
-      /* -------  LOADING SCREEN STYLES  ------- */      .loading-overlay {
+      @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap');
+
+      :root {
+        --bg-color-dark: #000000;
+        --element-color-dark: #FFFFFF;
+        --cursor-color-dark: #FFFFFF;
+
+        --bg-color-light: #FFFFFF;
+        --element-color-light: #000000;
+        --cursor-color-light: #000000;
+        
+        /* Default to dark theme for loader initially */
+        --loader-bg-color: var(--bg-color-dark);
+        --loader-element-color: var(--element-color-dark);
+        --loader-cursor-color: var(--cursor-color-dark);
+      }
+
+      #loading-screen {
+        /* Retain essential existing styles for #loading-screen */
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
-        background: #000000;
-        display: flex;
-        flex-direction: column;
+        display: flex; /* For centering .loading-container */
+        align-items: center;
         justify-content: center;
-        align-items: center;
         z-index: 9999;
-        opacity: 1;
-        visibility: visible;
-        transition: opacity 0.5s ease-out, visibility 0.5s ease-out;
-      }      .loading-overlay.hidden {
-        opacity: 0 !important;
-        visibility: hidden !important;
-        display: none !important;
-        z-index: -1 !important;
-        pointer-events: none !important;
-      }.loading-wrapper {
+        
+        /* New loader styles applied to #loading-screen */
+        background-color: var(--loader-bg-color);
+        font-family: 'Roboto Mono', monospace; /* Font for text inside loader */
+        overflow: hidden; /* Ensures loader content doesn't cause page scroll */
+        transition: background-color 0.8s ease-in-out; 
+      }
+
+      #loading-screen.light-theme {
+        --loader-bg-color: var(--bg-color-light);
+        --loader-element-color: var(--element-color-light);
+        --loader-cursor-color: var(--cursor-color-light);
+      }
+
+      /* Styles for elements within #loading-screen */
+      #loading-screen .loading-container {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 60px;
+        justify-content: center;
       }
 
-      .loading-grid {
-        display: grid;
-        grid-template-columns: repeat(5, 1fr);
-        animation: rot 16s linear infinite;
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        gap: 2px;
+      #loading-screen .dot-animation-area {
+        width: 100px;
+        height: 60px;
+        position: relative;
+        margin-bottom: 30px;
       }
 
-      @keyframes rot {
-        100% {
-          transform: rotate(360deg);
-        }
+      #loading-screen #livingCenterDot {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        background-color: var(--loader-element-color);
+        border-radius: 50%;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        opacity: 0.8;
+        animation: pulse-living-dot 2s infinite ease-in-out;
+        transition: background-color 0.8s ease-in-out;
+        z-index: 1;
       }
 
-      .loading-square {
-        width: 40px;
-        height: 40px;
-        background: #FFFFFF;
-        border-radius: 4px;
-        box-shadow: 0 0 1px #fff, 0 0 5px #fff, 0 0 10px #fff, 0 0 15px #fff, 0 0 25px #fff, 0 0 55px #fff;
-        animation: scale 0.8s linear alternate infinite;
+      @keyframes pulse-living-dot {
+        0%, 100% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.7; }
+        50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.9; }
       }
 
-      @keyframes scale {
-        100% {
-          transform: scale(0.1);
-          opacity: 0;
-        }
+      #loading-screen .dot {
+        position: absolute;
+        width: 8px; 
+        height: 8px;
+        background-color: var(--loader-element-color);
+        border-radius: 50%;
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.5);
+        left: 50%;
+        top: 50%;
+        transition: background-color 0.8s ease-in-out;
+        z-index: 2;
       }
 
-      /* Animation delays for each square */
-      .loading-square:nth-child(1) { animation-delay: 0.1s; z-index: 24; }
-      .loading-square:nth-child(2) { animation-delay: 0.2s; z-index: 23; }
-      .loading-square:nth-child(3) { animation-delay: 0.3s; z-index: 22; }
-      .loading-square:nth-child(4) { animation-delay: 0.4s; z-index: 21; }
-      .loading-square:nth-child(5) { animation-delay: 0.5s; z-index: 20; }
-      .loading-square:nth-child(6) { animation-delay: 0.1s; z-index: 19; }
-      .loading-square:nth-child(7) { animation-delay: 0.3s; z-index: 18; }
-      .loading-square:nth-child(8) { animation-delay: 0.4s; z-index: 17; }
-      .loading-square:nth-child(9) { animation-delay: 0.5s; z-index: 16; }
-      .loading-square:nth-child(10) { animation-delay: 0.6s; z-index: 15; }
-      .loading-square:nth-child(11) { animation-delay: 0.1s; z-index: 14; }
-      .loading-square:nth-child(12) { animation-delay: 0.3s; z-index: 13; }
-      .loading-square:nth-child(13) { animation-delay: 0.5s; z-index: 12; }
-      .loading-square:nth-child(14) { animation-delay: 0.6s; z-index: 11; }
-      .loading-square:nth-child(15) { animation-delay: 0.7s; z-index: 10; }
-      .loading-square:nth-child(16) { animation-delay: 0.1s; z-index: 9; }
-      .loading-square:nth-child(17) { animation-delay: 0.3s; z-index: 8; }
-      .loading-square:nth-child(18) { animation-delay: 0.5s; z-index: 7; }
-      .loading-square:nth-child(19) { animation-delay: 0.7s; z-index: 6; }
-      .loading-square:nth-child(20) { animation-delay: 0.8s; z-index: 5; }
-      .loading-square:nth-child(21) { animation-delay: 0.1s; z-index: 4; }
-      .loading-square:nth-child(22) { animation-delay: 0.3s; z-index: 3; }
-      .loading-square:nth-child(23) { animation-delay: 0.5s; z-index: 2; }
-      .loading-square:nth-child(24) { animation-delay: 0.7s; z-index: 1; }
-      .loading-square:nth-child(25) { animation-delay: 0.9s; z-index: 0; }
+      #loading-screen .dot-tm-expand { animation: expand-dot-tm-anim 0.5s ease-out forwards 0.0s; }
+      #loading-screen .dot-bm-expand { animation: expand-dot-bm-anim 0.5s ease-out forwards 0.05s; }
+      #loading-screen .dot-ml-expand { animation: expand-dot-ml-anim 0.5s ease-out forwards 0.1s; }
+      #loading-screen .dot-mr-expand { animation: expand-dot-mr-anim 0.5s ease-out forwards 0.15s; }
+      #loading-screen .dot-tl-expand { animation: expand-dot-tl-anim 0.5s ease-out forwards 0.2s; }
+      #loading-screen .dot-tr-expand { animation: expand-dot-tr-anim 0.5s ease-out forwards 0.25s; }
+      #loading-screen .dot-bl-expand { animation: expand-dot-bl-anim 0.5s ease-out forwards 0.3s; }
+      #loading-screen .dot-br-expand { animation: expand-dot-br-anim 0.5s ease-out forwards 0.35s; }
 
-      .loading-text {
-        font-family: "Inter", sans-serif;
-        font-size: 24px;
-        font-weight: 500;
-        color: #FFFFFF;
-        text-align: center;
-        animation: loading-pulse 2s ease-in-out infinite;
+      #loading-screen .dot-br-contract { animation: contract-dot-br-anim 0.4s ease-in forwards 0.0s; }
+      #loading-screen .dot-bl-contract { animation: contract-dot-bl-anim 0.4s ease-in forwards 0.05s; }
+      #loading-screen .dot-tr-contract { animation: contract-dot-tr-anim 0.4s ease-in forwards 0.1s; }
+      #loading-screen .dot-tl-contract { animation: contract-dot-tl-anim 0.4s ease-in forwards 0.15s; }
+      #loading-screen .dot-mr-contract { animation: contract-dot-mr-anim 0.4s ease-in forwards 0.2s; }
+      #loading-screen .dot-ml-contract { animation: contract-dot-ml-anim 0.4s ease-in forwards 0.25s; }
+      #loading-screen .dot-bm-contract { animation: contract-dot-bm-anim 0.4s ease-in forwards 0.3s; }
+      #loading-screen .dot-tm-contract { animation: contract-dot-tm-anim 0.4s ease-in forwards 0.35s; }
+
+      @keyframes expand-dot-tm-anim { /* Top-Mid */
+          0%   { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+          100% { left: 50%; top: 0%;  opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      }
+      @keyframes expand-dot-bm-anim { /* Bottom-Mid */
+          0%   { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+          100% { left: 50%; top: 100%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      }
+      @keyframes expand-dot-ml-anim { /* Mid-Left */
+          0%   { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+          100% { left: 0%;  top: 50%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      }
+      @keyframes expand-dot-mr-anim { /* Mid-Right */
+          0%   { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+          100% { left: 100%;top: 50%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      }
+      @keyframes expand-dot-tl-anim { /* Top-Left */
+          0%   { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+          100% { left: 0%;  top: 0%;  opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      }
+      @keyframes expand-dot-tr-anim { /* Top-Right */
+          0%   { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+          100% { left: 100%;top: 0%;  opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      }
+      @keyframes expand-dot-bl-anim { /* Bottom-Left */
+          0%   { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+          100% { left: 0%;  top: 100%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      }
+      @keyframes expand-dot-br-anim { /* Bottom-Right */
+          0%   { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+          100% { left: 100%;top: 100%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
       }
 
-      @keyframes loading-pulse {
-        0%, 100% { opacity: 0.6; }
-        50% { opacity: 1; }
+      @keyframes contract-dot-tm-anim {
+          0%   { left: 50%; top: 0%;  opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+          100% { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+      }
+      @keyframes contract-dot-bm-anim {
+          0%   { left: 50%; top: 100%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+          100% { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+      }
+      @keyframes contract-dot-ml-anim {
+          0%   { left: 0%;  top: 50%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+          100% { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+      }
+      @keyframes contract-dot-mr-anim {
+          0%   { left: 100%;top: 50%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+          100% { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+      }
+      @keyframes contract-dot-tl-anim {
+          0%   { left: 0%;  top: 0%;  opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+          100% { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+      }
+      @keyframes contract-dot-tr-anim {
+          0%   { left: 100%;top: 0%;  opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+          100% { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+      }
+      @keyframes contract-dot-bl-anim {
+          0%   { left: 0%;  top: 100%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+          100% { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+      }
+      @keyframes contract-dot-br-anim {
+          0%   { left: 100%;top: 100%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+          100% { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
       }
 
+      #loading-screen .loading-text-container { text-align: center; position: relative; }
+      #loading-screen #loadingText {
+        font-size: 1.2em; color: var(--loader-element-color);
+        letter-spacing: 2px; text-transform: uppercase;
+        font-weight: bold; font-family: 'Orbitron', sans-serif; 
+        min-height: 1.5em; transition: color 0.8s ease-in-out;
+      }
+      #loading-screen #loadingText .cursor { color: var(--loader-cursor-color); opacity: 1; animation: blink 0.7s infinite; }
+      @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+      #loading-screen #subText {
+        font-size: 0.8em; color: var(--loader-element-color); 
+        margin-top: 10px; letter-spacing: 1px; 
+        min-height: 1em; transition: color 0.8s ease-in-out;
+      }
+      #loading-screen .glitch { animation: glitch-anim 0.3s infinite alternate; }
+      @keyframes glitch-anim {
+          0% { transform: translate(0); opacity: 1; }
+          20% { transform: translate(-1px, 1px); opacity: 0.95; }
+          40% { transform: translate(-1px, -1px); opacity: 1; }
+          60% { transform: translate(1px, 1px); opacity: 0.9; }
+          80% { transform: translate(1px, -1px); opacity: 1; }
+          100% { transform: translate(0); opacity: 0.98; }
+      }
+    </style>
+    <!-- NEW LOADER CSS END -->
+    <style>
       /* -------  GLOBAL  ------- */
       html,
       body {
@@ -123,7 +239,24 @@
         font-family: "Inter", sans-serif;
         background: #000; /* full‑black like the mock‑up */
         color: #fff;
-      }      /* top nav  */
+      }
+
+      /* #loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        color: #fff;
+        font-size: 20px;
+      } */ /* Style moved and merged above for new loader */
+
+      /* top nav  */
       .top-nav {
         display: flex;
         gap: 32px;
@@ -131,12 +264,6 @@
         border-bottom: 1px solid #222;
         font-size: 14px;
         letter-spacing: 0.02em;
-        justify-content: space-between;
-        align-items: center;
-      }
-      .top-nav-left {
-        display: flex;
-        gap: 32px;
       }
       .top-nav span {
         cursor: pointer;
@@ -144,28 +271,6 @@
       }
       .top-nav span:hover {
         color: #50a7ff;
-      }
-      
-      /* OmniParser status indicator */
-      .omniparser-status {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 12px;
-      }
-      .status-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background-color: #666;
-        transition: background-color 0.3s ease;
-      }
-      .status-dot.ready {
-        background-color: #fff;
-        box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
-      }
-      .status-dot.error {
-        background-color: #ff4444;
       }
 
       /* main grid  */
@@ -346,46 +451,34 @@
     </style>
   </head>
 
-  <body>    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loadingOverlay"><div class="loading-wrapper">
-        <ul class="loading-grid">
-          <li class="loading-square"></li>
-          <li class="loading-square"></li>
-          <li class="loading-square"></li>
-          <li class="loading-square"></li>
-          <li class="loading-square"></li>
-          <li class="loading-square"></li>
-          <li class="loading-square"></li>
-          <li class="loading-square"></li>
-          <li class="loading-square"></li>
-          <li class="loading-square"></li>
-          <li class="loading-square"></li>
-          <li class="loading-square"></li>
-          <li class="loading-square"></li>
-          <li class="loading-square"></li>
-          <li class="loading-square"></li>
-          <li class="loading-square"></li>
-          <li class="loading-square"></li>
-          <li class="loading-square"></li>
-          <li class="loading-square"></li>
-          <li class="loading-square"></li>
-          <li class="loading-square"></li>
-          <li class="loading-square"></li>
-          <li class="loading-square"></li>
-          <li class="loading-square"></li>          <li class="loading-square"></li>        </ul>
-        <div class="loading-text">Starting Automoy...</div>
-      </div>
+  <body>
+    <div id="loading-screen">
+        <!-- NEW LOADER HTML START -->
+        <div class="loading-container">
+            <div class="dot-animation-area" id="dotAnimationArea">
+                <div id="livingCenterDot"></div>
+                <div class="dot dot-tl" id="dot-tl"></div>
+                <div class="dot dot-tm" id="dot-tm"></div>
+                <div class="dot dot-tr" id="dot-tr"></div>
+                <div class="dot dot-ml" id="dot-ml"></div>
+                <div class="dot dot-mr" id="dot-mr"></div>
+                <div class="dot dot-bl" id="dot-bl"></div>
+                <div class="dot dot-bm" id="dot-bm"></div>
+                <div class="dot dot-br" id="dot-br"></div>
+            </div>
+            <div class="loading-text-container">
+                <div id="loadingText"></div>
+                <div id="subText">Stand by...</div>
+            </div>
+        </div>
+        <!-- NEW LOADER HTML END -->
     </div>
 
     <!-- ========= NAV ========= -->
     <div class="top-nav">
-      <div class="top-nav-left">
-        <span>Help</span><span>Configuration</span><span>Settings</span>
-      </div>
-      <div class="omniparser-status">
-        <div class="status-dot" id="omniparserStatusDot"></div>
-        <span id="omniparserStatusText">OmniParser</span>
-      </div>
+      <button id="pauseButton" class="pause-btn">
+        <img id="pauseIcon" class="pause-btn img" src="/static/icons/pause.svg" alt="Pause">
+      </button>
     </div>
 
     <!-- ========= LAYOUT ========= -->
@@ -394,108 +487,175 @@
       <div class="left-panel">
         <!-- branding -->
         <div class="logo-title-row">
-          <img src="/static/imgs/logo.png" alt="Logo" class="logo-img" />
-          <span class="title-separator"></span>
-          <h1 class="main-title">Automoy</h1>
+          <img class="logo-img" src="/static/icons/logo.png" alt="Automoy Logo">
+          <span class="main-title">Automoy V2</span>
         </div>
 
         <!-- User Goal Display -->
+        <div class="objective-display">
+            <h3>Objective</h3>
+            <div id="userGoalDisplay">No goal set</div>
+            <div id="formulatedObjectiveDisplay">No objective formulated</div>
+            <form id="goalForm" class="objective-form">
+                <input id="goalInput" type="text" placeholder="Enter your goal" />
+                <button type="submit" class="send-btn">Send</button>
+            </form>
+        </div>
         <div class="reasoning-section">
-            <div class="reasoning-label">User Goal:</div>
-            <span id="userGoalDisplay">Enter your goal below and press Send.</span>
+            <div class="reasoning-block">
+                <span class="reasoning-label">Visual Analysis</span>
+                <span id="visualAnalysisDisplay">Waiting for visual analysis...</span>
+            </div>
+            <div class="reasoning-block">
+                <span class="reasoning-label">Thinking Process</span>
+                <span id="thinkingProcessDisplay">Waiting for thinking process...</span>
+            </div>
         </div>
-
-        <!-- Formulated Objective Display -->
-        <div class="reasoning-section" style="margin-top: 16px;">
-            <div class="reasoning-label">AI Formulated Objective:</div>
-            <span id="formulatedObjectiveDisplay">Waiting for AI...</span>
-        </div>
-        
-        <div class="reasoning-block" style="margin-top: 24px;">
-          <div class="reasoning-section">
-            <div class="reasoning-label">Visual Analysis:</div>
-            <span id="visualAnalysisDisplay">Waiting for visual analysis...</span>
-          </div>
-          <div class="reasoning-section">
-            <div class="reasoning-label">Thinking Process:</div>
-            <span id="thinkingProcessDisplay">Waiting for thinking process...</span>
-          </div>
-          <div class="reasoning-section">
-            <div class="reasoning-label">Steps Generated:</div>
+        <div class="operation-section">
+            <h3>Steps</h3>
             <ul id="stepsGeneratedList">
-              <li>No steps generated yet.</li>
+                <li>Waiting for steps...</li>
             </ul>
-          </div>          <div class="reasoning-section">
-            <div class="reasoning-label">Operations Generated:</div>
-            <pre id="operationsGeneratedText">Waiting for operations...</pre>
-          </div>
-
-          <div class="reasoning-section">
-            <div class="reasoning-label">LLM Stream:</div>
-            <span id="llmStreamContent">No stream content.</span>
-          </div>
-
         </div>
-
-        <!-- Goal Input Form -->
-        <form id="goalForm" class="objective-form">
-          <input
-            type="text"
-            id="goalInput"
-            placeholder="Enter your goal..."
-          />
-          <button type="submit" class="send-btn">&#10148;</button>
-        </form>
-        <!-- <div id="coordsDisplay" class="coords-display">Coords: N/A</div> -->
       </div>
 
       <!-- RIGHT PANEL -->
       <div class="right-panel">
-        <div class="spatial-title">Spatial Analysis</div>
+        <h3>Screenshot</h3>
         <div class="screenshot-container">
-          <div
-            id="screenshotPlaceholder"
-            class="coords-display"
-            style="display:flex;align-items:center;justify-content:center;flex:1;color:#666;font-size:18px;"
-          >
-            Waiting for frame
-          </div>
-          <img
-            id="screenshotImage"
-            class="screenshot-img"
-            src=""
-            alt="Processed Screenshot"
-            style="display:none; max-width:100%; max-height:100%;"
-            onload="console.log('Screenshot loaded')"
-            onerror="console.error('Screenshot failed to load')"
-          />
+            <img id="rawScreenshotImage" class="screenshot-img" src="/automoy_current.png" alt="Raw Screenshot">
+            <img id="processedScreenshotImage" class="screenshot-img" src="/processed_screenshot.png" alt="Processed Screenshot">
         </div>
-
-        <div class="operation-row">
-          <div class="operation-status">
-          <div class="operation-label">Current:</div>
-          <span id="currentOperationDisplay">Idle</span>
+        <div class="current-op">
+            <h3>Current Operation</h3>
+            <div id="currentOperationDisplay">No operation active.</div>
         </div>
-        <div class="operation-status">
-          <div class="operation-label">Past:</div>
-          <span id="pastOperationDisplay">None</span>
+        <div class="operations-section">
+            <h3>Operations Log</h3>
+            <pre id="operationsGeneratedText">Waiting for operations...</pre>
         </div>
-        <!-- LLM Query, Response, Execution Result (Optional) -->
-        <!-- These can be added if detailed LLM interaction display is needed -->
-        <!-- <div class="operation-status">
-          <div class="operation-label">LLM Query:</div>
-          <span id="llmQueryDisplay"></span>
-        </div>
-        <div class="operation-status">
-          <div class="operation-label">LLM Response:</div>
-          <span id="llmResponseDisplay"></span>
-        </div>
-        <div class="operation-status">
-          <div class="operation-label">Execution Result:</div>
-          <span id="executionResultDisplay"></span>
-        </div> -->        <div class="pause-btn" id="pauseButton" title="Toggle Pause/Resume">
-            <img id="pauseIcon" src="/static/imgs/pause_button.png" alt="Pause" />        </div>
       </div>
-    </div>    <script src="/static/script.js"></script>
+    </div>
+    <script src="/static/script.js"></script>
+    <script>
+        function hideLoadingScreen() {
+            const loadingScreen = document.getElementById('loading-screen');
+            if (loadingScreen) {
+                loadingScreen.style.display = 'none';
+            }
+        }
+        // Any other existing JS or script tags would be here
+    </script>
+    <!-- NEW LOADER SCRIPT START -->
+    <script>
+        (function() { // IIFE to scope variables
+            const loadingScreenElement = document.getElementById('loading-screen');
+            const loadingTextElement = document.getElementById('loadingText');
+            const subTextElement = document.getElementById('subText');
+            
+            const dots = {
+                tl: document.getElementById('dot-tl'), tm: document.getElementById('dot-tm'), tr: document.getElementById('dot-tr'),
+                ml: document.getElementById('dot-ml'), mr: document.getElementById('dot-mr'),
+                bl: document.getElementById('dot-bl'), bm: document.getElementById('dot-bm'), br: document.getElementById('dot-br')
+            };
+            const dotKeys = Object.keys(dots);
+
+            const mainMessages = [
+                "SYSTEM ONLINE", "AWAITING COMMAND", "TARGETING",
+                "PROCESSING DATA", "STANDBY", "EXECUTE"
+            ];
+            const subMessages = [
+                "Core functions active...", "Listening for input...", "Acquiring telemetry...",
+                "Information stream active...", "Holding pattern...", "Action initiated."
+            ];
+
+            let currentMessageIndex = 0;
+            let charIndex = 0;
+            let currentText = '';
+            let isDeleting = false;
+            
+            let currentThemeIsLight = false; // Start with dark theme
+            if (loadingScreenElement) { // Ensure #loading-screen is dark initially
+                 loadingScreenElement.classList.remove('light-theme');
+            }
+
+            function runLoaderAnimation() {
+                if (!loadingScreenElement || loadingScreenElement.style.display === 'none' || !loadingTextElement || !subTextElement) {
+                    // If loader is hidden or essential elements are missing, stop.
+                    if (!loadingTextElement || !subTextElement) console.error("Loader text elements not found.");
+                    return; 
+                }
+
+                const fullMainText = mainMessages[currentMessageIndex % mainMessages.length];
+                
+                if (!isDeleting && charIndex === 0) { 
+                    currentThemeIsLight = !currentThemeIsLight; 
+                    if (loadingScreenElement) {
+                        loadingScreenElement.classList.toggle('light-theme', currentThemeIsLight);
+                    }
+                    
+                    subTextElement.textContent = subMessages[currentMessageIndex % subMessages.length];
+                    loadingTextElement.classList.add('glitch');
+
+                    dotKeys.forEach(key => {
+                        const dotElement = dots[key];
+                        if (dotElement) {
+                            dotElement.classList.remove(`dot-${key}-contract`);
+                            void dotElement.offsetWidth; 
+                            dotElement.classList.add(`dot-${key}-expand`);
+                        }
+                    });
+                }
+
+                if (isDeleting) {
+                    currentText = fullMainText.substring(0, charIndex - 1);
+                    charIndex--;
+                } else {
+                    currentText = fullMainText.substring(0, charIndex + 1);
+                    charIndex++;
+                }
+
+                const cursorSpan = `<span class="cursor">_</span>`;
+                loadingTextElement.innerHTML = currentText + (!isDeleting && charIndex < fullMainText.length ? cursorSpan : '');
+
+                let typeSpeed = isDeleting ? 50 : 100;
+
+                if (!isDeleting && charIndex === fullMainText.length) { 
+                    typeSpeed = 2000; 
+                    isDeleting = true;
+                    loadingTextElement.classList.remove('glitch');
+                    loadingTextElement.innerHTML = currentText; 
+                } else if (isDeleting && charIndex === 0) { 
+                    isDeleting = false;
+                    currentMessageIndex++;
+                    typeSpeed = 500; 
+
+                    dotKeys.forEach(key => {
+                        const dotElement = dots[key];
+                        if (dotElement) {
+                            dotElement.classList.remove(`dot-${key}-expand`);
+                            void dotElement.offsetWidth; 
+                            dotElement.classList.add(`dot-${key}-contract`);
+                        }
+                    });
+                }
+                
+                setTimeout(runLoaderAnimation, typeSpeed);
+            }
+            
+            if (loadingScreenElement && loadingTextElement && subTextElement) {
+                dotKeys.forEach(key => {
+                    const dotElement = dots[key];
+                    if (dotElement) {
+                        dotElement.classList.remove(`dot-${key}-expand`, `dot-${key}-contract`);
+                    }
+                });
+                setTimeout(runLoaderAnimation, 600);
+            } else {
+                console.error("Could not start loader animation - essential elements missing.");
+            }
+        })();
+    </script>
+    <!-- NEW LOADER SCRIPT END -->
   </body>
 </html>

@@ -20,7 +20,6 @@ class AutomoyStatus(Enum):
     PAUSED = "paused"
     COMPLETED = "completed"
     ERROR = "error"
-    FAILED = "failed"
     STOPPED = "stopped"
 
 

@@ -1,6 +1,7 @@
 import os
 import sys
 import pathlib
+from pathlib import Path
 import json
 print(f"[GUI_LOAD] gui.py script started. Python version: {sys.version}", flush=True) # Very early print
 
@@ -75,9 +76,60 @@ import logging
 import logging.handlers
 import sys
 import argparse # ADDED
+import config.config as app_config
 
 print(f"[GUI_LOAD] Imports completed.", flush=True)
 
+# --- Pydantic Models ---
+class GoalData(BaseModel):    
+    goal: str
+
+class ObjectiveData(BaseModel):    
+    objective: str
+
+class LogMessage(BaseModel):
+    message: str
+    level: str = "INFO"
+
+class StateUpdateText(BaseModel):
+    text: str
+
+class StateUpdateSteps(BaseModel):
+    steps: List[str] # This was List[str] before, but /state/steps_generated endpoint now expects List[Dict[str, Any]]
+                    # Let's keep it List[str] here if it's for a different purpose or update if it's for the same.
+                    # For now, assuming it might be used by a different, simpler text-based step update.
+                    # If it's for the same endpoint that now takes List[Dict], this model needs an update.
+
+class StateUpdateDict(BaseModel):    
+    json: Dict[str, Any] # Changed from json_data to json
+
+class LLMStreamChunk(BaseModel):
+    content: str
+    event_type: str # e.g., "thought", "action_json", "status"
+
+# New Pydantic models for updated endpoints
+class OperatorStatusUpdateRequest(BaseModel):
+    text: str # Changed from status to text to match core/operate.py
+
+class ScreenshotUpdateRequest(BaseModel):
+    path: str # Expecting a file path string
+
+class ProcessedScreenshotNotif(BaseModel):
+    # This can be an empty model if it's just a notification
+    pass 
+
+class VisualAnalysisUpdateRequest(BaseModel):
+    text: str # Expecting the analysis string or error message
+
+# Model for the /state/steps_generated endpoint that expects a list of dictionaries
+class StateUpdateComplexSteps(BaseModel):
+    steps: List[Dict[str, Any]] 
+    error: Optional[str] = None
+
+# Model for the /state/operations_generated endpoint
+class StateUpdateOperations(BaseModel):
+    operations: List[Dict[str, Any]] 
+    thinking_process: Optional[str] = None
 
 # Add the parent directory to sys.path to resolve imports
 # sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) # This is redundant due to PROJECT_ROOT
@@ -176,48 +228,6 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static"), html=False, check_dir=True), name="static")
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
-# --- Pydantic Models ---
-class GoalData(BaseModel):    
-    goal: str
-
-class ObjectiveData(BaseModel):    
-    objective: str
-
-class LogMessage(BaseModel):
-    message: str
-    level: str = "INFO"
-
-class StateUpdateText(BaseModel):
-    text: str
-
-class StateUpdateSteps(BaseModel):
-    steps: List[Dict[str, Any]]  # Expecting a list of step objects (e.g. {"description": "..."})
-    error: Optional[str] = None
-
-class StateUpdateDict(BaseModel):    
-    json: Dict[str, Any]  # Changed from json_data to json
-
-class StateUpdateOperations(BaseModel):
-    operations: List[Dict[str, Any]]  # Expecting a list of operation objects
-    thinking_process: Optional[str] = None
-
-class LLMStreamChunk(BaseModel):
-    content: str
-    event_type: str  # e.g., "thought", "action_json", "status"
-
-class OperatorStatusUpdateRequest(BaseModel):
-    text: str  # Changed from status to text to match core/operate.py
-
-class ScreenshotUpdateRequest(BaseModel):
-    path: str  # Expecting a file path string
-
-class ProcessedScreenshotNotif(BaseModel):
-    # This can be an empty model if it's just a notification
-    pass 
-
-
-
-# --- Route Definitions ---
 @app.get("/health") # ADDED health check endpoint
 async def health_check():
     logger.info("[GUI /health] Health check endpoint called successfully.")
@@ -227,11 +237,8 @@ async def health_check():
 async def get_operator_state():
     logger.debug(f"[GUI /operator_state] Requested. Current state: user_goal='{current_user_goal}', formulated_objective='{current_formulated_objective}', operator_status='{operator_status}', is_paused={is_paused}")
     return {
-        "goal": current_user_goal,  # Changed from "user_goal" to "goal" to match main.py expectations
-        "user_goal": current_user_goal,  # Keep this for backward compatibility
+        "user_goal": current_user_goal,
         "formulated_objective": current_formulated_objective,
-        "objective": current_formulated_objective,  # Add this for main.py compatibility
-        "status": operator_status,  # Add this for main.py compatibility
         "operator_status": operator_status,
         "is_paused": is_paused,
         "current_visual_analysis": current_visual_analysis,
@@ -244,38 +251,30 @@ async def get_operator_state():
         "llm_stream_content": llm_stream_content 
     }
 
-@app.post("/set_goal")
-async def set_goal(data: GoalData):
-    global current_user_goal, current_formulated_objective, operator_status
-    logger.info(f"[GUI /set_goal] Received goal: {data.goal}")
-      # Update the global state
-    current_user_goal = data.goal
-    current_formulated_objective = ""  # Reset formulated objective when new goal is set
-    operator_status = "objective_set"
-    
-    # TODO: Here you would typically communicate with the core operator
-    # For now, we'll just update the local state and return success
-    # In a full implementation, you might:
-    # 1. Send the goal to the core operator via HTTP request
-    # 2. Or put the goal in a queue for the operator to pick up
-    # 3. Or use some other IPC mechanism
-    
-    logger.info(f"[GUI /set_goal] Goal set successfully: {data.goal}")
-    return {
-        "message": "Goal set successfully",
-        "goal": data.goal,
-        "formulated_objective": current_formulated_objective  # Return empty for now
-    }
-
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     print("[GUI FastAPI] Root path / requested. Serving index.html.", flush=True)
     return templates.TemplateResponse("index.html", {"request": request})
 
+@app.post("/set_goal")
+async def set_goal(data: GoalData):
+    global current_user_goal, operator_status, current_formulated_objective
+    logger.info(f"[GUI /set_goal] Received new goal: {data.goal}")
+    current_user_goal = data.goal
+    operator_status = "Processing Goal" # Or some other initial status
+    current_formulated_objective = "" # Clear previous formulated objective
+    # Potentially trigger some backend processing if needed immediately
+    # For now, main.py's loop will pick up this new goal via /operator_state
+    return {
+        "message": "Goal received successfully", 
+        "goal": current_user_goal,
+        "operator_status": operator_status
+    }
+
 # --- Global state for Automoy GUI ---
 current_user_goal: str = "" # User's direct input
 current_formulated_objective: str = "" # LLM-generated objective
-operator_status: str = "idle" # idle, running, paused, error
+operator_status: str = "Idle" # Idle, Running, Paused, Error
 gui_log_messages: List[str] = [] # For general logs in GUI
 
 # New state variables for multi-stage reasoning display
@@ -294,21 +293,39 @@ is_paused: bool = False
 # Queue for SSE LLM stream updates
 llm_stream_queue = asyncio.Queue()
 
+
 @app.post("/state/visual")
 async def update_visual_state(data: StateUpdateText):
     global current_visual_analysis
-    logger.info(f"[GUI /state/visual] Received visual analysis update: {data.text[:100]}...")
+    print(f"[GUI /state/visual] Received visual analysis update: {data.text[:100]}...", flush=True)
     current_visual_analysis = data.text
     return {"message": "Visual analysis state updated"}
 
 @app.post("/state/thinking") # Added endpoint
 async def update_thinking_state(data: StateUpdateText):
     global current_thinking_process
-    logger.info(f"[GUI /state/thinking] Received thinking process update: {data.text[:100]}...")
+    print(f"[GUI /state/thinking] Received thinking process update: {data.text[:100]}...", flush=True)
     current_thinking_process = data.text
     return {"message": "Thinking process state updated"}
 
+@app.post("/state/steps_generated") # Added endpoint
+async def update_steps_state(data: StateUpdateComplexSteps): # Changed to use StateUpdateComplexSteps
+    global current_steps_generated
+    logger.info(f"[GUI /state/steps_generated] Received steps update: {len(data.steps)} steps. Error: {data.error}")
+    if data.error:
+        current_steps_generated = [{"description": f"Error generating steps: {data.error}"}] 
+    else:
+        current_steps_generated = data.steps 
+    return {"message": "Steps generated state updated"}
 
+@app.post("/state/operations_generated") # Added endpoint
+async def update_operations_state(data: StateUpdateOperations): # Changed to use StateUpdateOperations
+    global current_operations_generated, current_thinking_process
+    logger.info(f"[GUI /state/operations_generated] Received operations update: {data.operations}") 
+    current_operations_generated = {"operations": data.operations} 
+    if data.thinking_process:
+        current_thinking_process = data.thinking_process 
+    return {"message": "Operations generated state updated"}
 
 @app.post("/state/current_operation") # Added endpoint
 async def update_current_operation_state(data: StateUpdateText):
@@ -364,28 +381,28 @@ async def update_screenshot_state(payload: ScreenshotUpdateRequest): # MODIFIED 
     return {"message": "Raw screenshot path received and copied to static/automoy_current.png"}
 
 @app.post("/state/screenshot_processed")
-async def screenshot_processed_notification(_: ProcessedScreenshotNotif):
-    global processed_screenshot_available
+async def screenshot_processed_notification(_: ProcessedScreenshotNotif): # MODIFIED to use Pydantic model
+    global processed_screenshot_available # REMOVED window_global_ref
     processed_screenshot_available = True
-    logger.info("[GUI /state/screenshot_processed] Processed screenshot notification received.")
-    
-    # Copy processed screenshot from core directory to GUI static directory
-    try:
-        source_path = Path(PROJECT_ROOT) / PROCESSED_SCREENSHOT_PATH_FROM_ROOT
-        dest_path = Path(BASE_DIR) / "static" / "processed_screenshot.png"
-        
-        if source_path.exists():
-            import shutil
-            shutil.copy2(str(source_path), str(dest_path))
-            logger.info(f"[GUI /state/screenshot_processed] Copied processed screenshot from {source_path} to {dest_path}")
-        else:
-            logger.warning(f"[GUI /state/screenshot_processed] Source processed screenshot not found at {source_path}")
-    except Exception as e:
-        logger.error(f"[GUI /state/screenshot_processed] Error copying processed screenshot: {e}", exc_info=True)
-    
+    logger.info("[GUI /state/screenshot_processed] Processed screenshot notification received.") # Simplified log
+    # REMOVED JS evaluation call
+    # if window_global_ref:
+    #     try:
+    #         js_command = "if (typeof refreshScreenshot === 'function') { refreshScreenshot('processed'); console.log('[GUI /state/screenshot_processed] JS refreshScreenshot(\\'processed\\') called.'); } else { console.error('[GUI /state/screenshot_processed] refreshScreenshot function not defined in JS.'); }"
+    #         window_global_ref.evaluate_js(js_command)
+    #         logger.info(f"[GUI /state/screenshot_processed] Executed JS command: {js_command}")
+    #     except Exception as e:
+    #         logger.error(f"[GUI /state/screenshot_processed][ERROR] Failed to execute JS for screenshot refresh: {e}")
+    # else:
+    #     logger.warning("[GUI /state/screenshot_processed][WARN] window_global_ref not available to trigger JS screenshot refresh.")
     return {"message": "Processed screenshot notification received"}
 
-
+@app.post("/state/visual_analysis") # ADDED (or corrected if it was /state/visual before)
+async def update_visual_analysis_state(data: VisualAnalysisUpdateRequest): # MODIFIED
+    global current_visual_analysis
+    logger.info(f"[GUI /state/visual_analysis] Received visual analysis update: {data.text[:100]}...") # MODIFIED
+    current_visual_analysis = data.text # MODIFIED
+    return {"message": "Visual analysis state updated"}
 
 @app.post("/state/operator_status")
 async def update_operator_status(data: OperatorStatusUpdateRequest): # MODIFIED
@@ -412,56 +429,66 @@ async def get_current_screenshot(request: Request):
         raise HTTPException(status_code=404, detail="Raw screenshot (static/automoy_current.png) not found.")
     return FileResponse(str(raw_screenshot_static_path), media_type="image/png", headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
-@app.post("/state/steps_generated")
-async def update_steps_state(data: StateUpdateSteps): # Using the correctly defined StateUpdateSteps model
-    global current_steps_generated
-    logger.info(f"[GUI /state/steps_generated] Received steps update: {len(data.steps)} steps. Error: {data.error}")
-    if data.error:
-        current_steps_generated = [{"description": f"Error generating steps: {data.error}"}] # Show error as a step
-    else:
-        current_steps_generated = data.steps # Store the list of step objects
-    return {"message": "Steps generated state updated"}
+# --- SSE endpoint for streaming operator state updates ---
+@app.get("/stream_operator_updates")
+async def stream_operator_updates():
+    """Server-Sent Events endpoint to stream real-time operator state to the frontend"""
+    async def event_generator():
+        while True:
+            # Prepare comprehensive state snapshot
+            state = {
+                "user_goal": current_user_goal,
+                "formulated_objective": current_formulated_objective,
+                "operator_status": operator_status,
+                "is_paused": is_paused,
+                "current_visual_analysis": current_visual_analysis,
+                "current_thinking_process": current_thinking_process,
+                "current_steps_generated": current_steps_generated,
+                "current_operations_generated": current_operations_generated,
+                "current_operation_display": current_operation_display,
+                "past_operation_display": past_operation_display,
+                "processed_screenshot_available": processed_screenshot_available,
+                "llm_stream_content": llm_stream_content
+            }
+            yield f"data: {json.dumps(state, default=str)}\n\n"
+            await asyncio.sleep(0.5)  # adjust interval as needed
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
-@app.post("/state/operations_generated") 
-async def update_operations_state(data: StateUpdateOperations): # Using the correctly defined StateUpdateOperations model
-    global current_operations_generated, current_thinking_process
-    logger.info(f"[GUI /state/operations_generated] Received operations update: {data.operations}")
-    logger.info(f"[GUI /state/operations_generated] Thinking process: {data.thinking_process}")
-    logger.info(f"[GUI /state/operations_generated] Raw data: {data}")
-    
-    current_operations_generated = {"operations": data.operations} # Store as a dict with 'operations' key as expected by JS
-    if data.thinking_process:
-        current_thinking_process = data.thinking_process # Update thinking process if provided
-    
-    logger.info(f"[GUI /state/operations_generated] Updated current_operations_generated: {current_operations_generated}")
-    return {"message": "Operations generated state updated"}
+# Ensure other state update endpoints or comments follow
+# class StateUpdateSteps(BaseModel):
+#     steps: List[Dict[str, Any]] # Expecting a list of step objects (e.g. {"description": "..."})
+#     error: Optional[str] = None
 
-@app.post("/set_formulated_objective")
-async def set_formulated_objective(data: dict):
-    global current_formulated_objective
-    formulated_objective = data.get("objective", "")
-    logger.info(f"[GUI /set_formulated_objective] Received formulated objective: {formulated_objective}")
-    current_formulated_objective = formulated_objective
-    return {"message": "Formulated objective updated"}
+# @app.post("/state/steps_generated")
+# async def update_steps_state(data: StateUpdateSteps): # Corrected from List[str] to List[Dict[str,Any]]
+#     global current_steps_generated
+#     logger.info(f"[GUI /state/steps_generated] Received steps update: {len(data.steps)} steps. Error: {data.error}")
+#     if data.error:
+#         current_steps_generated = [{"description": f"Error generating steps: {data.error}"}] # Show error as a step
+#     else:
+#         current_steps_generated = data.steps # Store the list of step objects
+#     return {"message": "Steps generated state updated"}
 
-@app.get("/config")
-async def get_config():
-    """Endpoint to expose configuration to frontend"""
-    logger.debug("[GUI /config] Configuration requested")
-    # Import config here to avoid circular imports
-    from config.config import app_config
-    return {
-        "OMNIPARSER_PORT": app_config.OMNIPARSER_PORT,
-        "GUI_HOST": app_config.GUI_HOST, 
-        "GUI_PORT": app_config.GUI_PORT
-    }
+# Ensure StateUpdateDict for /state/operations_generated is appropriate
+# class StateUpdateOperations(BaseModel):
+#     operations: List[Dict[str, Any]] # Expecting a list of operation objects
+#     thinking_process: Optional[str] = None
+
+# @app.post("/state/operations_generated") 
+# async def update_operations_state(data: StateUpdateOperations): # MODIFIED to use new Pydantic model
+#     global current_operations_generated, current_thinking_process
+#     logger.info(f"[GUI /state/operations_generated] Received operations update: {data.operations}")
+#     current_operations_generated = {"operations": data.operations} # Store as a dict with 'operations' key as expected by JS
+#     if data.thinking_process:
+#         current_thinking_process = data.thinking_process # Update thinking process if provided
+#     return {"message": "Operations generated state updated"}
 
 # ADDED main execution block
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Automoy GUI FastAPI Server")
-    parser.add_argument("--host", type=str, default="127.0.0.1", help="Host for the server")
-    parser.add_argument("--port", type=int, default=8000, help="Port for the server")
+    parser = argparse.ArgumentParser(description="Run FastAPI GUI server")
+    parser.add_argument("--host", default="127.0.0.1", help="Host for the GUI server")
+    parser.add_argument("--port", type=int, default=8000, help="Port for the GUI server")
     args = parser.parse_args()
-
-    logger.info(f"Starting Uvicorn server for Automoy GUI on http://{args.host}:{args.port}")
-    uvicorn.run(app, host=args.host, port=args.port, log_level="info", access_log=True)
+    import uvicorn
+    uvicorn.run("gui:app", host=args.host, port=args.port, log_level="info")
+# End of main execution block

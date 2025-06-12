@@ -7,9 +7,9 @@ import sys
 from .omniparser_interface import OmniParserInterface
 
 class OmniParserServerManager:
-    def __init__(self, server_url="http://localhost:8111"):
+    def __init__(self):
         # This interface instance is used for launching and checking the server.
-        self._interface = OmniParserInterface(server_url=server_url)
+        self._interface = OmniParserInterface()
         # self.server_process will be populated by the interface's launch_server method
         # if this manager instance successfully starts the server.
         self.server_process = None

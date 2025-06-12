@@ -126,9 +126,10 @@ async def call_lmstudio_model(messages, objective, model):
                 else:
                     print(f"[LMStudio stream] {decoded_line}")
             print("\n[DEBUG] Full Response Received:", full_response)
-              # --- Attempt to extract and parse JSON action --- 
+            
+            # --- Attempt to extract and parse JSON action --- 
             if full_response:
-                # Try to find a JSON code block first
+                # Try to find a JSON code block
                 match = re.search(r"```json\s*([\s\S]*?)\s*```", full_response)
                 if match:
                     json_str = match.group(1).strip()
@@ -150,35 +151,7 @@ async def call_lmstudio_model(messages, objective, model):
                     except json.JSONDecodeError as e:
                         print(f"[ERROR] Failed to decode JSON from LMStudio response: {e}. Raw JSON string: {json_str}")
                 else:
-                    # If no markdown block, try to find JSON array or object directly in the response
-                    # Strip any thinking tags first
-                    cleaned_response = re.sub(r"<think>.*?</think>", "", full_response, flags=re.DOTALL | re.IGNORECASE).strip()
-                    
-                    # Look for JSON array pattern
-                    array_match = re.search(r'(\[.*?\])', cleaned_response, re.DOTALL)
-                    if array_match:
-                        json_str = array_match.group(1).strip()
-                        try:
-                            parsed_json = json.loads(json_str)
-                            if isinstance(parsed_json, list) and len(parsed_json) > 0:
-                                print(f"[DEBUG] Found JSON array in cleaned LMStudio response: {parsed_json}")
-                                return json.dumps(parsed_json) # Return as JSON string for consistency
-                        except json.JSONDecodeError as e:
-                            print(f"[ERROR] Failed to parse found JSON array: {e}")
-                    
-                    # Look for JSON object pattern
-                    obj_match = re.search(r'(\{.*?\})', cleaned_response, re.DOTALL)
-                    if obj_match:
-                        json_str = obj_match.group(1).strip()
-                        try:
-                            parsed_json = json.loads(json_str)
-                            if isinstance(parsed_json, dict):
-                                print(f"[DEBUG] Found JSON object in cleaned LMStudio response: {parsed_json}")
-                                return json.dumps([parsed_json]) # Wrap in array for consistency
-                        except json.JSONDecodeError as e:
-                            print(f"[ERROR] Failed to parse found JSON object: {e}")
-                    
-                    print("[DEBUG] No JSON code block or parseable JSON found in LMStudio response. Returning full response.")
+                    print("[DEBUG] No JSON code block found in LMStudio response. Returning full response.")
             # --- End JSON extraction attempt ---
 
             return full_response if full_response.strip() else "[ERROR] No valid response from the model."

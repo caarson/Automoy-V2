@@ -165,7 +165,7 @@ AUTOMOY_GUI_TITLE_PREFIX = _config_instance.get("AUTOMOY_GUI_TITLE_PREFIX", "Aut
 
 # --- OmniParser Configuration ---
 OMNIPARSER_HOST = _config_instance.get("OMNIPARSER_HOST", "127.0.0.1")
-OMNIPARSER_PORT = int(_config_instance.get("OMNIPARSER_PORT", 8111)) # Default, adjust if needed
+OMNIPARSER_PORT = int(_config_instance.get("OMNIPARSER_PORT", 8081)) # Default, adjust if needed
 OMNIPARSER_BASE_URL = f"http://{OMNIPARSER_HOST}:{OMNIPARSER_PORT}"
 
 # --- Main Loop Configuration ---

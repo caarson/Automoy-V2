@@ -50,10 +50,9 @@ def kill_process_on_port(port: int, host: str = "127.0.0.1") -> bool:
         # Find processes listening on the port
         listening_processes = []
         
-        for proc in psutil.process_iter(['pid', 'name']):
+        for proc in psutil.process_iter(['pid', 'name', 'connections']):
             try:
-                # Get connections separately to avoid attribute issues
-                connections = proc.connections()
+                connections = proc.info['connections']
                 if connections:
                     for conn in connections:
                         if (hasattr(conn, 'laddr') and 

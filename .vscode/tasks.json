@@ -1,20 +1,16 @@
 {
 	"version": "2.0.0",
 	"tasks": [
-	{
-		"label": "Run Automoy V2",
-		"type": "shell",
-		"command": "powershell.exe",
-		"args": [
-			"-Command",
-			".\\venv\\Scripts\\Activate.ps1; python core/main.py"
-		],
-		"group": "build",
-		"isBackground": true,
-		"problemMatcher": [],
-		"options": {
-			"cwd": "${workspaceFolder}"
+		{
+			"args": [
+				"core/main.py"
+			],
+			"command": "python",
+			"group": "build",
+			"isBackground": true,
+			"label": "Run Automoy V2",
+			"problemMatcher": [],
+			"type": "shell"
 		}
-	}
 	]
 }
