@@ -95,13 +95,32 @@ def is_cuda_available():
     # If the script prints a version, it's detected
     return "Final Detected CUDA version" in result.stdout or "✅ Detected CUDA version" in result.stdout or "✅ Found CUDA version" in result.stdout
 
+def has_nvidia_gpu():
+    """
+    Return True if an NVIDIA GPU is present.
+    """
+    # check for nvidia-smi on PATH
+    if shutil.which("nvidia-smi"):
+        return True
+    # fallback to WMI query
+    try:
+        output = subprocess.check_output(
+            'wmic path win32_VideoController get name', shell=True
+        ).decode(errors="ignore")
+        for line in output.splitlines():
+            if "NVIDIA" in line.upper():
+                return True
+    except Exception:
+        pass
+    return False
+
 def run_cuda_or_sycl_setup():
-    print("Checking for CUDA support...")
-    if is_cuda_available():
-        print("CUDA detected. Proceeding with CUDA installation...")
+    print("Checking for NVIDIA GPU...")
+    if has_nvidia_gpu():
+        print("NVIDIA GPU detected. Proceeding with CUDA installation...")
         run_cuda_setup()
     else:
-        print("CUDA not detected. Proceeding with SYCL/OpenCL installation...")
+        print("No NVIDIA GPU found. Proceeding with SYCL/OpenCL installation...")
         run_opencl_setup()
 
 def run_opencl_setup():

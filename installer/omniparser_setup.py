@@ -182,6 +182,29 @@ def apply_gpu_patches() -> None:
             startup.write_text(code, "utf-8")
             print("✅ Patched server_startup.py (fp16)")
 
+    # 5️⃣ Patch util/utils.py to skip initialize_weights and define numpy alias
+    utils_file = OMNIPARSER_DIR / "util" / "utils.py"
+    if utils_file.exists():
+        txt = utils_file.read_text("utf-8")
+        needs_patch = "# Patched by omniparser_setup" not in txt
+        if needs_patch:
+            patch = textwrap.dedent('''
+                # Patched by omniparser_setup.py: skip initialize_weights to avoid DaViT errors
+                try:
+                    import transformers
+                    transformers.PreTrainedModel.initialize_weights = lambda self, *args, **kwargs: None
+                except Exception:
+                    pass
+                # Ensure numpy is available for type hints
+                try:
+                    import numpy as np
+                except ImportError:
+                    pass
+            ''')
+            new_txt = patch + "\n" + txt
+            utils_file.write_text(new_txt, "utf-8")
+            print("✅ Patched util/utils.py to skip initialize_weights and import numpy")
+
     print("🎉 GPU patches complete.\n")
 
 # =============================================================================

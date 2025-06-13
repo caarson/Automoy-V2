@@ -3,9 +3,14 @@ import pathlib
 import os
 import subprocess
 import platform
+import importlib.util
 
-sys.path.append(str(pathlib.Path(__file__).parent.parent / "evaluations"))
-import check_cuda
+# Dynamically load evaluations/check_cuda.py as module 'check_cuda'
+script_dir = pathlib.Path(__file__).parent.resolve()
+eval_file = script_dir.parent / "evaluations" / "check_cuda.py"
+spec = importlib.util.spec_from_file_location("check_cuda", str(eval_file))
+check_cuda = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(check_cuda)
 
 # Define the project root
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -112,8 +117,25 @@ def install_pytorch(env_name="automoy_env"):
             conda_exe, "run", "-n", env_name, "pip", "install",
             "torch", "torchvision", "torchaudio", "--index-url", "https://download.pytorch.org/whl/cpu"
         ]
-    
-    subprocess.run(pytorch_command, check=True)
+    try:
+        subprocess.run(pytorch_command, check=True)
+    except subprocess.CalledProcessError:
+        print("⚠️ pip install failed. Falling back to conda-based installation...")
+        # Fallback: use conda install instead
+        if cuda_version:
+            cudatoolkit_pkg = f"cudatoolkit={cuda_version}"
+            conda_pkg_cmd = [
+                conda_exe, "run", "-n", env_name,
+                "conda", "install", "-y", "-c", "pytorch",
+                "pytorch", "torchvision", "torchaudio", cudatoolkit_pkg
+            ]
+        else:
+            conda_pkg_cmd = [
+                conda_exe, "run", "-n", env_name,
+                "conda", "install", "-y", "-c", "pytorch",
+                "pytorch", "torchvision", "torchaudio"
+            ]
+        subprocess.run(conda_pkg_cmd, check=True)
 
 def install_requirements(env_name="automoy_env"):
     """
