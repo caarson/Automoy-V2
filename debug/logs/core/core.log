@@ -12255,3 +12255,134 @@ NameError: name 'force_hide_loading_screen_immediately' is not defined
 2025-06-02 00:19:05,942 - Automoy - MainThread - INFO - Requesting PyWebview window destruction...
 2025-06-02 00:19:05,942 - Automoy - MainThread - INFO - PyWebview window destruction requested.
 2025-06-02 00:19:05,943 - Automoy - MainThread - INFO - Automoy cleanup sequence finished.
+2025-06-13 12:08:05,197 - Automoy - MainThread - INFO - Logging setup complete.
+2025-06-13 12:08:05,197 - Automoy - MainThread - DEBUG - Script execution started in __main__ block. Main thread ID: 28956
+2025-06-13 12:08:06,203 - Automoy - MainThread - INFO - Starting GUI subprocess: C:\Users\imitr\anaconda3\envs\automoy_env\python.exe -u c:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\gui\gui.py --host 127.0.0.1 --port 8001
+2025-06-13 12:08:07,229 - Automoy - MainThread - INFO - GUI is healthy and responsive.
+2025-06-13 12:08:07,230 - Automoy - MainThread - INFO - PyWebview window 'Automoy GUI @ http://127.0.0.1:8001' created successfully. Loading screen should be visible.
+2025-06-13 12:08:07,230 - Automoy - MainThread - INFO - GUI process started and PyWebview window object created.
+2025-06-13 12:08:07,231 - Automoy - MainThread - INFO - Starting asyncio operations in a separate thread...
+2025-06-13 12:08:07,232 - Automoy - AsyncioOperationsThread - INFO - Async operations thread started.
+2025-06-13 12:08:07,232 - Automoy - MainThread - INFO - Starting PyWebview event loop on the main thread... (This will block)
+2025-06-13 12:08:07,233 - Automoy - AsyncioOperationsThread - DEBUG - main_async_operations() coroutine entered.
+2025-06-13 12:08:07,233 - Automoy - AsyncioOperationsThread - INFO - Initializing OmniParser interface for URL: http://localhost:8081
+2025-06-13 12:08:07,234 - Automoy - AsyncioOperationsThread - INFO - Checking OmniParser server status...
+2025-06-13 12:08:11,492 - Automoy - AsyncioOperationsThread - INFO - OmniParser server not detected at http://localhost:8081. Attempting to launch...
+2025-06-13 12:08:11,563 - Automoy - AsyncioOperationsThread - ERROR - Failed to launch or confirm OmniParser server readiness on port 8081.
+2025-06-13 12:08:11,564 - Automoy - AsyncioOperationsThread - INFO - OmniParser ready. Hiding loading screen and applying zoom via PyWebview JS evaluation...
+2025-06-13 12:08:11,566 - Automoy - AsyncioOperationsThread - INFO - Loading screen hidden and zoom applied.
+2025-06-13 12:08:11,567 - Automoy - AsyncioOperationsThread - INFO - AutomoyOperator initialized.
+2025-06-13 12:08:12,571 - Automoy - AsyncioOperationsThread - DEBUG - Request to change GUI visibility to: visible
+2025-06-13 12:08:12,571 - Automoy - AsyncioOperationsThread - INFO - Showing PyWebview window via Python API.
+2025-06-13 12:08:12,573 - Automoy - AsyncioOperationsThread - DEBUG - GUI visibility change requested to: visible
+2025-06-13 12:08:12,573 - Automoy - AsyncioOperationsThread - INFO - Initial GUI visibility set to True (attempted).
+2025-06-13 12:08:12,573 - Automoy - AsyncioOperationsThread - INFO - Waiting for user to set a goal via the GUI...
+2025-06-13 12:08:33,900 - Automoy - MainThread - INFO - PyWebview event loop finished.
+2025-06-13 12:08:33,900 - Automoy - MainThread - INFO - Main thread's PyWebview loop has ended. Initiating final cleanup sequence...
+2025-06-13 12:08:33,900 - Automoy - MainThread - INFO - Main thread explicitly signaling stop_event for async operations post-webview.
+2025-06-13 12:08:33,901 - Automoy - MainThread - INFO - Waiting for asyncio operations thread to complete...
+2025-06-13 12:08:34,444 - Automoy - AsyncioOperationsThread - INFO - main_async_operations() finished or was stopped.
+2025-06-13 12:08:34,444 - Automoy - AsyncioOperationsThread - INFO - Shutting down asyncio event loop in async thread...
+2025-06-13 12:08:34,445 - Automoy - AsyncioOperationsThread - INFO - Closing asyncio event loop...
+2025-06-13 12:08:34,445 - Automoy - AsyncioOperationsThread - INFO - Asyncio event loop closed.
+2025-06-13 12:08:34,445 - Automoy - AsyncioOperationsThread - INFO - Async operations thread finished.
+2025-06-13 12:08:34,446 - Automoy - MainThread - INFO - Asyncio operations thread has completed.
+2025-06-13 12:08:34,446 - Automoy - MainThread - INFO - Automoy application shutdown complete.
+2025-06-13 12:08:38,974 - Automoy - MainThread - INFO - Initiating Automoy cleanup...
+2025-06-13 12:08:38,974 - Automoy - MainThread - INFO - Requesting PyWebview window destruction...
+2025-06-13 12:08:38,975 - Automoy - MainThread - INFO - PyWebview window destruction requested.
+2025-06-13 12:08:38,975 - Automoy - MainThread - INFO - Automoy cleanup sequence finished.
+2025-06-13 12:12:06,114 - Automoy - MainThread - INFO - Logging setup complete.
+2025-06-13 12:12:06,115 - Automoy - MainThread - DEBUG - Script execution started in __main__ block. Main thread ID: 9788
+2025-06-13 12:12:06,115 - Automoy - MainThread - INFO - Port 8001 busy, killing existing process...
+2025-06-13 12:12:07,121 - Automoy - MainThread - INFO - Starting GUI subprocess: C:\Users\imitr\anaconda3\envs\automoy_env\python.exe -u c:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\gui\gui.py --host 127.0.0.1 --port 8001
+2025-06-13 12:12:07,141 - Automoy - MainThread - INFO - GUI is healthy and responsive.
+2025-06-13 12:12:07,142 - Automoy - MainThread - INFO - PyWebview window 'Automoy GUI @ http://127.0.0.1:8001' created successfully. Loading screen should be visible.
+2025-06-13 12:12:07,143 - Automoy - MainThread - INFO - GUI process started and PyWebview window object created.
+2025-06-13 12:12:07,143 - Automoy - MainThread - INFO - Starting asyncio operations in a separate thread...
+2025-06-13 12:12:07,143 - Automoy - AsyncioOperationsThread - INFO - Async operations thread started.
+2025-06-13 12:12:07,144 - Automoy - MainThread - INFO - Starting PyWebview event loop on the main thread... (This will block)
+2025-06-13 12:12:07,146 - Automoy - AsyncioOperationsThread - DEBUG - main_async_operations() coroutine entered.
+2025-06-13 12:12:07,146 - Automoy - AsyncioOperationsThread - INFO - Initializing OmniParser interface for URL: http://localhost:8081
+2025-06-13 12:12:07,148 - Automoy - AsyncioOperationsThread - INFO - Checking OmniParser server status...
+2025-06-13 12:12:11,174 - Automoy - AsyncioOperationsThread - INFO - OmniParser server not detected at http://localhost:8081. Attempting to launch...
+2025-06-13 12:12:11,231 - Automoy - AsyncioOperationsThread - ERROR - Failed to launch or confirm OmniParser server readiness on port 8081.
+2025-06-13 12:12:11,231 - Automoy - AsyncioOperationsThread - INFO - OmniParser ready. Hiding loading screen and applying zoom via PyWebview JS evaluation...
+2025-06-13 12:12:11,232 - Automoy - AsyncioOperationsThread - ERROR - Error hiding loading screen or applying zoom: {'name': 'ReferenceError', 'stack': 'ReferenceError: hideLoadingScreen is not defined\n    at eval (eval at <anonymous> (:4:29), <anonymous>:1:1)\n    at <anonymous>:4:29', 'message': 'hideLoadingScreen is not defined'}
+Traceback (most recent call last):
+  File "c:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\core\main.py", line 311, in main_async_operations
+    webview_window_global.evaluate_js("hideLoadingScreen(); document.body.style.zoom='80%';")
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\site-packages\webview\window.py", line 50, in wrapper
+    return function(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\site-packages\webview\window.py", line 487, in evaluate_js
+    raise JavascriptException(result)
+webview.errors.JavascriptException: {'name': 'ReferenceError', 'stack': 'ReferenceError: hideLoadingScreen is not defined\n    at eval (eval at <anonymous> (:4:29), <anonymous>:1:1)\n    at <anonymous>:4:29', 'message': 'hideLoadingScreen is not defined'}
+2025-06-13 12:12:11,235 - Automoy - AsyncioOperationsThread - INFO - AutomoyOperator initialized.
+2025-06-13 12:12:12,249 - Automoy - AsyncioOperationsThread - DEBUG - Request to change GUI visibility to: visible
+2025-06-13 12:12:12,249 - Automoy - AsyncioOperationsThread - INFO - Showing PyWebview window via Python API.
+2025-06-13 12:12:12,255 - Automoy - AsyncioOperationsThread - DEBUG - GUI visibility change requested to: visible
+2025-06-13 12:12:12,255 - Automoy - AsyncioOperationsThread - INFO - Initial GUI visibility set to True (attempted).
+2025-06-13 12:12:12,256 - Automoy - AsyncioOperationsThread - INFO - Waiting for user to set a goal via the GUI...
+2025-06-13 12:16:28,513 - Automoy - MainThread - INFO - PyWebview event loop finished.
+2025-06-13 12:16:28,513 - Automoy - MainThread - INFO - Main thread's PyWebview loop has ended. Initiating final cleanup sequence...
+2025-06-13 12:16:28,514 - Automoy - MainThread - INFO - Main thread explicitly signaling stop_event for async operations post-webview.
+2025-06-13 12:16:28,514 - Automoy - MainThread - INFO - Waiting for asyncio operations thread to complete...
+2025-06-13 12:16:28,902 - Automoy - AsyncioOperationsThread - INFO - main_async_operations() finished or was stopped.
+2025-06-13 12:16:28,903 - Automoy - AsyncioOperationsThread - INFO - Shutting down asyncio event loop in async thread...
+2025-06-13 12:16:28,903 - Automoy - AsyncioOperationsThread - INFO - Closing asyncio event loop...
+2025-06-13 12:16:28,905 - Automoy - AsyncioOperationsThread - INFO - Asyncio event loop closed.
+2025-06-13 12:16:28,905 - Automoy - AsyncioOperationsThread - INFO - Async operations thread finished.
+2025-06-13 12:16:28,906 - Automoy - MainThread - INFO - Asyncio operations thread has completed.
+2025-06-13 12:16:28,907 - Automoy - MainThread - INFO - Automoy application shutdown complete.
+2025-06-13 12:16:34,013 - Automoy - MainThread - INFO - Initiating Automoy cleanup...
+2025-06-13 12:16:34,014 - Automoy - MainThread - INFO - Requesting PyWebview window destruction...
+2025-06-13 12:16:34,015 - Automoy - MainThread - INFO - PyWebview window destruction requested.
+2025-06-13 12:16:34,015 - Automoy - MainThread - INFO - Automoy cleanup sequence finished.
+2025-06-13 12:18:49,037 - Automoy - MainThread - INFO - Logging setup complete.
+2025-06-13 12:18:49,037 - Automoy - MainThread - DEBUG - Script execution started in __main__ block. Main thread ID: 21940
+2025-06-13 12:18:49,038 - Automoy - MainThread - INFO - Port 8001 busy, killing existing process...
+2025-06-13 12:18:50,043 - Automoy - MainThread - INFO - Starting GUI subprocess: C:\Users\imitr\anaconda3\envs\automoy_env\python.exe -u c:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\gui\gui.py --host 127.0.0.1 --port 8001
+2025-06-13 12:18:50,058 - Automoy - MainThread - INFO - GUI is healthy and responsive.
+2025-06-13 12:18:50,059 - Automoy - MainThread - INFO - PyWebview window 'Automoy GUI @ http://127.0.0.1:8001' created successfully. Loading screen should be visible.
+2025-06-13 12:18:50,060 - Automoy - MainThread - INFO - GUI process started and PyWebview window object created.
+2025-06-13 12:18:50,060 - Automoy - MainThread - INFO - Starting asyncio operations in a separate thread...
+2025-06-13 12:18:50,061 - Automoy - AsyncioOperationsThread - INFO - Async operations thread started.
+2025-06-13 12:18:50,061 - Automoy - MainThread - INFO - Starting PyWebview event loop on the main thread... (This will block)
+2025-06-13 12:18:50,062 - Automoy - AsyncioOperationsThread - DEBUG - main_async_operations() coroutine entered.
+2025-06-13 12:18:50,062 - Automoy - AsyncioOperationsThread - INFO - Initializing OmniParser interface for URL: http://localhost:8081
+2025-06-13 12:18:50,063 - Automoy - AsyncioOperationsThread - INFO - Checking OmniParser server status...
+2025-06-13 12:18:54,091 - Automoy - AsyncioOperationsThread - INFO - OmniParser server not detected at http://localhost:8081. Attempting to launch...
+2025-06-13 12:18:54,159 - Automoy - AsyncioOperationsThread - ERROR - Failed to launch or confirm OmniParser server readiness on port 8081.
+2025-06-13 12:18:54,160 - Automoy - AsyncioOperationsThread - INFO - OmniParser ready. Hiding loading screen and applying zoom via PyWebview JS evaluation...
+2025-06-13 12:18:54,161 - Automoy - AsyncioOperationsThread - ERROR - Error hiding loading screen or applying zoom: {'name': 'ReferenceError', 'stack': 'ReferenceError: hideLoadingScreen is not defined\n    at eval (eval at <anonymous> (:4:29), <anonymous>:1:1)\n    at <anonymous>:4:29', 'message': 'hideLoadingScreen is not defined'}
+Traceback (most recent call last):
+  File "c:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\core\main.py", line 311, in main_async_operations
+    webview_window_global.evaluate_js("hideLoadingScreen(); document.body.style.zoom='80%';")
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\site-packages\webview\window.py", line 50, in wrapper
+    return function(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\imitr\anaconda3\envs\automoy_env\Lib\site-packages\webview\window.py", line 487, in evaluate_js
+    raise JavascriptException(result)
+webview.errors.JavascriptException: {'name': 'ReferenceError', 'stack': 'ReferenceError: hideLoadingScreen is not defined\n    at eval (eval at <anonymous> (:4:29), <anonymous>:1:1)\n    at <anonymous>:4:29', 'message': 'hideLoadingScreen is not defined'}
+2025-06-13 12:18:54,164 - Automoy - AsyncioOperationsThread - INFO - AutomoyOperator initialized.
+2025-06-13 12:18:55,164 - Automoy - AsyncioOperationsThread - DEBUG - Request to change GUI visibility to: visible
+2025-06-13 12:18:55,164 - Automoy - AsyncioOperationsThread - INFO - Showing PyWebview window via Python API.
+2025-06-13 12:18:55,169 - Automoy - AsyncioOperationsThread - DEBUG - GUI visibility change requested to: visible
+2025-06-13 12:18:55,169 - Automoy - AsyncioOperationsThread - INFO - Initial GUI visibility set to True (attempted).
+2025-06-13 12:18:55,170 - Automoy - AsyncioOperationsThread - INFO - Waiting for user to set a goal via the GUI...
+2025-06-13 12:19:21,747 - Automoy - MainThread - INFO - PyWebview event loop finished.
+2025-06-13 12:19:21,747 - Automoy - MainThread - INFO - Main thread's PyWebview loop has ended. Initiating final cleanup sequence...
+2025-06-13 12:19:21,747 - Automoy - MainThread - INFO - Main thread explicitly signaling stop_event for async operations post-webview.
+2025-06-13 12:19:21,747 - Automoy - MainThread - INFO - Waiting for asyncio operations thread to complete...
+2025-06-13 12:19:22,226 - Automoy - AsyncioOperationsThread - INFO - main_async_operations() finished or was stopped.
+2025-06-13 12:19:22,227 - Automoy - AsyncioOperationsThread - INFO - Shutting down asyncio event loop in async thread...
+2025-06-13 12:19:22,228 - Automoy - AsyncioOperationsThread - INFO - Closing asyncio event loop...
+2025-06-13 12:19:22,228 - Automoy - AsyncioOperationsThread - INFO - Asyncio event loop closed.
+2025-06-13 12:19:22,229 - Automoy - AsyncioOperationsThread - INFO - Async operations thread finished.
+2025-06-13 12:19:22,229 - Automoy - MainThread - INFO - Asyncio operations thread has completed.
+2025-06-13 12:19:22,229 - Automoy - MainThread - INFO - Automoy application shutdown complete.
+2025-06-13 12:19:26,313 - Automoy - MainThread - INFO - Initiating Automoy cleanup...
+2025-06-13 12:19:26,314 - Automoy - MainThread - INFO - Requesting PyWebview window destruction...
+2025-06-13 12:19:26,314 - Automoy - MainThread - INFO - PyWebview window destruction requested.
+2025-06-13 12:19:26,314 - Automoy - MainThread - INFO - Automoy cleanup sequence finished.

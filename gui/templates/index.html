@@ -2,660 +2,142 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Automoy</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Automoy v2 – GUI</title>
 
-    <!-- modern font & basic reset  -->
+    <!-- ===== FONTS ===== -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
-    <!-- NEW LOADER CSS START -->
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap');
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Orbitron:wght@400;700&display=swap" rel="stylesheet" />
 
+    <!-- ===== BASE STYLES ===== -->
+    <style>
       :root {
-        --bg-color-dark: #000000;
-        --element-color-dark: #FFFFFF;
-        --cursor-color-dark: #FFFFFF;
+        /* palette */
+        --c-bg: #000;
+        --c-fg: #fff;
+        --c-border: #222;
+        --c-accent: #50a7ff;
 
-        --bg-color-light: #FFFFFF;
-        --element-color-light: #000000;
-        --cursor-color-light: #000000;
-        
-        /* Default to dark theme for loader initially */
-        --loader-bg-color: var(--bg-color-dark);
-        --loader-element-color: var(--element-color-dark);
-        --loader-cursor-color: var(--cursor-color-dark);
+        /* sizing */
+        --h-nav: 40px;
+        --w-sidebar: 430px;
       }
+      *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+      html,body{height:100%;background:var(--c-bg);color:var(--c-fg);font-family:"Inter",sans-serif;overflow:hidden}
+      a{color:inherit;text-decoration:none}
 
-      #loading-screen {
-        /* Retain essential existing styles for #loading-screen */
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        display: flex; /* For centering .loading-container */
-        align-items: center;
-        justify-content: center;
-        z-index: 9999;
-        
-        /* New loader styles applied to #loading-screen */
-        background-color: var(--loader-bg-color);
-        font-family: 'Roboto Mono', monospace; /* Font for text inside loader */
-        overflow: hidden; /* Ensures loader content doesn't cause page scroll */
-        transition: background-color 0.8s ease-in-out; 
-      }
+      /* ===== TOP NAV ===== */
+      .top-nav{height:var(--h-nav);display:flex;align-items:center;gap:26px;padding:0 16px;font-size:15px;border-bottom:1px solid var(--c-border)}
+      .top-nav a{opacity:.85;transition:opacity .15s}
+      .top-nav a:hover{opacity:1}
 
-      #loading-screen.light-theme {
-        --loader-bg-color: var(--bg-color-light);
-        --loader-element-color: var(--element-color-light);
-        --loader-cursor-color: var(--cursor-color-light);
-      }
+      /* ===== LAYOUT ===== */
+      .app-wrap{display:flex;height:calc(100% - var(--h-nav));}
+      .sidebar{width:var(--w-sidebar);display:flex;flex-direction:column;justify-content:space-between;border-right:1px solid var(--c-border);}
+      .sidebar-content{padding:28px 26px 20px;overflow-y:auto;display:flex;flex-direction:column;gap:26px}
 
-      /* Styles for elements within #loading-screen */
-      #loading-screen .loading-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-      }
+      /* branding */
+      .brand{display:flex;align-items:center;gap:18px;margin-bottom:8px}
+      .brand img{width:58px;height:34px;object-fit:contain}
+      .brand-divider{font-size:36px;line-height:1;opacity:.9}
+      .brand h1{font-weight:500;font-size:30px;letter-spacing:0.02em}
 
-      #loading-screen .dot-animation-area {
-        width: 100px;
-        height: 60px;
-        position: relative;
-        margin-bottom: 30px;
-      }
+      /* info blocks */
+      .info-block h3{font-size:16px;font-weight:600;margin-bottom:2px}
+      .info-block p{font-size:15px;line-height:1.45}
 
-      #loading-screen #livingCenterDot {
-        position: absolute;
-        width: 10px;
-        height: 10px;
-        background-color: var(--loader-element-color);
-        border-radius: 50%;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        opacity: 0.8;
-        animation: pulse-living-dot 2s infinite ease-in-out;
-        transition: background-color 0.8s ease-in-out;
-        z-index: 1;
-      }
+      /* goal input */
+      .goal-form{display:flex;border-top:1px solid var(--c-border);padding:20px 22px 22px 22px;gap:4px}
+      .goal-form input{flex:1;background:#fff;color:#000;font-size:15px;padding:8px 10px;border:none;border-radius:2px}
+      .goal-form button{width:36px;background:transparent;border:none;cursor:pointer;display:grid;place-items:center}
+      .goal-form svg{width:20px;height:20px;stroke:#fff;stroke-width:2;fill:none}
+      .goal-form button:hover svg{stroke:var(--c-accent)}
 
-      @keyframes pulse-living-dot {
-        0%, 100% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.7; }
-        50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.9; }
-      }
+      /* ===== MAIN PANEL ===== */
+      .main-panel{flex:1 1 0;display:flex;flex-direction:column;overflow:hidden}
+      .main-panel h2{font-size:32px;font-weight:600;margin:28px 0 10px 26px}
 
-      #loading-screen .dot {
-        position: absolute;
-        width: 8px; 
-        height: 8px;
-        background-color: var(--loader-element-color);
-        border-radius: 50%;
-        opacity: 0;
-        transform: translate(-50%, -50%) scale(0.5);
-        left: 50%;
-        top: 50%;
-        transition: background-color 0.8s ease-in-out;
-        z-index: 2;
-      }
-
-      #loading-screen .dot-tm-expand { animation: expand-dot-tm-anim 0.5s ease-out forwards 0.0s; }
-      #loading-screen .dot-bm-expand { animation: expand-dot-bm-anim 0.5s ease-out forwards 0.05s; }
-      #loading-screen .dot-ml-expand { animation: expand-dot-ml-anim 0.5s ease-out forwards 0.1s; }
-      #loading-screen .dot-mr-expand { animation: expand-dot-mr-anim 0.5s ease-out forwards 0.15s; }
-      #loading-screen .dot-tl-expand { animation: expand-dot-tl-anim 0.5s ease-out forwards 0.2s; }
-      #loading-screen .dot-tr-expand { animation: expand-dot-tr-anim 0.5s ease-out forwards 0.25s; }
-      #loading-screen .dot-bl-expand { animation: expand-dot-bl-anim 0.5s ease-out forwards 0.3s; }
-      #loading-screen .dot-br-expand { animation: expand-dot-br-anim 0.5s ease-out forwards 0.35s; }
-
-      #loading-screen .dot-br-contract { animation: contract-dot-br-anim 0.4s ease-in forwards 0.0s; }
-      #loading-screen .dot-bl-contract { animation: contract-dot-bl-anim 0.4s ease-in forwards 0.05s; }
-      #loading-screen .dot-tr-contract { animation: contract-dot-tr-anim 0.4s ease-in forwards 0.1s; }
-      #loading-screen .dot-tl-contract { animation: contract-dot-tl-anim 0.4s ease-in forwards 0.15s; }
-      #loading-screen .dot-mr-contract { animation: contract-dot-mr-anim 0.4s ease-in forwards 0.2s; }
-      #loading-screen .dot-ml-contract { animation: contract-dot-ml-anim 0.4s ease-in forwards 0.25s; }
-      #loading-screen .dot-bm-contract { animation: contract-dot-bm-anim 0.4s ease-in forwards 0.3s; }
-      #loading-screen .dot-tm-contract { animation: contract-dot-tm-anim 0.4s ease-in forwards 0.35s; }
-
-      @keyframes expand-dot-tm-anim { /* Top-Mid */
-          0%   { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
-          100% { left: 50%; top: 0%;  opacity: 1; transform: translate(-50%, -50%) scale(1); }
-      }
-      @keyframes expand-dot-bm-anim { /* Bottom-Mid */
-          0%   { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
-          100% { left: 50%; top: 100%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
-      }
-      @keyframes expand-dot-ml-anim { /* Mid-Left */
-          0%   { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
-          100% { left: 0%;  top: 50%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
-      }
-      @keyframes expand-dot-mr-anim { /* Mid-Right */
-          0%   { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
-          100% { left: 100%;top: 50%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
-      }
-      @keyframes expand-dot-tl-anim { /* Top-Left */
-          0%   { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
-          100% { left: 0%;  top: 0%;  opacity: 1; transform: translate(-50%, -50%) scale(1); }
-      }
-      @keyframes expand-dot-tr-anim { /* Top-Right */
-          0%   { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
-          100% { left: 100%;top: 0%;  opacity: 1; transform: translate(-50%, -50%) scale(1); }
-      }
-      @keyframes expand-dot-bl-anim { /* Bottom-Left */
-          0%   { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
-          100% { left: 0%;  top: 100%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
-      }
-      @keyframes expand-dot-br-anim { /* Bottom-Right */
-          0%   { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
-          100% { left: 100%;top: 100%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
-      }
-
-      @keyframes contract-dot-tm-anim {
-          0%   { left: 50%; top: 0%;  opacity: 1; transform: translate(-50%, -50%) scale(1); }
-          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
-          100% { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-      }
-      @keyframes contract-dot-bm-anim {
-          0%   { left: 50%; top: 100%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
-          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
-          100% { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-      }
-      @keyframes contract-dot-ml-anim {
-          0%   { left: 0%;  top: 50%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
-          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
-          100% { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-      }
-      @keyframes contract-dot-mr-anim {
-          0%   { left: 100%;top: 50%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
-          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
-          100% { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-      }
-      @keyframes contract-dot-tl-anim {
-          0%   { left: 0%;  top: 0%;  opacity: 1; transform: translate(-50%, -50%) scale(1); }
-          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
-          100% { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-      }
-      @keyframes contract-dot-tr-anim {
-          0%   { left: 100%;top: 0%;  opacity: 1; transform: translate(-50%, -50%) scale(1); }
-          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
-          100% { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-      }
-      @keyframes contract-dot-bl-anim {
-          0%   { left: 0%;  top: 100%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
-          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
-          100% { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-      }
-      @keyframes contract-dot-br-anim {
-          0%   { left: 100%;top: 100%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
-          50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
-          100% { left: 50%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-      }
-
-      #loading-screen .loading-text-container { text-align: center; position: relative; }
-      #loading-screen #loadingText {
-        font-size: 1.2em; color: var(--loader-element-color);
-        letter-spacing: 2px; text-transform: uppercase;
-        font-weight: bold; font-family: 'Orbitron', sans-serif; 
-        min-height: 1.5em; transition: color 0.8s ease-in-out;
-      }
-      #loading-screen #loadingText .cursor { color: var(--loader-cursor-color); opacity: 1; animation: blink 0.7s infinite; }
-      @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-      #loading-screen #subText {
-        font-size: 0.8em; color: var(--loader-element-color); 
-        margin-top: 10px; letter-spacing: 1px; 
-        min-height: 1em; transition: color 0.8s ease-in-out;
-      }
-      #loading-screen .glitch { animation: glitch-anim 0.3s infinite alternate; }
-      @keyframes glitch-anim {
-          0% { transform: translate(0); opacity: 1; }
-          20% { transform: translate(-1px, 1px); opacity: 0.95; }
-          40% { transform: translate(-1px, -1px); opacity: 1; }
-          60% { transform: translate(1px, 1px); opacity: 0.9; }
-          80% { transform: translate(1px, -1px); opacity: 1; }
-          100% { transform: translate(0); opacity: 0.98; }
-      }
-    </style>
-    <!-- NEW LOADER CSS END -->
-    <style>
-      /* -------  GLOBAL  ------- */
-      html,
-      body {
-        height: 100%;
-        margin: 0;
-        padding: 0;
-        font-family: "Inter", sans-serif;
-        background: #000; /* full‑black like the mock‑up */
-        color: #fff;
-      }
-
-      /* #loading-screen {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: #000;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 9999;
-        color: #fff;
-        font-size: 20px;
-      } */ /* Style moved and merged above for new loader */
-
-      /* top nav  */
-      .top-nav {
-        display: flex;
-        gap: 32px;
-        padding: 12px 32px;
-        border-bottom: 1px solid #222;
-        font-size: 14px;
-        letter-spacing: 0.02em;
-      }
-      .top-nav span {
-        cursor: pointer;
-        transition: color 0.2s;
-      }
-      .top-nav span:hover {
-        color: #50a7ff;
-      }
-
-      /* main grid  */
-      .main-flex {
-        display: flex;
-        height: calc(100% - 49px); /* subtract nav */
-      }
-
-      /* ---- left column ---- */
-      .left-panel {
-        width: 380px;
-        display: flex;
-        flex-direction: column;
-        padding: 32px 28px;
-        border-right: 1px solid #222;
-      }
-      .logo-title-row {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 32px;
-      }
-      .logo-img {
-        width: 34px;
-        height: 34px;
-        object-fit: contain;
-      }
-      .title-separator {
-        font-size: 30px;
-        line-height: 1;
-        font-weight: 200;
-        color: #fff;
-      }
-      .main-title {
-        font-size: 28px;
-        font-weight: 600;
-        letter-spacing: 0.03em;
-      }
-      .objective-display {
-        font-size: 15px;
-        margin-bottom: 24px;
-        color: #50a7ff;
-      }
-
-      /* reasoning blocks */
-      .reasoning-block {
-        flex: 1;
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 28px;
-        padding-right: 8px; /* scrollbar room */
-      }
-      .reasoning-label {
-        font-weight: 600;
-        font-size: 15px;
-        margin-bottom: 6px;
-      }
-      .reasoning-section span:not(.reasoning-label) {
-        font-size: 15px;
-        line-height: 1.6;
-      }
-
-      /* objective input */
-      .objective-form {
-        display: flex;
-        gap: 0;
-        border-top: 1px solid #222;
-        padding-top: 18px;
-      }
-      #objectiveInput {
-        flex: 1;
-        font-size: 15px;
-        padding: 10px 14px;
-        border: none;
-        border-radius: 4px 0 0 4px;
-        background: #111;
-        color: #fff;
-      }
-      #objectiveInput::placeholder {
-        color: #666;
-      }
-      .send-btn {
-        width: 48px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 22px;
-        border: none;
-        border-radius: 0 4px 4px 0;
-        background: #222;
-        color: #fff;
-        cursor: pointer;
-        transition: background 0.2s;
-      }
-      .send-btn:hover {
-        background: #50a7ff;
-      }
-
-      /* coords display */
-      .coords-display {
-        font-size: 15px;
-        color: #666;
-        margin-top: 8px;
-      }
-
-      /* ---- right column ---- */
-      .right-panel {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        padding: 32px 28px;
-      }
-      .spatial-title {
-        font-size: 28px;
-        font-weight: 600;
-        margin-bottom: 24px;
-      }
-      .screenshot-container {
-        flex: 1;
-        border: 1px solid #333;
-        border-radius: 6px;
-        background: #000;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 24px;
-        overflow: hidden;
-      }
-      .screenshot-img {
-        max-width: 100%;
-        max-height: 100%;
-      }
+      .image-wrap{flex:1;border:1px solid var(--c-border);border-radius:6px;margin:0 26px 0 26px;background:#000;display:grid;place-items:center;overflow:hidden}
+      .image-wrap img{max-width:100%;max-height:100%}
 
       /* operations row */
-      .operation-row {
-        display: flex;
-        align-items: center;
-        gap: 40px;
-        border-top: 1px solid #222;
-        padding-top: 18px;
-      }
-      .operation-label {
-        font-weight: 600;
-        margin-right: 6px;
-      }
-      .pause-btn {
-        margin-left: auto;
-        width: 50px;
-        aspect-ratio: 1 / 1;
-        height: auto;
-        box-sizing: border-box;
-        border: 4px solid #fff;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: opacity 0.2s;
-      }
-      .pause-btn img {
-        max-width: 60%;
-        height: auto;
-        filter: invert(1);
-      }
-      .pause-btn:hover {
-        opacity: 0.7;
-      }
+      .ops-row{display:flex;align-items:center;justify-content:space-between;padding:18px 26px;border-top:1px solid var(--c-border);font-size:15px}
+      .ops-row .label{font-weight:600}
+      .ops-row div{flex:1}
+      .ops-row div:first-child{margin-right:40px}
 
-      /* scrollbar (webkit) */
-      ::-webkit-scrollbar {
-        width: 10px;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #444;
-        border-radius: 4px;
-      }
+      /* big pause btn */
+      .big-pause{width:80px;height:80px;border:4px solid var(--c-fg);border-radius:50%;background:transparent;display:grid;place-items:center;cursor:pointer;flex:none}
+      .big-pause svg{width:34px;height:34px;fill:var(--c-fg)}
+      .big-pause:hover{border-color:var(--c-accent)}
+
+      /* ===== SCROLLBAR ===== */
+      ::-webkit-scrollbar{width:8px}
+      ::-webkit-scrollbar-thumb{background:#444;border-radius:4px}
     </style>
   </head>
-
   <body>
-    <div id="loading-screen">
-        <!-- NEW LOADER HTML START -->
-        <div class="loading-container">
-            <div class="dot-animation-area" id="dotAnimationArea">
-                <div id="livingCenterDot"></div>
-                <div class="dot dot-tl" id="dot-tl"></div>
-                <div class="dot dot-tm" id="dot-tm"></div>
-                <div class="dot dot-tr" id="dot-tr"></div>
-                <div class="dot dot-ml" id="dot-ml"></div>
-                <div class="dot dot-mr" id="dot-mr"></div>
-                <div class="dot dot-bl" id="dot-bl"></div>
-                <div class="dot dot-bm" id="dot-bm"></div>
-                <div class="dot dot-br" id="dot-br"></div>
-            </div>
-            <div class="loading-text-container">
-                <div id="loadingText"></div>
-                <div id="subText">Stand by...</div>
-            </div>
+    <!-- ===== NAV ===== -->
+    <nav class="top-nav">
+      <a href="#">Help</a><a href="#">Configuration</a><a href="#">Settings</a>
+    </nav>
+
+    <!-- ===== APP ===== -->
+    <div class="app-wrap">
+      <!-- === SIDEBAR === -->
+      <aside class="sidebar">
+        <div class="sidebar-content">
+          <header class="brand">
+            <img src="/static/icons/logo.png" alt="logo" />
+            <span class="brand-divider">|</span>
+            <h1>Automoy</h1>
+          </header>
+
+          <div class="info-block">
+            <h3>Thinking:</h3>
+            <p id="thinkingText">The user has requested that Google Chrome be opened. I will open Google Chrome.</p>
+          </div>
+          <div class="info-block">
+            <h3>Visual:</h3>
+            <p id="visualText">Okay, I saw an image of Google Chrome in the lower left‑hand center corner.</p>
+          </div>
+          <div class="info-block">
+            <h3>Steps:</h3>
+            <p id="stepsText">I will move the cursor to the lower left‑hand corner and click to open Google Chrome.</p>
+          </div>
         </div>
-        <!-- NEW LOADER HTML END -->
+        <!-- goal input -->
+        <form class="goal-form" id="goalForm">
+          <input id="goalInput" type="text" placeholder="Open Google Chrome." />
+          <button type="submit" aria-label="send">
+            <svg viewBox="0 0 24 24"><path d="M4 20l16-8L4 4v6l10 2-10 2z"/></svg>
+          </button>
+        </form>
+      </aside>
+
+      <!-- === MAIN PANEL === -->
+      <section class="main-panel">
+        <h2>Spatial Analysis</h2>
+        <div class="image-wrap"><img id="screenshotImage" src="/processed_screenshot.png" alt="screen" /></div>
+        <div class="ops-row">
+          <div><span class="label">Past Operation:</span> <span id="pastOp">{operation "mouse", moveto(X Y)}</span></div>
+          <div><span class="label">Current Operation:</span> <span id="currentOp">{operation "click"}</span></div>
+          <button class="big-pause" id="pauseButton" aria-label="pause">
+            <svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+          </button>
+        </div>
+      </section>
     </div>
 
-    <!-- ========= NAV ========= -->
-    <div class="top-nav">
-      <button id="pauseButton" class="pause-btn">
-        <img id="pauseIcon" class="pause-btn img" src="/static/icons/pause.svg" alt="Pause">
-      </button>
-    </div>
-
-    <!-- ========= LAYOUT ========= -->
-    <div class="main-flex">
-      <!-- LEFT PANEL -->
-      <div class="left-panel">
-        <!-- branding -->
-        <div class="logo-title-row">
-          <img class="logo-img" src="/static/icons/logo.png" alt="Automoy Logo">
-          <span class="main-title">Automoy V2</span>
-        </div>
-
-        <!-- User Goal Display -->
-        <div class="objective-display">
-            <h3>Objective</h3>
-            <div id="userGoalDisplay">No goal set</div>
-            <div id="formulatedObjectiveDisplay">No objective formulated</div>
-            <form id="goalForm" class="objective-form">
-                <input id="goalInput" type="text" placeholder="Enter your goal" />
-                <button type="submit" class="send-btn">Send</button>
-            </form>
-        </div>
-        <div class="reasoning-section">
-            <div class="reasoning-block">
-                <span class="reasoning-label">Visual Analysis</span>
-                <span id="visualAnalysisDisplay">Waiting for visual analysis...</span>
-            </div>
-            <div class="reasoning-block">
-                <span class="reasoning-label">Thinking Process</span>
-                <span id="thinkingProcessDisplay">Waiting for thinking process...</span>
-            </div>
-        </div>
-        <div class="operation-section">
-            <h3>Steps</h3>
-            <ul id="stepsGeneratedList">
-                <li>Waiting for steps...</li>
-            </ul>
-        </div>
-      </div>
-
-      <!-- RIGHT PANEL -->
-      <div class="right-panel">
-        <h3>Screenshot</h3>
-        <div class="screenshot-container">
-            <img id="rawScreenshotImage" class="screenshot-img" src="/automoy_current.png" alt="Raw Screenshot">
-            <img id="processedScreenshotImage" class="screenshot-img" src="/processed_screenshot.png" alt="Processed Screenshot">
-        </div>
-        <div class="current-op">
-            <h3>Current Operation</h3>
-            <div id="currentOperationDisplay">No operation active.</div>
-        </div>
-        <div class="operations-section">
-            <h3>Operations Log</h3>
-            <pre id="operationsGeneratedText">Waiting for operations...</pre>
-        </div>
-      </div>
-    </div>
-    <script src="/static/script.js"></script>
     <script>
-        function hideLoadingScreen() {
-            const loadingScreen = document.getElementById('loading-screen');
-            if (loadingScreen) {
-                loadingScreen.style.display = 'none';
-            }
-        }
-        // Any other existing JS or script tags would be here
+      // basic send handler for demo
+      document.getElementById('goalForm').addEventListener('submit',(e)=>{
+        e.preventDefault();
+        const txt=document.getElementById('goalInput').value.trim();
+        if(!txt)return;
+        document.getElementById('thinkingText').textContent=`The user has requested: ${txt}`;
+      });
     </script>
-    <!-- NEW LOADER SCRIPT START -->
-    <script>
-        (function() { // IIFE to scope variables
-            const loadingScreenElement = document.getElementById('loading-screen');
-            const loadingTextElement = document.getElementById('loadingText');
-            const subTextElement = document.getElementById('subText');
-            
-            const dots = {
-                tl: document.getElementById('dot-tl'), tm: document.getElementById('dot-tm'), tr: document.getElementById('dot-tr'),
-                ml: document.getElementById('dot-ml'), mr: document.getElementById('dot-mr'),
-                bl: document.getElementById('dot-bl'), bm: document.getElementById('dot-bm'), br: document.getElementById('dot-br')
-            };
-            const dotKeys = Object.keys(dots);
-
-            const mainMessages = [
-                "SYSTEM ONLINE", "AWAITING COMMAND", "TARGETING",
-                "PROCESSING DATA", "STANDBY", "EXECUTE"
-            ];
-            const subMessages = [
-                "Core functions active...", "Listening for input...", "Acquiring telemetry...",
-                "Information stream active...", "Holding pattern...", "Action initiated."
-            ];
-
-            let currentMessageIndex = 0;
-            let charIndex = 0;
-            let currentText = '';
-            let isDeleting = false;
-            
-            let currentThemeIsLight = false; // Start with dark theme
-            if (loadingScreenElement) { // Ensure #loading-screen is dark initially
-                 loadingScreenElement.classList.remove('light-theme');
-            }
-
-            function runLoaderAnimation() {
-                if (!loadingScreenElement || loadingScreenElement.style.display === 'none' || !loadingTextElement || !subTextElement) {
-                    // If loader is hidden or essential elements are missing, stop.
-                    if (!loadingTextElement || !subTextElement) console.error("Loader text elements not found.");
-                    return; 
-                }
-
-                const fullMainText = mainMessages[currentMessageIndex % mainMessages.length];
-                
-                if (!isDeleting && charIndex === 0) { 
-                    currentThemeIsLight = !currentThemeIsLight; 
-                    if (loadingScreenElement) {
-                        loadingScreenElement.classList.toggle('light-theme', currentThemeIsLight);
-                    }
-                    
-                    subTextElement.textContent = subMessages[currentMessageIndex % subMessages.length];
-                    loadingTextElement.classList.add('glitch');
-
-                    dotKeys.forEach(key => {
-                        const dotElement = dots[key];
-                        if (dotElement) {
-                            dotElement.classList.remove(`dot-${key}-contract`);
-                            void dotElement.offsetWidth; 
-                            dotElement.classList.add(`dot-${key}-expand`);
-                        }
-                    });
-                }
-
-                if (isDeleting) {
-                    currentText = fullMainText.substring(0, charIndex - 1);
-                    charIndex--;
-                } else {
-                    currentText = fullMainText.substring(0, charIndex + 1);
-                    charIndex++;
-                }
-
-                const cursorSpan = `<span class="cursor">_</span>`;
-                loadingTextElement.innerHTML = currentText + (!isDeleting && charIndex < fullMainText.length ? cursorSpan : '');
-
-                let typeSpeed = isDeleting ? 50 : 100;
-
-                if (!isDeleting && charIndex === fullMainText.length) { 
-                    typeSpeed = 2000; 
-                    isDeleting = true;
-                    loadingTextElement.classList.remove('glitch');
-                    loadingTextElement.innerHTML = currentText; 
-                } else if (isDeleting && charIndex === 0) { 
-                    isDeleting = false;
-                    currentMessageIndex++;
-                    typeSpeed = 500; 
-
-                    dotKeys.forEach(key => {
-                        const dotElement = dots[key];
-                        if (dotElement) {
-                            dotElement.classList.remove(`dot-${key}-expand`);
-                            void dotElement.offsetWidth; 
-                            dotElement.classList.add(`dot-${key}-contract`);
-                        }
-                    });
-                }
-                
-                setTimeout(runLoaderAnimation, typeSpeed);
-            }
-            
-            if (loadingScreenElement && loadingTextElement && subTextElement) {
-                dotKeys.forEach(key => {
-                    const dotElement = dots[key];
-                    if (dotElement) {
-                        dotElement.classList.remove(`dot-${key}-expand`, `dot-${key}-contract`);
-                    }
-                });
-                setTimeout(runLoaderAnimation, 600);
-            } else {
-                console.error("Could not start loader animation - essential elements missing.");
-            }
-        })();
-    </script>
-    <!-- NEW LOADER SCRIPT END -->
   </body>
 </html>
