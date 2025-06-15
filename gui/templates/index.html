@@ -12,12 +12,12 @@
 
     <!-- ===== BASE STYLES ===== -->
     <style>
-      :root {
-        /* palette */
+      :root {        /* palette */
         --c-bg: #000;
         --c-fg: #fff;
         --c-border: #222;
         --c-accent: #50a7ff;
+        --c-objective: #87CEFA; /* Light blue for objective text */
 
         /* sizing */
         --h-nav: 40px;
@@ -34,21 +34,20 @@
 
       /* ===== LAYOUT ===== */
       .app-wrap{display:flex;height:calc(100% - var(--h-nav));}
-      .sidebar{width:var(--w-sidebar);display:flex;flex-direction:column;justify-content:space-between;border-right:1px solid var(--c-border);}
+      .sidebar{width:var(--w-sidebar);display:flex;flex-direction:column;justify-content:space-between;border-right:1px solid var(--c-border);position:relative;}
       .sidebar-content{padding:28px 26px 20px;overflow-y:auto;display:flex;flex-direction:column;gap:26px}
 
       /* branding */
       .brand{display:flex;align-items:center;gap:18px;margin-bottom:8px}
       .brand img{width:58px;height:34px;object-fit:contain}
       .brand-divider{font-size:36px;line-height:1;opacity:.9}
-      .brand h1{font-weight:500;font-size:30px;letter-spacing:0.02em}
-
-      /* info blocks */
+      .brand h1{font-weight:500;font-size:30px;letter-spacing:0.02em}      /* info blocks */
       .info-block h3{font-size:16px;font-weight:600;margin-bottom:2px}
       .info-block p{font-size:15px;line-height:1.45}
+      .objective-text{color:var(--c-objective)} /* Light blue for objective text */
 
       /* goal input */
-      .goal-form{display:flex;border-top:1px solid var(--c-border);padding:20px 22px 22px 22px;gap:4px}
+      .goal-form{position:absolute;bottom:0;left:0;width:100%;display:flex;border-top:1px solid var(--c-border);padding:20px 22px 22px 22px;gap:4px;background:var(--c-bg)}
       .goal-form input{flex:1;background:#fff;color:#000;font-size:15px;padding:8px 10px;border:none;border-radius:2px}
       .goal-form button{width:36px;background:transparent;border:none;cursor:pointer;display:grid;place-items:center}
       .goal-form svg{width:20px;height:20px;stroke:#fff;stroke-width:2;fill:none}
@@ -89,31 +88,36 @@
       <aside class="sidebar">
         <div class="sidebar-content">
           <header class="brand">
-            <img src="/static/icons/logo.png" alt="logo" />
+            <img src="/static/imgs/logo.png" alt="logo" />
             <span class="brand-divider">|</span>
             <h1>Automoy</h1>
-          </header>
-
+          </header>          <div class="info-block">
+            <p id="objectiveText" class="objective-text">Formulated Objective:</p>
+          </div>
           <div class="info-block">
             <h3>Thinking:</h3>
-            <p id="thinkingText">The user has requested that Google Chrome be opened. I will open Google Chrome.</p>
+            <p id="thinkingText"></p>
           </div>
           <div class="info-block">
             <h3>Visual:</h3>
-            <p id="visualText">Okay, I saw an image of Google Chrome in the lower left‑hand center corner.</p>
+            <p id="visualText"></p>
           </div>
           <div class="info-block">
             <h3>Steps:</h3>
-            <p id="stepsText">I will move the cursor to the lower left‑hand corner and click to open Google Chrome.</p>
+            <p id="stepsText"></p>
           </div>
-        </div>
-        <!-- goal input -->
-        <form class="goal-form" id="goalForm">
-          <input id="goalInput" type="text" placeholder="Open Google Chrome." />
-          <button type="submit" aria-label="send">
-            <svg viewBox="0 0 24 24"><path d="M4 20l16-8L4 4v6l10 2-10 2z"/></svg>
-          </button>
-        </form>
+          <!-- Generated Operations -->
+          <div class="info-block">
+            <h3>Generated Operations:</h3>
+            <p id="operationsText"></p>
+          </div>
+           <!-- goal input -->
+           <form class="goal-form" id="goalForm">
+             <input id="goalInput" type="text" placeholder="Enter goal..." />
+             <button type="submit" aria-label="send">
+               <svg viewBox="0 0 24 24"><path d="M4 20l16-8L4 4v6l10 2-10 2z"/></svg>
+             </button>
+           </form>
       </aside>
 
       <!-- === MAIN PANEL === -->
@@ -131,13 +135,63 @@
     </div>
 
     <script>
-      // basic send handler for demo
-      document.getElementById('goalForm').addEventListener('submit',(e)=>{
+      // Hook form submission to backend set_goal endpoint
+      const goalForm = document.getElementById('goalForm');
+      goalForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const txt=document.getElementById('goalInput').value.trim();
-        if(!txt)return;
-        document.getElementById('thinkingText').textContent=`The user has requested: ${txt}`;
+        const goalInput = document.getElementById('goalInput');
+        const goal = goalInput.value.trim();
+        if (!goal) return;
+        try {
+          await fetch('/set_goal', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ goal })
+          });
+          goalInput.value = '';
+        } catch (err) {
+          console.error('Error sending goal:', err);
+        }
       });
+
+      // Subscribe to server-sent events for operator updates
+      const evtSource = new EventSource('/stream_operator_updates');
+      evtSource.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+          switch (msg.type) {
+            case 'thinking':
+              document.getElementById('thinkingText').textContent = msg.data;
+              break;
+            case 'visual':
+              document.getElementById('visualText').textContent = msg.data;
+              break;
+            case 'steps':
+              document.getElementById('stepsText').textContent = Array.isArray(msg.data) ? msg.data.join('\n') : msg.data;
+              break;
+            case 'current_operation':
+              document.getElementById('currentOp').textContent = msg.data;
+              break;
+            case 'past_operation':
+              document.getElementById('pastOp').textContent = msg.data;
+              break;
+            case 'processed_screenshot':
+              // reload processed screenshot image
+              const img = document.getElementById('screenshotImage');
+              img.src = `/processed_screenshot.png?cb=${Date.now()}`;
+              break;
+            case 'objective':
+              console.log("Received SSE 'objective' event. Data:", msg.data); // DEBUG LINE
+              document.getElementById('objectiveText').textContent = msg.data;
+              break;
+            default:
+              console.warn('Unknown event type:', msg.type);
+          }
+        } catch (err) {
+          console.error('Failed to parse SSE message:', err);
+        }
+      };
+      evtSource.onerror = (err) => console.error('SSE error:', err);
     </script>
   </body>
 </html>

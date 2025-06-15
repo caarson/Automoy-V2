@@ -148,7 +148,43 @@ class MainInterface:
             print(f"[DEBUG] LMStudio Response: {response}")
             return (response, session_id, None)
 
-        raise ModelNotRecognizedException(model)
+        raise ModelNotRecognizedException(model)    # Alias for backward compatibility: unify LLM calls under get_llm_response
+    async def get_llm_response(self, model, messages, objective, session_id, response_format_type=None):
+        """
+        Unified interface for obtaining LLM responses across contexts.
+        Delegates to get_next_action but can handle different response formats based on context.
+        """
+        print(f"\n[OBJECTIVE_FORMULATION] Starting LLM call for {response_format_type}")
+        print(f"[OBJECTIVE_FORMULATION] Model: {model}")
+        print(f"[OBJECTIVE_FORMULATION] Objective: {objective}")
+        print(f"[OBJECTIVE_FORMULATION] Messages: {json.dumps(messages, indent=2)}")
+        
+        # screenshot_path not used for non-action contexts
+        response, sid, error = await self.get_next_action(model, messages, objective, session_id, screenshot_path=None)
+        
+        # Special handling for objective formulation to ensure we get a proper response
+        if response_format_type == "objective_generation":
+            print(f"\n[OBJECTIVE_FORMULATION] Raw LLM response (first 300 chars): {response[:300]}")
+            logger.info(f"Processing LLM response for objective formulation: {response[:100]}...")
+            
+            # Make sure we're getting a proper formulated objective rather than just echoing back the goal
+            if response and response.strip():
+                # Try to clean up any formatting in the raw response
+                # Remove markdown code blocks if present
+                response_clean = re.sub(r"```.*?```", "", response, flags=re.DOTALL)
+                # Remove any XML-like tags
+                response_clean = re.sub(r"<.*?>", "", response_clean)
+                
+                print(f"[OBJECTIVE_FORMULATION] Cleaned response: {response_clean[:300]}")
+                
+                # We don't need additional processing here as that's done in main.py
+                return response_clean, sid, error
+            else:
+                logger.warning("Empty response from LLM for objective formulation")
+                print("[OBJECTIVE_FORMULATION] Empty response from LLM!")
+                return "", sid, "Empty response"
+                
+        return response, sid, error
 
 
 # Self‑test

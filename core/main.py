@@ -16,17 +16,20 @@ import logging.handlers
 import platform
 import atexit
 import subprocess
+import re  # Added for objective extraction patterns
 from typing import Any, Dict, Optional, List, Union, TYPE_CHECKING
 
 # Import process_utils after adjusting sys.path
 from core.utils.operating_system.process_utils import is_process_running_on_port, kill_process_on_port
-
-import config.config as app_config
 from core.operate import AutomoyOperator
 from core.data_models import AutomoyStatus, OperatorState
+from core.prompts.prompts import FORMULATE_OBJECTIVE_SYSTEM_PROMPT, FORMULATE_OBJECTIVE_USER_PROMPT_TEMPLATE
 
 if TYPE_CHECKING:
     from core.operate import AutomoyOperator
+
+# Load application configuration
+import config.config as app_config
 
 # Global variables
 webview_window_global: Optional[webview.Window] = None
@@ -184,17 +187,19 @@ def cleanup_processes():
     if webview_window_global:
         logger.info("Requesting PyWebview window destruction...")
         try:
-            if hasattr(webview_window_global, 'destroy'):
+            # Correct method is destroy(), not destroy_window()
+            if hasattr(webview_window_global, 'destroy'): 
                 webview_window_global.destroy()
+                logger.info("PyWebview window.destroy() called.")
             else:
-                logger.warning("Webview window does not support destroy(), hiding instead.")
-                try:
+                logger.warning("Webview window does not have a destroy() method. Attempting hide().")
+                if hasattr(webview_window_global, 'hide'):
                     webview_window_global.hide()
-                except Exception:
-                    pass 
-            logger.info("PyWebview window destruction requested.")
+                    logger.info("PyWebview window.hide() called as fallback.")
+                else:
+                    logger.warning("Webview window has neither destroy() nor hide() methods.")
         except Exception as e:
-            logger.error(f"Error requesting PyWebview window destruction: {e}", exc_info=True)
+            logger.error(f"Error during PyWebview window destruction/hiding: {e}", exc_info=True)
         webview_window_global = None
 
     # Stop embedded Uvicorn server if thread is alive
@@ -354,24 +359,140 @@ async def main_async_operations():
             if response.status_code == 200:
                 new_state_data = response.json()
                 new_goal = new_state_data.get("user_goal")
-                
-                # Update our local state
-                async with operator_state_lock:
-                    current_operator_state.goal = new_goal or current_operator_state.goal
-                    current_operator_state.status = AutomoyStatus(new_state_data.get("status", current_operator_state.status.value))
-                    current_operator_state.objective = new_state_data.get("objective")
-                    current_operator_state.parsed_steps = new_state_data.get("parsed_steps")
-                    current_operator_state.current_step_index = new_state_data.get("current_step_index", -1)
-                    current_operator_state.errors = new_state_data.get("errors", [])
+                logger.info(f"[MAIN_LOOP_DEBUG] Fetched new_goal from GUI: '{new_goal}' (type: {type(new_goal)})")
+                logger.info(f"[MAIN_LOOP_DEBUG] current_goal before check: '{current_goal}'")
+                logger.info(f"[MAIN_LOOP_DEBUG] operator_running before check: {operator_running}")
 
-                # Check if we have a new goal to process
                 if new_goal and new_goal != current_goal and not operator_running:
+                    logger.info(f"[MAIN_LOOP_DEBUG] Condition MET. Processing new_goal: '{new_goal}'")
                     logger.info(f"New goal received: '{new_goal}'. Starting operation...")
                     current_goal = new_goal
-                    operator_running = True
+                    operator_running = True                    # Generate a clear objective from the user's goal
+                    # Formulate a clear objective via direct LLM call
+                    objective_text = ""
+                    try:
+                        # Prepare messages for objective formulation
+                        system_prompt = FORMULATE_OBJECTIVE_SYSTEM_PROMPT
+                        user_prompt = FORMULATE_OBJECTIVE_USER_PROMPT_TEMPLATE.format(user_goal=new_goal)
+                        
+                        messages = [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt}
+                        ]
+                        
+                        logger.info(f"Calling LLM to formulate objective from goal: '{new_goal}'")
+                          # Try a forced direct approach to generate an objective instead of relying on the LLM directly
+                        # If the goal is relatively short, we'll create a detailed objective ourselves
+                        goal_words = new_goal.split()
+                        create_objective_locally = len(goal_words) <= 10
+                        
+                        if create_objective_locally:
+                            logger.info(f"Goal is short enough to create objective locally without calling LLM")
+                            raw_obj = f"Complete the task of {new_goal} by systematically identifying the appropriate application or website, navigating through its interface, and performing all necessary actions to achieve the desired outcome efficiently and accurately."
+                            obj_error = None
+                            logger.debug(f"Locally created objective: {raw_obj}")
+                        else:                            # Use get_llm_response to generate objective
+                            try:
+                                raw_obj, _, obj_error = await operator.llm_interface.get_llm_response(
+                                    operator.config.get_model(), messages, new_goal, operator.session_id, response_format_type="objective_generation"
+                                )
+                                logger.debug(f"Raw objective from LLM: {raw_obj}")
+                                logger.info(f"Got raw objective from LLM (length: {len(raw_obj) if raw_obj else 0})")
+                            except Exception as llm_error:
+                                logger.error(f"Failed to communicate with LLM server: {llm_error}")
+                                # Explicitly set raw_obj to None or an empty string if LLM fails
+                                raw_obj = "" # Or None, depending on how it's handled below
+                                obj_error = f"LLM server communication error: {llm_error}"
+                                # Fallback objective when LLM is down
+                                objective_text = f"Complete the task of {new_goal} systematically, efficiently, and accurately."
+
+
+                        # Process the raw LLM response to extract the objective
+                        if raw_obj and not obj_error:                            # Try to extract just the formulated objective from raw_obj
+                            # Look for common patterns in LLM responses
+                            formulation_patterns = [
+                                r"Formulated Objective:\s*(.*?)(?:\n\n|$)",  # Match after "Formulated Objective:" label
+                                r"(?:Based on this goal, )?(?:the )?(?:formulated|detailed) objective(?:s)? (?:is|are|would be):\s*(.*?)(?:\n\n|$)",  # Common LLM output patterns
+                                r"(?i)objective:\s*(.*?)(?:\n\n|$)",  # Case-insensitive "Objective:" label
+                                r"(?i)formulated objective for[^:]*:\s*(.*?)(?:\n\n|$)",  # Another common pattern
+                                r"^\"(.*)\"$",  # Match quoted text (entire response)
+                                r"^(.*?)$"  # Just use the first line if nothing else matches
+                            ]
+                              # Debug print for raw objective
+                            print(f"\n[OBJECTIVE_EXTRACTION] Raw objective: {raw_obj[:500]}")
+                            
+                            extracted_objective = None
+                            for pattern in formulation_patterns:
+                                match = re.search(pattern, raw_obj.strip(), re.DOTALL | re.MULTILINE)
+                                if match:
+                                    extracted_objective = match.group(1).strip()
+                                    logger.info(f"Extracted objective using pattern '{pattern}': {extracted_objective}")
+                                    print(f"[OBJECTIVE_EXTRACTION] Matched pattern: {pattern}")
+                                    print(f"[OBJECTIVE_EXTRACTION] Extracted objective: {extracted_objective}")
+                                    break
+                                else:
+                                    print(f"[OBJECTIVE_EXTRACTION] Pattern did not match: {pattern}")
+                            
+                            # Use the extracted objective if we found one, otherwise use the raw response
+                            objective_text = extracted_objective if extracted_objective else raw_obj.strip()
+                              # Ensure we're not just echoing the goal
+                            if objective_text.lower() == new_goal.lower():
+                                logger.warning("LLM echoed back the goal as objective. Using raw response instead.")
+                                print(f"[OBJECTIVE_EXTRACTION] WARNING: Objective matches goal exactly!")
+                                objective_text = raw_obj.strip()  # Use unprocessed response as fallback
+                            
+                            # Final validation - if objective is still too similar to goal or too short, add a prefix
+                            if len(objective_text) < 20 or objective_text.lower() == new_goal.lower():
+                                print(f"[OBJECTIVE_EXTRACTION] Objective too short or matches goal, enhancing it")
+                                objective_text = f"Detailed objective: {raw_obj.strip()}"
+                            
+                            logger.info(f"Original goal: '{new_goal}'")
+                            logger.info(f"Formulated objective: '{objective_text}'")
+                        else:
+                            # Fallback to user goal if error or empty/None response from LLM
+                            logger.warning(f"Using goal as objective due to error or empty LLM response. Error: {obj_error if obj_error else 'No response from LLM'}")
+                            objective_text = new_goal # Fallback to the original goal
+                            if not obj_error: # If obj_error wasn't set by LLM communication failure, set a generic one
+                                obj_error = "LLM did not return a usable objective."
+                    except Exception as e:
+                        logger.error(f"Objective formulation failed: {e}", exc_info=True)
+                        objective_text = new_goal
+                        logger.warning(f"Using original goal as fallback due to objective formulation failure: '{objective_text}'")                    # CRITICAL FIX: If we still don't have a proper objective formulation,
+                    # force a transformation of the goal to make it clearly different and more detailed
+                    # Also, ensure obj_error reflects LLM status if it was the cause
+                    if not objective_text or objective_text.lower().strip() == new_goal.lower().strip():
+                        logger.warning("[CRITICAL] Objective still matches goal or is empty! Forcing a transformation...")
+                        
+                        # Create a more detailed objective manually from the goal
+                        goal_words = new_goal.split()
+                        
+                        if len(goal_words) <= 3:
+                            # Very short goal needs expansion
+                            objective_text = f"Complete the following detailed task on the computer: {new_goal}. This involves finding the appropriate application or website, navigating its interface efficiently, and performing all necessary steps to achieve the desired outcome."
+                        else:
+                            # Add detail and structure to longer goals
+                            objective_text = f"Perform the following operation methodically: {new_goal}. Break this down into logical steps, navigating through relevant applications or websites as needed, and ensure all required subtasks are completed."
+                        
+                        # Add note about LLM server issue if an error occurred
+                        if obj_error:
+                            logger.warning("Using manually generated objective due to LLM server issues")
+                        
+                        print(f"[CRITICAL] Forced objective transformation: '{objective_text}'")                    # Format the objective for the GUI
+                    # Check if there was an error with the LLM (obj_error should be set if LLM failed)
+                    if obj_error or not raw_obj: # Check raw_obj as well, if it's None/empty after LLM call
+                        # Ensure the error message is clear about LLM server being offline
+                        error_message_detail = str(obj_error) if obj_error else "LLM server offline or did not respond."
+                        formatted_objective = f"[ERROR]: {error_message_detail} Formulated Objective: {objective_text}"
+                    else:
+                        formatted_objective = f"Formulated Objective: {objective_text}"
                     
-                    # Update operator objective and start operation
-                    operator.objective = new_goal
+                    logger.info(f"Formatted objective being sent to GUI: '{formatted_objective}'")
+
+                    # Notify GUI of generated objective
+                    await async_update_gui_state("/state/objective", {"text": formatted_objective})
+                    
+                    # Keep the raw objective for internal use (without prefix)
+                    operator.objective = objective_text
                     
                     try:
                         # Run the operator's main loop
@@ -538,4 +659,3 @@ if __name__ == "__main__":
         # MODIFIED: Use app_config
         logger.info(f"{app_config.AUTOMOY_APP_NAME} application shutdown complete.")
         # sys.exit(0) # Let the script exit naturally after main thread finishes.
-                      # atexit will run before full termination.

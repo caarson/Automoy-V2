@@ -215,6 +215,19 @@ async def lifespan(app_instance: FastAPI):
 app = FastAPI(lifespan=lifespan)
 logger.info("FastAPI app created with lifespan.") # Example log after app creation
 
+# --- Templates and Static Files Setup ---
+BASE_DIR = Path(__file__).resolve().parent
+templates_dir = BASE_DIR / "templates"
+static_dir = BASE_DIR / "static"
+
+# Ensure directories exist
+templates_dir.mkdir(parents=True, exist_ok=True)
+static_dir.mkdir(parents=True, exist_ok=True)
+
+# Pass auto_reload=True to Jinja2Templates for development
+templates = Jinja2Templates(directory=str(templates_dir), auto_reload=True)
+app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
 # --- CORS Middleware ---
 app.add_middleware(
     CORSMiddleware,
@@ -224,10 +237,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Mount static files and templates ---
-app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static"), html=False, check_dir=True), name="static")
-templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
-
 @app.get("/health") # ADDED health check endpoint
 async def health_check():
     logger.info("[GUI /health] Health check endpoint called successfully.")
@@ -235,20 +244,14 @@ async def health_check():
 
 @app.get("/operator_state") # ADDED operator state endpoint
 async def get_operator_state():
-    logger.debug(f"[GUI /operator_state] Requested. Current state: user_goal='{current_user_goal}', formulated_objective='{current_formulated_objective}', operator_status='{operator_status}', is_paused={is_paused}")
+    # Return current GUI state for core polling
     return {
         "user_goal": current_user_goal,
-        "formulated_objective": current_formulated_objective,
-        "operator_status": operator_status,
-        "is_paused": is_paused,
-        "current_visual_analysis": current_visual_analysis,
-        "current_thinking_process": current_thinking_process,
-        "current_steps_generated": current_steps_generated,
-        "current_operations_generated": current_operations_generated,
-        "current_operation_display": current_operation_display,
-        "past_operation_display": past_operation_display,
-        "processed_screenshot_available": processed_screenshot_available,
-        "llm_stream_content": llm_stream_content 
+        "status": operator_status,
+        "objective": current_formulated_objective,
+        "parsed_steps": current_steps_generated,
+        "current_step_index": None,
+        "errors": []
     }
 
 @app.get("/", response_class=HTMLResponse)
@@ -258,18 +261,20 @@ async def read_root(request: Request):
 
 @app.post("/set_goal")
 async def set_goal(data: GoalData):
-    global current_user_goal, operator_status, current_formulated_objective
-    logger.info(f"[GUI /set_goal] Received new goal: {data.goal}")
+    # Receive new user goal: store and notify via SSE
+    global current_user_goal, current_formulated_objective, current_steps_generated
     current_user_goal = data.goal
-    operator_status = "Processing Goal" # Or some other initial status
-    current_formulated_objective = "" # Clear previous formulated objective
-    # Potentially trigger some backend processing if needed immediately
-    # For now, main.py's loop will pick up this new goal via /operator_state
-    return {
-        "message": "Goal received successfully", 
-        "goal": current_user_goal,
-        "operator_status": operator_status
-    }
+    current_formulated_objective = ""
+    current_steps_generated = []
+    await llm_stream_queue.put({"type": "goal", "data": current_user_goal})
+    return {"message": "Goal received"}
+
+@app.post("/state/objective")
+async def update_objective_state(data: StateUpdateText):
+    global current_formulated_objective
+    current_formulated_objective = data.text
+    await llm_stream_queue.put({"type": "objective", "data": data.text})
+    return {"message": "Objective state updated"}
 
 # --- Global state for Automoy GUI ---
 current_user_goal: str = "" # User's direct input
@@ -296,120 +301,60 @@ llm_stream_queue = asyncio.Queue()
 
 @app.post("/state/visual")
 async def update_visual_state(data: StateUpdateText):
-    global current_visual_analysis
-    print(f"[GUI /state/visual] Received visual analysis update: {data.text[:100]}...", flush=True)
-    current_visual_analysis = data.text
-    return {"message": "Visual analysis state updated"}
+    await llm_stream_queue.put({"type": "visual", "data": data.text})
+    return {"message": "Visual state updated"}
 
 @app.post("/state/thinking") # Added endpoint
 async def update_thinking_state(data: StateUpdateText):
-    global current_thinking_process
-    print(f"[GUI /state/thinking] Received thinking process update: {data.text[:100]}...", flush=True)
-    current_thinking_process = data.text
-    return {"message": "Thinking process state updated"}
+    await llm_stream_queue.put({"type": "thinking", "data": data.text})
+    return {"message": "Thinking state updated"}
 
 @app.post("/state/steps_generated") # Added endpoint
-async def update_steps_state(data: StateUpdateComplexSteps): # Changed to use StateUpdateComplexSteps
-    global current_steps_generated
-    logger.info(f"[GUI /state/steps_generated] Received steps update: {len(data.steps)} steps. Error: {data.error}")
-    if data.error:
-        current_steps_generated = [{"description": f"Error generating steps: {data.error}"}] 
-    else:
-        current_steps_generated = data.steps 
-    return {"message": "Steps generated state updated"}
+async def update_steps_state(data: StateUpdateComplexSteps):    
+    # Steps generation update
+    await llm_stream_queue.put({"type": "steps", "data": data.steps})
+    return {"message": "Steps state updated"}
 
 @app.post("/state/operations_generated") # Added endpoint
-async def update_operations_state(data: StateUpdateOperations): # Changed to use StateUpdateOperations
-    global current_operations_generated, current_thinking_process
-    logger.info(f"[GUI /state/operations_generated] Received operations update: {data.operations}") 
-    current_operations_generated = {"operations": data.operations} 
+async def update_operations_state(data: StateUpdateOperations):    
+    await llm_stream_queue.put({"type": "operations_generated", "data": data.operations})
     if data.thinking_process:
-        current_thinking_process = data.thinking_process 
-    return {"message": "Operations generated state updated"}
+        await llm_stream_queue.put({"type": "thinking", "data": data.thinking_process})
+    return {"message": "Operations state updated"}
 
 @app.post("/state/current_operation") # Added endpoint
-async def update_current_operation_state(data: StateUpdateText):
-    global current_operation_display
-    print(f"[GUI /state/current_operation] Received current operation update: {data.text}", flush=True)
-    current_operation_display = data.text
+async def update_current_operation_state(data: StateUpdateText):    
+    await llm_stream_queue.put({"type": "current_operation", "data": data.text})
     return {"message": "Current operation state updated"}
 
 @app.post("/state/last_action_result") # Added endpoint
-async def update_last_action_result_state(data: StateUpdateText): # Assuming text, adjust if it's dict
-    global past_operation_display # Or a new variable if preferred
-    print(f"[GUI /state/last_action_result] Received last action result: {data.text}", flush=True)
-    past_operation_display = data.text # Update past_operation_display or a dedicated one
+async def update_last_action_result_state(data: StateUpdateText):    
+    # Treat last action result as past operation
+    await llm_stream_queue.put({"type": "past_operation", "data": data.text})
     return {"message": "Last action result updated"}
 
 @app.post("/state/screenshot") 
-async def update_screenshot_state(payload: ScreenshotUpdateRequest): # MODIFIED to use Pydantic model
-    global processed_screenshot_available # REMOVED window_global_ref
-    logger.info(f"[GUI /state/screenshot] Received screenshot update notification with path: {payload.path}")
-    
-    new_screenshot_abs_path_str = payload.path # MODIFIED
-    # Ensure BASE_DIR is defined correctly, usually os.path.dirname(__file__)
-    static_destination_path = Path(BASE_DIR) / "static" / "automoy_current.png" # Changed to automoy_current.png
-    
-    if new_screenshot_abs_path_str:
-        source_path = Path(new_screenshot_abs_path_str)
-        static_destination_path = Path(BASE_DIR) / "static" / "automoy_current.png" # Changed to automoy_current.png
-        
-        if source_path.exists():
-            try:
-                os.makedirs(static_destination_path.parent, exist_ok=True)
-                shutil.copy(str(source_path), str(static_destination_path))
-                logger.info(f"[GUI /state/screenshot] Copied screenshot from {source_path} to {static_destination_path}")
-                # This endpoint is for the RAW screenshot. GUI will refresh it via /automoy_current.png?t=timestamp
-                # The processed_screenshot_available flag is for the *processed* one.
-                # We can trigger a generic refresh if needed, or let the frontend poll/refresh specific images.
-                # REMOVED JS evaluation call
-                # if window_global_ref:
-                #     try:
-                #         # Call refreshScreenshot in JS, which should now handle both raw and processed based on availability
-                #         js_command = "if (typeof refreshScreenshot === 'function') { refreshScreenshot('raw'); console.log('[GUI /state/screenshot] JS refreshScreenshot(\\'raw\\') called.'); } else { console.error('[GUI /state/screenshot] refreshScreenshot function not defined in JS.'); }"
-                #         window_global_ref.evaluate_js(js_command)
-                #         logger.info(f"[GUI /state/screenshot] Executed JS command: {js_command}")
-                #     except Exception as e:
-                #         logger.error(f"[GUI /state/screenshot][ERROR] Failed to execute JS for screenshot refresh: {e}")
-            except Exception as e:
-                logger.error(f"[GUI /state/screenshot] Error copying screenshot to static folder: {e}")
-        else:
-            logger.warning(f"[GUI /state/screenshot] Source screenshot path does not exist: {source_path}")
-    else:
-        logger.warning("[GUI /state/screenshot] Screenshot update notification received, but no path provided in payload.")
-        
-    return {"message": "Raw screenshot path received and copied to static/automoy_current.png"}
+async def update_screenshot_state(payload: ScreenshotUpdateRequest):    
+    # Notify that a new screenshot is available
+    await llm_stream_queue.put({"type": "screenshot", "data": payload.path})
+    return {"message": "Screenshot path updated"}
 
 @app.post("/state/screenshot_processed")
-async def screenshot_processed_notification(_: ProcessedScreenshotNotif): # MODIFIED to use Pydantic model
-    global processed_screenshot_available # REMOVED window_global_ref
-    processed_screenshot_available = True
-    logger.info("[GUI /state/screenshot_processed] Processed screenshot notification received.") # Simplified log
-    # REMOVED JS evaluation call
-    # if window_global_ref:
-    #     try:
-    #         js_command = "if (typeof refreshScreenshot === 'function') { refreshScreenshot('processed'); console.log('[GUI /state/screenshot_processed] JS refreshScreenshot(\\'processed\\') called.'); } else { console.error('[GUI /state/screenshot_processed] refreshScreenshot function not defined in JS.'); }"
-    #         window_global_ref.evaluate_js(js_command)
-    #         logger.info(f"[GUI /state/screenshot_processed] Executed JS command: {js_command}")
-    #     except Exception as e:
-    #         logger.error(f"[GUI /state/screenshot_processed][ERROR] Failed to execute JS for screenshot refresh: {e}")
-    # else:
-    #     logger.warning("[GUI /state/screenshot_processed][WARN] window_global_ref not available to trigger JS screenshot refresh.")
+async def screenshot_processed_notification(_: ProcessedScreenshotNotif):    
+    await llm_stream_queue.put({"type": "processed_screenshot", "data": True})
     return {"message": "Processed screenshot notification received"}
 
 @app.post("/state/visual_analysis") # ADDED (or corrected if it was /state/visual before)
-async def update_visual_analysis_state(data: VisualAnalysisUpdateRequest): # MODIFIED
-    global current_visual_analysis
-    logger.info(f"[GUI /state/visual_analysis] Received visual analysis update: {data.text[:100]}...") # MODIFIED
-    current_visual_analysis = data.text # MODIFIED
+async def update_visual_analysis_state(data: VisualAnalysisUpdateRequest):    
+    await llm_stream_queue.put({"type": "visual_analysis", "data": data.text})
     return {"message": "Visual analysis state updated"}
 
 @app.post("/state/operator_status")
-async def update_operator_status(data: OperatorStatusUpdateRequest): # MODIFIED
-    global operator_status
-    logger.info(f"[GUI /state/operator_status] Received status update: {data.text}") # MODIFIED
-    operator_status = data.text # MODIFIED
+async def update_operator_status(data: OperatorStatusUpdateRequest):    
+    await llm_stream_queue.put({"type": "operator_status", "data": data.text})
     return {"message": "Operator status updated"}
+
+# This endpoint is already defined above, removed duplicate
 
 @app.get("/processed_screenshot.png") # ADDED endpoint for processed screenshot
 async def get_processed_screenshot(request: Request):
@@ -432,26 +377,11 @@ async def get_current_screenshot(request: Request):
 # --- SSE endpoint for streaming operator state updates ---
 @app.get("/stream_operator_updates")
 async def stream_operator_updates():
-    """Server-Sent Events endpoint to stream real-time operator state to the frontend"""
+    # Server-Sent Events endpoint
     async def event_generator():
         while True:
-            # Prepare comprehensive state snapshot
-            state = {
-                "user_goal": current_user_goal,
-                "formulated_objective": current_formulated_objective,
-                "operator_status": operator_status,
-                "is_paused": is_paused,
-                "current_visual_analysis": current_visual_analysis,
-                "current_thinking_process": current_thinking_process,
-                "current_steps_generated": current_steps_generated,
-                "current_operations_generated": current_operations_generated,
-                "current_operation_display": current_operation_display,
-                "past_operation_display": past_operation_display,
-                "processed_screenshot_available": processed_screenshot_available,
-                "llm_stream_content": llm_stream_content
-            }
-            yield f"data: {json.dumps(state, default=str)}\n\n"
-            await asyncio.sleep(0.5)  # adjust interval as needed
+            msg = await llm_stream_queue.get()
+            yield f"data: {json.dumps(msg)}\n\n"
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 # Ensure other state update endpoints or comments follow
@@ -492,3 +422,189 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run("gui:app", host=args.host, port=args.port, log_level="info")
 # End of main execution block
+
+import asyncio
+import logging # Added
+from fastapi import FastAPI, Request, HTTPException # Added Request
+from fastapi.responses import HTMLResponse, FileResponse # Added FileResponse
+from fastapi.staticfiles import StaticFiles
+from sse_starlette.sse import EventSourceResponse
+from pydantic import BaseModel
+import uvicorn
+import os
+from pathlib import Path # Added Path
+
+# Assuming AutomoyStatus and ObjectiveStore are correctly imported/defined elsewhere or here
+# from core.data_models import AutomoyStatus # Make sure this path is correct
+
+# Placeholder for AutomoyStatus if not imported (ensure it's properly available)
+class AutomoyStatus:
+    IDLE = "idle"
+    THINKING = "thinking"
+    OPERATING = "operating"
+    SUCCESS = "success"
+    ERROR = "error"
+    PENDING_USER_INPUT = "pending_user_input"
+
+# ObjectiveStore to manage the objective state
+class ObjectiveStore:
+    def __init__(self):
+        self._objective = "Formulated Objective:" # Initial state as per requirements
+        self.lock = asyncio.Lock()
+
+    async def set_objective(self, objective: str):
+        async with self.lock:
+            self._objective = objective
+        # After setting, immediately push an update for the objective
+        await send_operator_update({"objective": objective})
+
+
+    async def get_objective(self):
+        async with self.lock:
+            return self._objective
+
+current_objective_store = ObjectiveStore()
+
+
+# Configure basic logging for gui.py
+# Using a basic config, assuming Automoy's logger might not be easily accessible here
+# or to ensure these logs are distinctly identifiable.
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+gui_logger = logging.getLogger("AutomoyGUI")
+
+# Global state variables
+current_user_goal: str = ""
+gui_logger.info(f"Module-level: current_user_goal initialized to '{current_user_goal}'")
+
+current_thinking_process: str = "" # Initialize empty, updated by backend
+current_visual_summary: str = ""   # Initialize empty
+current_steps_taken: list = []     # Initialize empty
+current_generated_operations: list = [] # Initialize empty
+current_automoy_status: AutomoyStatus = AutomoyStatus.IDLE
+
+
+app = FastAPI()
+
+# Determine base path for static files and templates
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
+TEMPLATES_DIR = BASE_DIR / "templates"
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+sse_queue = asyncio.Queue()
+
+async def send_operator_update(update: dict):
+    """Helper function to put updates onto the SSE queue."""
+    try:
+        await sse_queue.put(update)
+    except Exception as e:
+        gui_logger.error(f"Error putting update onto SSE queue: {e}")
+
+@app.on_event("startup")
+async def startup_event():
+    gui_logger.info(f"FastAPI app startup: current_user_goal is '{current_user_goal}'")
+    initial_objective = await current_objective_store.get_objective()
+    gui_logger.info(f"FastAPI app startup: initial objective from store is '{initial_objective}'")
+    # Send initial state to clients connecting at startup
+    # This ensures the GUI starts with the correct "Formulated Objective:"
+    await send_operator_update({
+        "objective": initial_objective,
+        "goal": current_user_goal, # Should be ""
+        "thinking": current_thinking_process,
+        "visual_summary": current_visual_summary,
+        "steps_taken": current_steps_taken,
+        "generated_operations": current_generated_operations,
+        "status": current_automoy_status # Use the enum member directly if client handles it, or .value
+    })
+
+
+class Goal(BaseModel):
+    goal: str
+
+@app.get("/", response_class=HTMLResponse)
+async def get_index():
+    index_path = TEMPLATES_DIR / "index.html"
+    if not index_path.is_file():
+        gui_logger.error(f"index.html not found at {index_path}")
+        raise HTTPException(status_code=500, detail="index.html not found")
+    return FileResponse(index_path)
+
+@app.post("/set_goal")
+async def set_goal(goal_data: Goal, request: Request): # Added request: Request
+    global current_user_goal, current_thinking_process, current_visual_summary, current_steps_taken, current_generated_operations, current_automoy_status
+    
+    previous_goal = current_user_goal
+    gui_logger.info(f"/set_goal called. Previous goal: '{previous_goal}'. Received new goal: '{goal_data.goal}'. Client: {request.client}")
+    
+    current_user_goal = goal_data.goal
+    
+    # Reset other states when a new goal is set
+    current_thinking_process = "Thinking..." # Reset to initial thinking message
+    current_visual_summary = ""
+    current_steps_taken = []
+    current_generated_operations = []
+    current_automoy_status = AutomoyStatus.THINKING # Change status to thinking
+
+    await current_objective_store.set_objective("Formulating objective...") # Show "Formulating..."
+    
+    gui_logger.info(f"/set_goal updated current_user_goal to: '{current_user_goal}' and reset related states.")
+    
+    # Push full state update
+    await send_operator_update({
+        "goal": current_user_goal,
+        "objective": await current_objective_store.get_objective(),
+        "thinking": current_thinking_process,
+        "visual_summary": current_visual_summary,
+        "steps_taken": current_steps_taken,
+        "generated_operations": current_generated_operations,
+        "status": current_automoy_status
+    })
+    return {"message": "Goal set successfully", "current_goal": current_user_goal}
+
+@app.get("/state/goal")
+async def get_goal_state():
+    gui_logger.info(f"/state/goal called. Returning goal: '{current_user_goal}'")
+    return {"goal": current_user_goal}
+
+@app.get("/state/objective")
+async def get_objective_state():
+    obj = await current_objective_store.get_objective()
+    gui_logger.info(f"/state/objective called. Returning objective: '{obj}'")
+    return {"objective": obj}
+
+@app.get("/operator_state")
+async def get_operator_state():
+    obj = await current_objective_store.get_objective()
+    # status_val = current_automoy_status.value if hasattr(current_automoy_status, 'value') else current_automoy_status
+    gui_logger.info(f"/operator_state called. Goal: '{current_user_goal}', Objective: '{obj}', Status: '{current_automoy_status}'")
+    return {
+        "goal": current_user_goal,
+        "objective": obj,
+        "thinking": current_thinking_process,
+        "visual_summary": current_visual_summary,
+        "steps_taken": current_steps_taken,
+        "generated_operations": current_generated_operations,
+        "status": current_automoy_status, # Send enum member or .value depending on client
+    }
+
+async def sse_event_publisher():
+    while True:
+        try:
+            update = await sse_queue.get()
+            yield {"data": json.dumps(update)} # Ensure json is imported
+        except asyncio.CancelledError:
+            gui_logger.info("SSE publisher task cancelled.")
+            break
+        except Exception as e:
+            gui_logger.error(f"Error in SSE publisher: {e}")
+            # Avoid breaking the loop for other errors, maybe add a small delay
+            await asyncio.sleep(0.1)
+
+
+@app.get("/stream_operator_updates")
+async def stream_operator_updates_endpoint(request: Request): # Added request
+    # Need to import json for dumps
+    import json
+    # Also, the publisher should yield dicts that EventSourceResponse can serialize,
+    # or strings directly. If json.dumps is used, it should be `data: json.dumps(update)`.

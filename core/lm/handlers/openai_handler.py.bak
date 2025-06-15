@@ -74,14 +74,14 @@ async def call_openai_model(messages, objective, model_name=None):
         
         # Always print messages for objective formulation to debug
         if "formulate" in str(messages).lower() or "objective" in str(messages).lower():
-            print(f"\n[OBJECTIVE_DEBUG] ******* OPENAI HANDLER CALLED FOR OBJECTIVE FORMULATION *******")
+            print(f"[OBJECTIVE_DEBUG] ******* OPENAI HANDLER CALLED FOR OBJECTIVE FORMULATION *******")
             print(f"[OBJECTIVE_DEBUG] Model: {model_name}")
             print(f"[OBJECTIVE_DEBUG] Temperature: {temperature}")
             print(f"[OBJECTIVE_DEBUG] Raw messages: {json.dumps(messages, indent=2)}")
             print(f"[OBJECTIVE_DEBUG] Objective arg: {objective}")
         
         if config.get("DEBUG", False):
-            print(f"[DEBUG] Raw messages:\n{json.dumps(messages, indent=2)}")
+            print(f"[DEBUG] Raw messages:\\n{json.dumps(messages, indent=2)}")
 
         content = messages[-1]["content"] if messages and "content" in messages[-1] else ""
 
@@ -91,9 +91,7 @@ async def call_openai_model(messages, objective, model_name=None):
             except KeyError:
                 enc = tiktoken.get_encoding("cl100k_base")
             tokenized = enc.encode(text)
-            return enc.decode(tokenized[:max_tokens]) if len(tokenized) > max_tokens else text
-            
-        content = truncate_text(content, max_tokens=2000, model_name=model_name)
+            return enc.decode(tokenized[:max_tokens]) if len(tokenized) > max_tokens else text        content = truncate_text(content, max_tokens=2000, model_name=model_name)
         truncated_data = truncate_messages([{"role": "system", "content": content}], max_tokens=6000, model_name=model_name)
         messages = messages[:-1] + truncated_data
         
@@ -130,9 +128,7 @@ async def call_openai_model(messages, objective, model_name=None):
                 if config.get("DEBUG", False):
                     print(delta, end="", flush=True)
                 collected_content += delta
-                await _update_gui_with_stream_chunk(delta) # Send chunk to GUI
-
-        await _update_gui_with_stream_chunk("__STREAM_END__") # Signal stream end
+                await _update_gui_with_stream_chunk(delta) # Send chunk to GUI        await _update_gui_with_stream_chunk("__STREAM_END__") # Signal stream end
         
         if config.get("DEBUG", False):
             print(f"\n[DEBUG] Raw GPT Response Content (streamed):\n{repr(collected_content)}")
@@ -156,7 +152,7 @@ async def call_openai_model(messages, objective, model_name=None):
         # The `handle_llm_response` function (or other callers) will attempt to parse it.
         # For non-action stages (visual, thinking, steps), they expect raw text.
         # For action stage, it expects JSON.
-        
+
         # The `transform_operations` and `fix_json_format` are specifically for action JSON.
         # We should only apply them if we expect a JSON action.
         # The `objective` parameter might give a hint, or we can rely on the prompt structure.
@@ -164,7 +160,7 @@ async def call_openai_model(messages, objective, model_name=None):
         # For now, let's assume if a JSON block is found, it's an action.
         # Otherwise, it's a text response for other stages.
         
-        json_match = re.search(r"```json\s*(.*?)\s*```", collected_content, re.DOTALL)
+        json_match = re.search(r"```json\\s*(.*?)\\s*```", collected_content, re.DOTALL)
         if json_match:
             # It's likely an action response
             parsed_json_actions = fix_json_format(raw_json_text) # raw_json_text is the extracted JSON part

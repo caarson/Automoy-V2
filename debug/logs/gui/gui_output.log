@@ -1,3 +1,2 @@
-2025-06-13 12:22:40,473 - GUI - INFO - [gui.setup_gui_logging:48] - GUI Logging initialized. Log file: C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\debug\logs\gui\gui_output.log. Console level: INFO, File level: DEBUG.
-2025-06-13 12:22:40,477 - GUI - INFO - [gui.<module>:216] - FastAPI app created with lifespan.
-2025-06-13 12:22:47,378 - GUI - DEBUG - [gui.get_processed_screenshot:417] - [GUI /processed_screenshot.png] Attempting to serve: c:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\gui\static\processed_screenshot.png
+2025-06-14 19:04:25,475 - GUI - INFO - [gui.setup_gui_logging:48] - GUI Logging initialized. Log file: C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\debug\logs\gui\gui_output.log. Console level: INFO, File level: DEBUG.
+2025-06-14 19:04:25,479 - GUI - INFO - [gui.<module>:216] - FastAPI app created with lifespan.

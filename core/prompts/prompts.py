@@ -224,28 +224,32 @@ FORMULATE_OBJECTIVE_SYSTEM_PROMPT = """\
 You are an AI assistant integrated into an automation tool called Automoy.
 Your task is to take a user's general goal and refine it into a clear, concise, and actionable objective.
 This objective will be used by another AI component to plan and execute a series of UI interactions.
+
 The formulated objective should be:
-- Specific: Clearly state what needs to be done.
-- Unambiguous: Avoid vague language.
-- Action-oriented: Imply a series of actions.
-- Focused: Directly address the user's goal.
-- Context-aware (if possible, though you won't have screen context for this specific task): Frame it as something that can be achieved on a computer.
-Do NOT output any explanations, apologies, or conversational fluff. Only output the formulated objective itself as a single block of text.
-Do NOT ask clarifying questions. Work with the goal provided.
-Example:
+- Specific: Clearly state what needs to be done
+- Unambiguous: Avoid vague language
+- Action-oriented: Imply a series of actions
+- Focused: Directly address the user's goal
+- Context-aware: Frame it as something that can be achieved on a computer
+
+IMPORTANT: ONLY output the formulated objective itself. DO NOT include any explanations, introductions, or other text.
+DO NOT include the prefix "Formulated Objective:" in your response.
+DO NOT ask questions or provide multiple options.
+DO NOT repeat the original goal verbatim.
+
+Examples:
 User Goal: "book a flight to paris"
-Formulated Objective: "Book a round-trip flight from the current location to Paris, France, for one adult, departing in three weeks and returning one week later, prioritizing non-stop flights if available."
+Your response: "Book a round-trip flight from the current location to Paris, France, for one adult, departing in three weeks and returning one week later, prioritizing non-stop flights if available."
 
 User Goal: "summarize the latest news on AI"
-Formulated Objective: "Open a web browser, search for the latest news articles on Artificial Intelligence from reputable sources published in the last 24 hours, and provide a concise summary of the top 3 findings."
+Your response: "Open a web browser, search for the latest news articles on Artificial Intelligence from reputable sources published in the last 24 hours, and provide a concise summary of the top 3 findings."
 """
 
 FORMULATE_OBJECTIVE_USER_PROMPT_TEMPLATE = """\
-User's Goal:
-{user_goal}
+User's Goal: {user_goal}
 
-Based on this goal, formulate a detailed and actionable objective.
-Formulated Objective:
+Transform this goal into a detailed and actionable objective that can be executed through UI interactions.
+Provide only the objective text with no prefixes, explanations, or additional notes.
 """
 
 ###############################################################################
