@@ -19,6 +19,10 @@ from typing import Optional, Iterable
 
 import requests
 
+# Import logging for better debugging
+import logging
+logger = logging.getLogger(__name__)
+
 # torch is optional – used only to free CUDA cache if available
 try:
     import torch
@@ -126,12 +130,12 @@ class OmniParserInterface:
             "--som_model_path", str(model_path or DEFAULT_MODEL_PATH),
             "--caption_model_name", "florence2",
             "--caption_model_path", str(caption_model_dir or DEFAULT_CAPTION_MODEL_DIR),
-            "--device", "cuda",
+            "--device", "cpu",  # Force CPU to avoid CUDA issues
             "--BOX_TRESHOLD", "0.15",
             "--port", str(port),
         ]
 
-        print(f"🚀 Launching OmniParser on :{port}")
+        print(f"Launching OmniParser on :{port}")
         try:
             self.server_process = subprocess.Popen(
                 cmd,
@@ -148,7 +152,7 @@ class OmniParserInterface:
         def _tail():
             for line in iter(self.server_process.stdout.readline, ""):
                 if line:
-                    print("[Server]", line.rstrip())
+                    logger.info(f"[OmniParser Server] {line.rstrip()}")
                 if self.server_process.poll() is not None:
                     break
 
@@ -157,14 +161,23 @@ class OmniParserInterface:
         t0 = time.time()
         while time.time() - t0 < 120:
             if self.server_process.poll() is not None:
-                print("❌ OmniParser exited.")
+                logger.error("❌ OmniParser exited.")
+                # Try to get exit code and any stderr
+                exit_code = self.server_process.returncode
+                stderr_output = ""
+                if self.server_process.stderr:
+                    try:
+                        stderr_output = self.server_process.stderr.read()
+                    except:
+                        pass
+                logger.error(f"Exit code: {exit_code}, stderr: {stderr_output}")
                 return False
             try:
                 if requests.get(f"http://localhost:{port}/probe/", timeout=3).status_code == 200:
-                    print(f"✅ Ready at http://localhost:{port}")
+                    logger.info(f"✅ Ready at http://localhost:{port}")
                     return True
-            except requests.RequestException:
-                pass
+            except requests.RequestException as e:
+                logger.debug(f"Probe failed: {e}")
             time.sleep(2)
 
         print("❌ OmniParser did not become ready.")
@@ -204,22 +217,32 @@ class OmniParserInterface:
         url = f"{self.server_url}/parse/"
 
         for label, encoded in _encoding_sequence(img_path):
-            print(f"[DEBUG] Sending {label} → {len(encoded):,} bytes to {url}")
+            logger.info(f"[DEBUG] Sending {label} → {len(encoded):,} bytes to {url}")
             try:
+                logger.info(f"[DEBUG] Making POST request to {url} with timeout=120")
                 r = requests.post(url, json={"base64_image": encoded}, timeout=120)
+                logger.info(f"[DEBUG] Response status code: {r.status_code}")
+                logger.info(f"[DEBUG] Response headers: {dict(r.headers)}")
                 r.raise_for_status()
+                
+                raw_response = r.text
+                logger.info(f"[DEBUG] Raw response length: {len(raw_response)} characters")
+                logger.info(f"[DEBUG] Raw response preview: {raw_response[:200]}...")
+                
                 parsed = r.json()
+                logger.info(f"[DEBUG] Parsed JSON type: {type(parsed)}")
+                logger.info(f"[DEBUG] Parsed JSON keys: {list(parsed.keys()) if isinstance(parsed, dict) else 'not a dict'}")
 
                 # ← HERE ←
                 if not isinstance(parsed, dict) or "parsed_content_list" not in parsed:
-                    print(f"⚠️ Unexpected response structure: {parsed}")
+                    logger.warning(f"⚠️ Unexpected response structure: {parsed}")
                     return None
 
                 # Convert parsed_content_list → coords (legacy format expected by mapper)
                 if isinstance(parsed.get("parsed_content_list"), list):
                     coords = []
                     for item in parsed["parsed_content_list"]:
-                        print("📦 Parsed Item:", json.dumps(item, indent=2))
+                        logger.info(f"📦 Parsed Item: {json.dumps(item, indent=2)}")
                         coords.append({
                             "bbox": item["bbox_normalized"] if isinstance(item.get("bbox_normalized"), list) else [0, 0, 0, 0],
                             "content": item.get("content", ""),
@@ -228,7 +251,7 @@ class OmniParserInterface:
                             "source": item.get("source", ""),
                         })
                     parsed["coords"] = coords
-                    print(f"✅ Converted {len(coords)} items to coords")
+                    logger.info(f"✅ Converted {len(coords)} items to coords")
 
                 if torch and torch.cuda.is_available():
                     torch.cuda.empty_cache()
@@ -236,15 +259,15 @@ class OmniParserInterface:
                 if "som_image_base64" in parsed:
                     out = pathlib.Path(__file__).with_name("processed_screenshot.png")
                     out.write_bytes(base64.b64decode(parsed["som_image_base64"]))
-                    print(f"🖼️  Overlay saved → {out}")
+                    logger.info(f"🖼️  Overlay saved → {out}")
                     try:
                         gui_dest = PROJECT_ROOT / "gui" / "static" / "processed_screenshot.png"
                         shutil.copy2(out, gui_dest)
-                        print(f"[DEBUG] Copied processed screenshot to GUI static: {gui_dest}")
+                        logger.info(f"[DEBUG] Copied processed screenshot to GUI static: {gui_dest}")
                     except Exception as e:
-                        print(f"[ERROR] Could not copy processed screenshot to GUI static: {e}")
+                        logger.error(f"[ERROR] Could not copy processed screenshot to GUI static: {e}")
 
-                    print(f"✅ Parsed OK with {label}")
+                    logger.info(f"✅ Parsed OK with {label}")
 
                     # cache and return
                     self._last_image_path = img_path
@@ -252,13 +275,14 @@ class OmniParserInterface:
                     return parsed
 
             except requests.HTTPError as e:
+                logger.error(f"❌ HTTPError ({r.status_code}) after {label}: {e}")
+                logger.error(f"Response text: {r.text[:1000]}")  # Log response content for debugging
                 if r.status_code >= 500 and label == "RAW":
-                    print("⚠️ 5xx on RAW – retrying with JPEG…")
+                    logger.warning("⚠️ 5xx on RAW – retrying with JPEG…")
                     continue
-                print(f"❌ HTTPError ({r.status_code}) after {label}: {e}")
                 return None
             except requests.RequestException as e:
-                print(f"❌ Request failed: {e}")
+                logger.error(f"❌ Request failed: {e}")
                 return None
 
         return None

@@ -5,12 +5,16 @@
 			"args": [
 				"core/main.py"
 			],
-			"command": "python",
+			"command": "C:\\Users\\imitr\\anaconda3\\envs\\automoy_env\\python.exe",
 			"group": "build",
 			"isBackground": true,
 			"label": "Run Automoy V2",
-			"problemMatcher": [],
-			"type": "shell"
+			"type": "shell",
+			"options": {
+				"env": {
+					"PYTHONPATH": "${workspaceFolder}"
+				}
+			}
 		}
 	]
 }

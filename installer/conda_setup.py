@@ -102,40 +102,81 @@ def install_pytorch(env_name="automoy_env"):
     
     print(f"📦 Installing PyTorch in Conda environment {env_name}...")
 
+    # Determine the correct PyTorch installation command
     if cuda_version:
         # Convert CUDA version to the expected format for PyTorch's pip index (e.g., 11.8 -> cu118)
         cuda_pip_version = f"cu{cuda_version.replace('.', '')}"
+        print(f"✅ CUDA {cuda_version} detected, installing PyTorch with {cuda_pip_version} support...")
 
         pytorch_command = [
             conda_exe, "run", "-n", env_name, "pip", "install",
             "torch", "torchvision", "torchaudio",
-            "--index-url", f"https://download.pytorch.org/whl/{cuda_pip_version}"
+            "--index-url", f"https://download.pytorch.org/whl/{cuda_pip_version}",
+            "--timeout", "300"  # 5 minute timeout for large downloads
         ]
     else:
         print("⚠️ No supported CUDA detected, installing PyTorch CPU version...")
         pytorch_command = [
             conda_exe, "run", "-n", env_name, "pip", "install",
-            "torch", "torchvision", "torchaudio", "--index-url", "https://download.pytorch.org/whl/cpu"
+            "torch", "torchvision", "torchaudio", 
+            "--index-url", "https://download.pytorch.org/whl/cpu",
+            "--timeout", "300"
         ]
+    
+    # Try pip installation with retries
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            print(f"🔄 PyTorch installation attempt {attempt + 1}/{max_retries}...")
+            subprocess.run(pytorch_command, check=True, timeout=600)  # 10 minute timeout
+            print("✅ PyTorch installation successful!")
+            
+            # Verify PyTorch installation
+            verify_cmd = [
+                conda_exe, "run", "-n", env_name, "python", "-c",
+                "import torch; print(f'PyTorch {torch.__version__} installed successfully'); print(f'CUDA available: {torch.cuda.is_available()}')"
+            ]
+            subprocess.run(verify_cmd, check=True)
+            return
+            
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+            print(f"❌ PyTorch installation attempt {attempt + 1} failed: {e}")
+            if attempt == max_retries - 1:
+                print("⚠️ All pip installation attempts failed. Trying conda fallback...")
+                break
+            else:
+                print("🔄 Retrying in 5 seconds...")
+                import time
+                time.sleep(5)
+    
+    # Fallback: use conda install instead
+    print("🔄 Attempting conda-based PyTorch installation...")
     try:
-        subprocess.run(pytorch_command, check=True)
-    except subprocess.CalledProcessError:
-        print("⚠️ pip install failed. Falling back to conda-based installation...")
-        # Fallback: use conda install instead
         if cuda_version:
             cudatoolkit_pkg = f"cudatoolkit={cuda_version}"
             conda_pkg_cmd = [
-                conda_exe, "run", "-n", env_name,
-                "conda", "install", "-y", "-c", "pytorch",
+                conda_exe, "install", "-n", env_name, "-y", "-c", "pytorch", "-c", "conda-forge",
                 "pytorch", "torchvision", "torchaudio", cudatoolkit_pkg
             ]
         else:
             conda_pkg_cmd = [
-                conda_exe, "run", "-n", env_name,
-                "conda", "install", "-y", "-c", "pytorch",
-                "pytorch", "torchvision", "torchaudio"
+                conda_exe, "install", "-n", env_name, "-y", "-c", "pytorch", "-c", "conda-forge",
+                "pytorch", "torchvision", "torchaudio", "cpuonly"
             ]
-        subprocess.run(conda_pkg_cmd, check=True)
+        subprocess.run(conda_pkg_cmd, check=True, timeout=600)
+        print("✅ PyTorch installation via conda successful!")
+        
+        # Verify conda installation
+        verify_cmd = [
+            conda_exe, "run", "-n", env_name, "python", "-c",
+            "import torch; print(f'PyTorch {torch.__version__} installed successfully'); print(f'CUDA available: {torch.cuda.is_available()}')"
+        ]
+        subprocess.run(verify_cmd, check=True)
+        
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+        print(f"❌ Conda PyTorch installation also failed: {e}")
+        print("💡 You may need to install PyTorch manually after the setup completes.")
+        print("💡 Visit https://pytorch.org/get-started/locally/ for manual installation instructions.")
 
 def install_requirements(env_name="automoy_env"):
     """
@@ -155,10 +196,15 @@ def install_requirements(env_name="automoy_env"):
     
     if os.path.isfile(requirements_path):
         print(f"🔎 Found requirements at: {requirements_path}")
-        subprocess.run([
-            conda_exe, "run", "-n", env_name, "pip", "install", 
-            "-r", requirements_path
-        ], check=True)
+        try:
+            subprocess.run([
+                conda_exe, "run", "-n", env_name, "pip", "install", 
+                "-r", requirements_path, "--timeout", "300"
+            ], check=True, timeout=900)  # 15 minute timeout for all packages
+            print("✅ Requirements installation successful!")
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+            print(f"⚠️ Some packages in requirements.txt failed to install: {e}")
+            print("🔄 Continuing with individual package installations...")
     else:
         print("⚠️ No 'requirements.txt' found, skipping that step.")
 
@@ -177,12 +223,17 @@ def install_requirements(env_name="automoy_env"):
             if force_packages:
                 print(f"🔄 Force reinstalling: {', '.join(force_packages)}")
                 for package in force_packages:
-                    print(f"📦 Forcing install of {package}...")
-                    subprocess.run([
-                        conda_exe, "run", "-n", env_name, 
-                        "pip", "install", "--force-reinstall", package
-                    ], check=True)
-                    print(f"✅ Successfully force installed: {package}")
+                    try:
+                        print(f"📦 Forcing install of {package}...")
+                        subprocess.run([
+                            conda_exe, "run", "-n", env_name, 
+                            "pip", "install", "--force-reinstall", package,
+                            "--timeout", "120"
+                        ], check=True, timeout=300)
+                        print(f"✅ Successfully force installed: {package}")
+                    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+                        print(f"⚠️ Failed to install {package}: {e}")
+                        print("🔄 Continuing with next package...")
             else:
                 print("⚠️ No packages found in force_install.txt.")
         except Exception as e:

@@ -1,0 +1,21 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Run Automoy",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "c:/Users/imitr/OneDrive/Documentos/GitHub/Automoy-V2/run_automoy.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}

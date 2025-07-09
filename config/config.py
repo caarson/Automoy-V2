@@ -33,18 +33,31 @@ class Config:
 
     def get(self, key: str, default: Any = None) -> Any:
         return self._data.get(key, default)
-
+        
     def get_env(self, key: str, default: Any = None) -> Any:
         return self._env_data.get(key, default)
-
+        
     def get_api_source(self) -> Tuple[str, str]:
-        if self.get("OPENAI", False) and self.get("OPENAI_API_KEY"):
-            return "openai", self.get("OPENAI_API_KEY")
+        if self.get("OPENAI", False):
+            api_key = self.get("OPENAI_API_KEY")
+            # Check for environment variables if not in config
+            if not api_key or api_key == "":
+                import os
+                api_key = os.environ.get("OPENAI_API_KEY", "")
+                if api_key:
+                    print("[CONFIG] Using OPENAI_API_KEY from environment variables")
+                
+            if api_key:
+                return "openai", api_key
+            else:
+                print("[WARNING] OPENAI is enabled but no API key found in config or environment")
+                
         if self.get("LMSTUDIO", False) and self.get("LMSTUDIO_API_URL"):
             return "lmstudio", self.get("LMSTUDIO_API_URL")
-        raise ValueError(
-            "No valid API configuration: set OPENAI or LMSTUDIO to True "
-            "and provide key/url.")
+            
+        # Fallback to dummy API with clear error message
+        print("[ERROR] No valid API configuration found. Using dummy OpenAI with error message.")
+        return "openai", "missing_api_key"
 
     def get_temperature(self) -> float:
         return float(self.get("TEMPERATURE", 0.5))
@@ -163,6 +176,12 @@ GUI_HOST = _config_instance.get("GUI_HOST", "127.0.0.1")
 GUI_PORT = int(_config_instance.get("GUI_PORT", 8001))
 AUTOMOY_GUI_TITLE_PREFIX = _config_instance.get("AUTOMOY_GUI_TITLE_PREFIX", "Automoy GUI @")
 
+# --- GUI Window Dimensions and Behavior ---
+GUI_WIDTH = int(_config_instance.get("GUI_WIDTH", 1024)) # Default width
+GUI_HEIGHT = int(_config_instance.get("GUI_HEIGHT", 768))  # Default height
+GUI_RESIZABLE = _config_instance.get("GUI_RESIZABLE", True) # Default resizable
+GUI_ON_TOP = _config_instance.get("GUI_ON_TOP", False)     # Default not on top
+
 # --- OmniParser Configuration ---
 OMNIPARSER_HOST = _config_instance.get("OMNIPARSER_HOST", "127.0.0.1")
 OMNIPARSER_PORT = int(_config_instance.get("OMNIPARSER_PORT", 8081)) # Default, adjust if needed
@@ -171,6 +190,12 @@ OMNIPARSER_BASE_URL = f"http://{OMNIPARSER_HOST}:{OMNIPARSER_PORT}"
 # --- Main Loop Configuration ---
 MAIN_LOOP_SLEEP_INTERVAL = float(_config_instance.get("MAIN_LOOP_SLEEP_INTERVAL", 0.5)) # seconds
 MAIN_LOOP_ERROR_SLEEP_INTERVAL = float(_config_instance.get("MAIN_LOOP_ERROR_SLEEP_INTERVAL", 5.0)) # seconds
+
+# --- Debug Configuration ---
+DEBUG_MODE = _config_instance.get("DEBUG_MODE", False) # ADDED DEBUG_MODE
+
+# --- Application Version ---
+VERSION = _config_instance.get("VERSION", "0.1.0-dev") # ADDED VERSION
 
 # --- LM Configuration ---
 # These will use the methods from the Config class to determine source and model

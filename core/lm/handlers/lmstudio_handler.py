@@ -44,12 +44,39 @@ async def call_lmstudio_model(messages, objective, model):
     We also increase the allowed size for preprocessed data.
     """
     config = Config()
-    api_source, api_value = config.get_api_source()  # e.g., ("lmstudio", "http://localhost:8020")
-    
-    if api_source == "lmstudio":
+    try:
+        api_source, api_value = config.get_api_source()  # e.g., ("lmstudio", "http://localhost:8020")
+        
+        # Add enhanced error checking for API source and URL
+        if api_source != "lmstudio":
+            error_msg = f"[ERROR] Expected LMStudio API but got {api_source} instead"
+            print(error_msg)
+            return error_msg
+            
+        if not api_value or not api_value.strip():
+            error_msg = "[ERROR] No LMStudio API URL specified in configuration"
+            print(error_msg)
+            return error_msg
+            
         api_url = api_value.rstrip("/") + "/v1/chat/completions"
-    else:
-        raise RuntimeError("No valid API source found for LMStudio.")
+        
+        # Test the API connection quickly before proceeding
+        try:
+            print(f"[DEBUG] Testing LMStudio API connection at {api_url}")
+            test_response = requests.get(api_value.rstrip("/") + "/v1/models", timeout=3)
+            if test_response.status_code != 200:
+                error_msg = f"[ERROR] LMStudio API not available (status: {test_response.status_code})"
+                print(error_msg)
+                return error_msg
+            print("[DEBUG] LMStudio API connection successful")
+        except requests.RequestException as e:
+            error_msg = f"[ERROR] Could not connect to LMStudio API: {e}"
+            print(error_msg)
+            return error_msg
+    except Exception as e:
+        error_msg = f"[ERROR] Failed to get LMStudio API configuration: {e}"
+        print(error_msg)
+        return error_msg
 
     headers = {"Content-Type": "application/json"}
 
@@ -102,29 +129,49 @@ async def call_lmstudio_model(messages, objective, model):
             full_response = ""
             printed_any_token = False
             print("[Waiting for streamed output...]")  # Always print before streaming starts
-            # Stream and print tokens as they arrive.
-            for line in response.iter_lines():
-                if not line:
+            
+            # Using iter_content for more robust chunk handling
+            for chunk in response.iter_content(chunk_size=None):
+                if not chunk:
                     continue
-                decoded_line = line.decode("utf-8").strip()
-                if decoded_line.startswith("data: "):
-                    try:
-                        json_data = json.loads(decoded_line[6:])
-                        if not isinstance(json_data, dict) or "choices" not in json_data:
-                            print(f"[ERROR] Unexpected LMStudio chunk: {json_data}")
-                            continue
-                        token = json_data["choices"][0].get("delta", {}).get("content", "")
-                        if token is not None and token != "":
-                            printed_any_token = True
-                            sys.stdout.write(token)
-                            sys.stdout.flush()
-                        full_response += token if token is not None else ""
-                        if json_data["choices"][0].get("finish_reason") is not None:
+                
+                decoded_chunk = chunk.decode("utf-8")
+                
+                # Process each line in the chunk
+                for line in decoded_chunk.splitlines():
+                    decoded_line = line.strip()
+                    if not decoded_line:
+                        continue
+
+                    if decoded_line.startswith("data: "):
+                        # Handle the [DONE] marker which indicates end of stream
+                        if decoded_line[6:].strip() == "[DONE]":
                             break
-                    except json.JSONDecodeError:
-                        print("[ERROR] Failed to parse streamed JSON chunk:", decoded_line)
-                else:
-                    print(f"[LMStudio stream] {decoded_line}")
+                        
+                        try:
+                            json_data = json.loads(decoded_line[6:])
+                            if not isinstance(json_data, dict) or "choices" not in json_data:
+                                print(f"[ERROR] Unexpected LMStudio chunk: {json_data}")
+                                continue
+                            token = json_data["choices"][0].get("delta", {}).get("content", "")
+                            if token is not None and token != "":
+                                printed_any_token = True
+                                sys.stdout.write(token)
+                                sys.stdout.flush()
+                            full_response += token if token is not None else ""
+                            if json_data["choices"][0].get("finish_reason") is not None:
+                                break
+                        except json.JSONDecodeError:
+                            print("[ERROR] Failed to parse streamed JSON chunk:", decoded_line)
+                    else:
+                        print(f"[LMStudio stream] {decoded_line}")
+                
+                if "data: [DONE]" in decoded_chunk:
+                    break
+
+            if not printed_any_token:
+                print("\n[DEBUG] No tokens were received in the stream.")
+
             print("\n[DEBUG] Full Response Received:", full_response)
             
             # --- Attempt to extract and parse JSON action --- 

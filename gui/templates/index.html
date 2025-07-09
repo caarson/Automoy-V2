@@ -3,9 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Automoy v2 – GUI</title>
-
-    <!-- ===== FONTS ===== -->
+    <title>Automoy v2 – GUI</title>    <!-- ===== FONTS ===== -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Orbitron:wght@400;700&display=swap" rel="stylesheet" />
@@ -92,32 +90,39 @@
             <span class="brand-divider">|</span>
             <h1>Automoy</h1>
           </header>          <div class="info-block">
-            <p id="objectiveText" class="objective-text">Formulated Objective:</p>
+            <p class="objective-text">Goal: <span id="goalValue">No goal set</span></p>
           </div>
+          
+          <div class="info-block">
+            <p class="objective-text">Objective (Iteration <span id="objectiveIteration">0</span>): <span id="objectiveValue">No objective</span></p>
+          </div>
+          
           <div class="info-block">
             <h3>Thinking:</h3>
-            <p id="thinkingText"></p>
+            <p id="thinkingText">Objective formulated. Starting execution...</p>
           </div>
+          
           <div class="info-block">
             <h3>Visual:</h3>
-            <p id="visualText"></p>
+            <p id="visualText">Error: Failed to get action for step 1</p>
           </div>
+          
           <div class="info-block">
             <h3>Steps:</h3>
-            <p id="stepsText"></p>
+            <p id="stepsText">No steps available</p>
           </div>
-          <!-- Generated Operations -->
+          
           <div class="info-block">
             <h3>Generated Operations:</h3>
-            <p id="operationsText"></p>
-          </div>
-           <!-- goal input -->
+            <p id="operationsText">No operations yet</p>
+          </div>           <!-- goal input -->
            <form class="goal-form" id="goalForm">
-             <input id="goalInput" type="text" placeholder="Enter goal..." />
+             <input id="goalInput" type="text" placeholder="Enter goal..." value="" />
              <button type="submit" aria-label="send">
                <svg viewBox="0 0 24 24"><path d="M4 20l16-8L4 4v6l10 2-10 2z"/></svg>
              </button>
            </form>
+        </div>
       </aside>
 
       <!-- === MAIN PANEL === -->
@@ -132,66 +137,281 @@
           </button>
         </div>
       </section>
-    </div>
-
-    <script>
-      // Hook form submission to backend set_goal endpoint
-      const goalForm = document.getElementById('goalForm');
+    </div>    <script>
+      console.log("Automoy GUI initialized");
+      
+      // Debug function to track UI updates
+      function updateElement(elementId, data, prefix = "") {
+        console.log(`Updating element ${elementId} with data:`, data);
+        const element = document.getElementById(elementId);
+        if (element) {
+          const content = prefix ? `${prefix}${data}` : data;
+          element.textContent = content;
+          console.log(`Element ${elementId} updated successfully`);
+          return true;
+        } else {
+          console.error(`Element ${elementId} not found in DOM`);
+          return false;
+        }
+      }
+      
+      // Hook form submission to backend set_goal endpoint      const goalForm = document.getElementById('goalForm');
       goalForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const goalInput = document.getElementById('goalInput');
         const goal = goalInput.value.trim();
-        if (!goal) return;
-        try {
-          await fetch('/set_goal', {
+        
+        // Enhanced validation to prevent sending empty goals
+        if (!goal) {
+          console.log("Empty goal detected. Not submitting.");
+          return;
+        }        // Check for suspicious values that might be defaults
+        // Only block *exact matches* to these placeholder values, not legitimate goals
+        const suspiciousValues = ["placeholder", "default", "undefined", "null"];
+        if (suspiciousValues.includes(goal.toLowerCase()) || goal.toLowerCase() === "enter goal...") {
+          console.error(`Suspicious goal detected: "${goal}". This appears to be a default value. Not submitting.`);
+          updateElement('objectiveValue', "Invalid goal detected. Please enter a valid goal.");
+          return;
+        }
+        
+        // Debug log to confirm valid goals are passing validation
+        console.log(`Goal "${goal}" passed frontend validation - this is a valid user goal`);
+        
+        console.log(`Submitting goal: "${goal}" [Length: ${goal.length}]`);
+          try {
+          // Clear the objective field while waiting for the server response
+          updateElement('objectiveValue', "Processing...");
+          
+          // Add timestamp to goal submission for proper tracking
+          const submissionTime = Date.now();
+          console.log(`Goal submission timestamp: ${submissionTime}`);
+          
+          console.log("Sending POST request to /set_goal...");
+          const response = await fetch('/set_goal', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ goal })
+            body: JSON.stringify({ 
+              goal
+            })
           });
+          
+          console.log(`Response status: ${response.status}`);
+          console.log(`Response ok: ${response.ok}`);
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          
+          // Log the response for debugging
+          const responseData = await response.json();
+          console.log("Goal submission response:", responseData);
+          
+          if (responseData.error) {
+            throw new Error(`Server error: ${responseData.error}`);
+          }
+          
+          // Clear the input field after successful submission
           goalInput.value = '';
+          
+          // Show success message
+          console.log("✅ Goal submitted successfully!");
+          
         } catch (err) {
-          console.error('Error sending goal:', err);
+          console.error('❌ Error sending goal:', err);
+          console.error('Error details:', {
+            name: err.name,
+            message: err.message,
+            stack: err.stack
+          });
+          
+          // Show detailed error message to user
+          let errorMessage = "Error sending goal. ";
+          if (err.message.includes("fetch")) {
+            errorMessage += "Connection failed - check if server is running.";
+          } else if (err.message.includes("HTTP")) {
+            // Use the full error message from the server if available
+            errorMessage += `Server responded with ${err.message}`;
+          } else {
+            errorMessage += err.message;
+          }
+          
+          updateElement('objectiveValue', errorMessage, "Formulated Objective: ");
         }
-      });
-
-      // Subscribe to server-sent events for operator updates
+      });      // Subscribe to server-sent events for operator updates
+      console.log("Setting up EventSource for SSE updates");
+      
+      // Add a debug message to the UI
+      document.getElementById('thinkingText').textContent = "Initializing connection to server...";
+      
       const evtSource = new EventSource('/stream_operator_updates');
+      
+      evtSource.onopen = () => {
+        console.log("SSE connection opened successfully");
+        document.getElementById('thinkingText').textContent = "Connection to server established. Ready for input.";
+      };
+      
       evtSource.onmessage = (e) => {
+        console.log("Raw SSE message received:", e.data);
         try {
           const msg = JSON.parse(e.data);
-          switch (msg.type) {
-            case 'thinking':
-              document.getElementById('thinkingText').textContent = msg.data;
-              break;
-            case 'visual':
-              document.getElementById('visualText').textContent = msg.data;
-              break;
-            case 'steps':
-              document.getElementById('stepsText').textContent = Array.isArray(msg.data) ? msg.data.join('\n') : msg.data;
-              break;
-            case 'current_operation':
-              document.getElementById('currentOp').textContent = msg.data;
-              break;
-            case 'past_operation':
-              document.getElementById('pastOp').textContent = msg.data;
-              break;
-            case 'processed_screenshot':
-              // reload processed screenshot image
-              const img = document.getElementById('screenshotImage');
-              img.src = `/processed_screenshot.png?cb=${Date.now()}`;
-              break;
-            case 'objective':
-              console.log("Received SSE 'objective' event. Data:", msg.data); // DEBUG LINE
-              document.getElementById('objectiveText').textContent = msg.data;
-              break;
-            default:
-              console.warn('Unknown event type:', msg.type);
+          console.log("Parsed SSE message:", msg);
+          
+          // Check if this is a typed message (with 'type' field) or a state object
+          if (msg.type) {
+            // Handle typed messages
+            switch (msg.type) {
+              case 'thinking':
+                updateElement('thinkingText', msg.data);
+                break;
+              case 'visual':
+                updateElement('visualText', msg.data);
+                break;
+              case 'steps':
+                const stepsContent = Array.isArray(msg.data) ? msg.data.join('\n') : msg.data;
+                updateElement('stepsText', stepsContent);
+                break;
+              case 'current_operation':
+                updateElement('currentOp', msg.data);
+                break;
+              case 'past_operation':
+                updateElement('pastOp', msg.data);
+                break;
+              case 'processed_screenshot':
+                // reload processed screenshot image
+                const img = document.getElementById('screenshotImage');
+                if (img) {
+                  console.log("Updating screenshot image");
+                  img.src = `/processed_screenshot.png?cb=${Date.now()}`;
+                }
+                break;
+              case 'objective':
+                console.log("Received 'objective' event. Data:", msg.data);
+                updateElement('objectiveValue', msg.data);
+                break;
+              case 'operations':
+                updateElement('operationsText', msg.data);
+                break;
+              case 'status':
+                console.log("Received status update:", msg.data);
+                // You could update a status indicator here if needed
+                break;
+              default:
+                console.warn('Unknown event type:', msg.type);
+            }
+          } else {
+            // Handle state object directly (current backend format)
+            console.log("Processing state object:", msg);
+            
+            // Update goal if present  
+            if (msg.goal) {
+              console.log("Updating goal from state:", msg.goal);
+              updateElement('goalValue', msg.goal);
+            }
+            
+            // Update objective if present
+            if (msg.objective && msg.objective !== "System starting up..." && msg.objective !== "Formulating objective...") {
+              console.log("Updating objective from state:", msg.objective);
+              updateElement('objectiveValue', msg.objective);
+            }
+            
+            // Update objective iteration if present
+            if (msg.text && typeof msg.text === 'object' && msg.text.iteration) {
+              updateElement('objectiveIteration', msg.text.iteration);
+            }
+            
+            // Update thinking text
+            if (msg.text && typeof msg.text === 'string') {
+              updateElement('thinkingText', msg.text);
+            } else if (msg.current_step_details) {
+              updateElement('thinkingText', msg.current_step_details);
+            }
+            
+            // Update visual analysis
+            if (msg.visual_analysis || (msg.text && typeof msg.text === 'object' && msg.text.visual)) {
+              const visualContent = msg.visual_analysis || msg.text.visual || msg.text;
+              updateElement('visualText', visualContent);
+            }
+            
+            // Handle steps - check for new dynamic format
+            if (msg.steps) {
+              let stepsContent;
+              if (Array.isArray(msg.steps)) {
+                stepsContent = msg.steps.length > 0 ? 
+                  msg.steps.map((step, index) => `${index + 1}. ${step.description || step}`).join('\n') : 
+                  "No steps available";
+              } else if (typeof msg.steps === 'string') {
+                stepsContent = msg.steps;
+              } else {
+                stepsContent = "Steps format error";
+              }
+              updateElement('stepsText', stepsContent);
+              
+              // Show warning if fallback steps were used
+              if (msg.warning) {
+                updateElement('stepsText', stepsContent + '\n\n⚠️ ' + msg.warning);
+              }
+            }
+            
+            // Handle operations - support both old and new formats
+            if (msg.operations) {
+              let operationsContent;
+              if (Array.isArray(msg.operations)) {
+                operationsContent = msg.operations.length > 0 ? 
+                  msg.operations.map((op, index) => {
+                    const summary = op.summary || op.type || op.description || 'Unknown operation';
+                    return `${index + 1}. ${summary}`;
+                  }).join('\n') : 
+                  "No operations yet";
+              } else if (typeof msg.operations === 'string') {
+                operationsContent = msg.operations;
+              } else {
+                operationsContent = "Operations format error";
+              }
+              updateElement('operationsText', operationsContent);
+              
+              // Update current operation for the right panel
+              if (msg.operations.length > 0) {
+                const lastOp = msg.operations[msg.operations.length - 1];
+                const currentOpText = lastOp.summary || lastOp.type || 'Unknown operation';
+                updateElement('currentOp', currentOpText);
+              }
+            } else if (msg.operations_log && Array.isArray(msg.operations_log)) {
+              // Fallback to old format
+              const operationsContent = msg.operations_log.length > 0 ? 
+                msg.operations_log.join('\n') : 
+                "No operations yet";
+              updateElement('operationsText', operationsContent);
+            }
+            
+            // Handle current operation specifically
+            if (msg.operation || msg.current_operation) {
+              const currentOp = msg.operation || msg.current_operation;
+              const opText = typeof currentOp === 'string' ? currentOp : 
+                           currentOp.summary || currentOp.type || 'Unknown operation';
+              updateElement('currentOp', opText);
+            }
+            
+            // Handle errors and warnings
+            if (msg.error) {
+              updateElement('thinkingText', `Error: ${msg.error}`);
+            }
+            
+            if (msg.llm_error_message) {
+              updateElement('operationsText', `LLM Error: ${msg.llm_error_message}`);
+            }
           }
         } catch (err) {
-          console.error('Failed to parse SSE message:', err);
+          console.error('Failed to parse SSE message:', err, 'Raw data:', e.data);
         }
       };
-      evtSource.onerror = (err) => console.error('SSE error:', err);
+      
+      evtSource.onerror = (err) => {
+        console.error('SSE connection error:', err);
+        // Attempt to reconnect or notify the user
+        updateElement('thinkingText', "Connection to server lost. Please refresh the page.");
+      };
+      
+      console.log("Automoy GUI setup complete");
     </script>
   </body>
 </html>

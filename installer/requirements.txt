@@ -1,9 +1,9 @@
-# Core AI Libraries
+# Core AI Libraries (OmniParser Dependencies)
 easyocr==1.7.2
 transformers
 ultralytics==8.3.70
 supervision==0.18.0
-openai
+openai==1.3.5
 azure-identity
 
 # Scientific & Image Processing
@@ -17,10 +17,16 @@ timm
 accelerate
 dill
 
+# LLM API Services
+anthropic[bedrock,vertex]>=0.37.1
+groq
+dashscope
+
 # Web & UI Frameworks
 gradio
 streamlit>=1.38.0
-dashscope
+fastapi
+uvicorn
 
 # Automation & GUI Interaction
 pyautogui==0.9.54
@@ -28,6 +34,12 @@ uiautomation
 screeninfo
 keyboard==0.13.5
 mouse==0.7.1
+
+# Core Automoy Dependencies
+watchdog
+sse-starlette
+pywebview
+httpx
 
 
 

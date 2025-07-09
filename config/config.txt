@@ -39,7 +39,7 @@ OPENAI_MODEL: gpt-4o                 # Specify which OpenAI model to use
 
 LMSTUDIO: True                      # Set to True to use LMStudio as the LLM backend.
 LMSTUDIO_API_URL: https://llm.technologies-ai.com/   # Insert your LMStudio API URL here
-LMSTUDIO_MODEL: qwen3-8b   # Specify which LMStudio model to use
+LMSTUDIO_MODEL: qwen/qwen3-8b   # Specify which LMStudio model to use
 
 #########################
 # Utility Configuration

@@ -5,6 +5,18 @@ import subprocess
 import pathlib
 import shutil
 
+def install_basic_dependencies():
+    """Install basic dependencies needed for the installer scripts."""
+    print("Installing basic dependencies for installer...")
+    try:
+        # Install requests, which is needed by cuda_setup.py
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "requests"])
+        print("✓ Basic dependencies installed successfully")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"✗ Failed to install basic dependencies: {e}")
+        return False
+
 def is_user_admin():
     """
     Returns True if the current process is running with admin privileges.
@@ -140,13 +152,18 @@ if __name__ == "__main__":
     # 1) Elevate if needed (opens new admin console with /k + quotes)
     ensure_admin()
 
-    # 2) CUDA or SYCL/OpenCL
+    # 2) Install basic dependencies for installer scripts
+    if not install_basic_dependencies():
+        print("Failed to install basic dependencies. Cannot continue.")
+        sys.exit(1)
+
+    # 3) CUDA or SYCL/OpenCL
     run_cuda_or_sycl_setup()
 
-    # 3) Conda
+    # 4) Conda
     run_conda_setup()
 
-    # 4) OmniParser
+    # 5) OmniParser
     run_omnispaper_setup()
 
     print("All installations complete! Automoy-V2 is now ready to use.")

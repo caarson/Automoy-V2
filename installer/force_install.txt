@@ -9,3 +9,5 @@ beautifulsoup4
 fastapi
 pywebview
 httpx
+sse-starlette
+pywebview
