@@ -99,12 +99,7 @@
           
           <div class="info-block">
             <h3>Thinking:</h3>
-            <p id="thinkingText">Objective formulated. Starting execution...</p>
-          </div>
-          
-          <div class="info-block">
-            <h3>Visual:</h3>
-            <p id="visualText">Error: Failed to get action for step 1</p>
+            <p id="thinkingText">No thinking process yet</p>
           </div>
           
           <div class="info-block">
@@ -130,8 +125,8 @@
         <h2>Spatial Analysis</h2>
         <div class="image-wrap"><img id="screenshotImage" src="/processed_screenshot.png" alt="screen" /></div>
         <div class="ops-row">
-          <div><span class="label">Past Operation:</span> <span id="pastOp">{operation "mouse", moveto(X Y)}</span></div>
-          <div><span class="label">Current Operation:</span> <span id="currentOp">{operation "click"}</span></div>
+          <div><span class="label">Past Operation:</span> <span id="pastOp">No operations yet</span></div>
+          <div><span class="label">Current Operation:</span> <span id="currentOp">No operations yet</span></div>
           <button class="big-pause" id="pauseButton" aria-label="pause">
             <svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
           </button>
@@ -263,9 +258,6 @@
               case 'thinking':
                 updateElement('thinkingText', msg.data);
                 break;
-              case 'visual':
-                updateElement('visualText', msg.data);
-                break;
               case 'steps':
                 const stepsContent = Array.isArray(msg.data) ? msg.data.join('\n') : msg.data;
                 updateElement('stepsText', stepsContent);
@@ -319,17 +311,13 @@
               updateElement('objectiveIteration', msg.text.iteration);
             }
             
-            // Update thinking text
-            if (msg.text && typeof msg.text === 'string') {
+            // Update thinking text - prioritize dedicated thinking field
+            if (msg.thinking && typeof msg.thinking === 'string') {
+              updateElement('thinkingText', msg.thinking);
+            } else if (msg.text && typeof msg.text === 'string') {
               updateElement('thinkingText', msg.text);
             } else if (msg.current_step_details) {
               updateElement('thinkingText', msg.current_step_details);
-            }
-            
-            // Update visual analysis
-            if (msg.visual_analysis || (msg.text && typeof msg.text === 'object' && msg.text.visual)) {
-              const visualContent = msg.visual_analysis || msg.text.visual || msg.text;
-              updateElement('visualText', visualContent);
             }
             
             // Handle steps - check for new dynamic format
@@ -389,6 +377,14 @@
               const opText = typeof currentOp === 'string' ? currentOp : 
                            currentOp.summary || currentOp.type || 'Unknown operation';
               updateElement('currentOp', opText);
+            }
+            
+            // Handle past operation specifically
+            if (msg.past_operation) {
+              const pastOp = msg.past_operation;
+              const opText = typeof pastOp === 'string' ? pastOp : 
+                           pastOp.summary || pastOp.type || 'Unknown operation';
+              updateElement('pastOp', opText);
             }
             
             // Handle errors and warnings

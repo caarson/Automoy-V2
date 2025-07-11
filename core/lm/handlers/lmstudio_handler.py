@@ -35,11 +35,14 @@ def format_messages(messages):
             print(f"[ERROR] Malformed message detected: {msg}")
     return formatted
 
-async def call_lmstudio_model(messages, objective, model):
+async def call_lmstudio_model(messages, objective, model, thinking_callback=None):
     """
     Calls the LMStudio API with streaming enabled.
     The function prints tokens as they arrive (so text appears as it's generated)
     and only returns the full response after the model finishes generating.
+    
+    Args:
+        thinking_callback: Optional async function to call with each streamed token
     
     We also increase the allowed size for preprocessed data.
     """
@@ -123,7 +126,8 @@ async def call_lmstudio_model(messages, objective, model):
         print("[WARNING] Payload is very large and may cause timeouts or errors.")
 
     try:
-        with requests.post(api_url, json=payload, headers=headers, stream=True) as response:
+        # Add timeout to prevent hanging requests
+        with requests.post(api_url, json=payload, headers=headers, stream=True, timeout=45) as response:
             response.raise_for_status()
 
             full_response = ""
@@ -158,6 +162,14 @@ async def call_lmstudio_model(messages, objective, model):
                                 printed_any_token = True
                                 sys.stdout.write(token)
                                 sys.stdout.flush()
+                                
+                                # Call the thinking callback if provided
+                                if thinking_callback:
+                                    try:
+                                        await thinking_callback(token)
+                                    except Exception as e:
+                                        print(f"[ERROR] Thinking callback failed: {e}")
+                                        
                             full_response += token if token is not None else ""
                             if json_data["choices"][0].get("finish_reason") is not None:
                                 break
@@ -176,10 +188,28 @@ async def call_lmstudio_model(messages, objective, model):
             
             # --- Attempt to extract and parse JSON action --- 
             if full_response:
-                # Try to find a JSON code block
+                # First try to find a JSON code block
                 match = re.search(r"```json\s*([\s\S]*?)\s*```", full_response)
                 if match:
                     json_str = match.group(1).strip()
+                    print(f"[DEBUG] Found JSON code block: {json_str[:100]}...")
+                else:
+                    # If no code block, try to extract raw JSON array from the response
+                    # Look for JSON array pattern starting with [ and ending with ]
+                    array_match = re.search(r'\[\s*\{[\s\S]*?\}\s*\]', full_response)
+                    if array_match:
+                        json_str = array_match.group(0).strip()
+                        print(f"[DEBUG] Found raw JSON array: {json_str[:100]}...")
+                    else:
+                        # Look for single JSON object pattern
+                        object_match = re.search(r'\{\s*"[\s\S]*?\}', full_response)
+                        if object_match:
+                            json_str = object_match.group(0).strip()
+                            print(f"[DEBUG] Found raw JSON object: {json_str[:100]}...")
+                        else:
+                            json_str = None
+                
+                if json_str:
                     try:
                         parsed_json = json.loads(json_str)
                         # Check if it's a list of actions (as per DEFAULT_PROMPT)
@@ -193,15 +223,27 @@ async def call_lmstudio_model(messages, objective, model):
                         elif isinstance(parsed_json, dict) and "operation" in parsed_json:
                             print(f"[DEBUG] Extracted single JSON action object from LMStudio: {parsed_json}")
                             return json.dumps([parsed_json]) # Return as a JSON string list
+                        # Check if it's a list of steps (for step generation)
+                        elif isinstance(parsed_json, list) and len(parsed_json) > 0 and "step_number" in parsed_json[0]:
+                            print(f"[DEBUG] Extracted JSON steps from LMStudio: {len(parsed_json)} steps")
+                            return json.dumps(parsed_json) # Return the full steps array
                         else:
-                            print("[DEBUG] Parsed JSON from LMStudio is not in the expected action format. Returning full response.")
+                            print("[DEBUG] Parsed JSON from LMStudio is not in the expected format. Returning full response.")
                     except json.JSONDecodeError as e:
                         print(f"[ERROR] Failed to decode JSON from LMStudio response: {e}. Raw JSON string: {json_str}")
                 else:
-                    print("[DEBUG] No JSON code block found in LMStudio response. Returning full response.")
+                    print("[DEBUG] No JSON found in LMStudio response. Returning full response.")
             # --- End JSON extraction attempt ---
 
             return full_response if full_response.strip() else "[ERROR] No valid response from the model."
+    except requests.Timeout:
+        error_msg = "[ERROR] LMStudio API call timed out after 45 seconds. Check if LMStudio is running and responsive."
+        print(error_msg)
+        return error_msg
+    except requests.ConnectionError:
+        error_msg = "[ERROR] Cannot connect to LMStudio API. Check if LMStudio is running and accessible."
+        print(error_msg)
+        return error_msg
     except requests.RequestException as e:
         error_msg = f"[ERROR] API connection failed: {e}"
         print(error_msg)

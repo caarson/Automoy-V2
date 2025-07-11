@@ -67,7 +67,7 @@ async def _update_gui_with_stream_chunk(chunk_text: str):
         # print(f"[STREAM_GUI_UPDATE_ERROR] Failed to send chunk to GUI: {e}")
         pass
 
-async def call_openai_model(messages, objective, model_name=None):
+async def call_openai_model(messages, objective, model_name=None, thinking_callback=None):
     try:
         model_name = model_name or config.get_model()
         temperature = config.get_temperature()

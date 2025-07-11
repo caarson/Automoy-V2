@@ -361,79 +361,37 @@ async def main_async_operations(stop_event: asyncio.Event):
     gui_host_local = GUI_HOST
     gui_port_local = GUI_PORT
     
+    # Initialize OmniParser for visual analysis
+    logger.info("Initializing OmniParser for visual analysis...")
     try:
-        from core.utils.omniparser.omniparser_interface import OmniParserInterface
-        logger.info("Successfully imported OmniParserInterface.")
-    except ImportError as e:
-        logger.error(f"Failed to import OmniParserInterface: {e}", exc_info=True)
-        if stop_event: stop_event.set()
-        return
-
-    # --- OmniParser Initialization ---
-    # The port is hardcoded to 5100 for OmniParser.
-    omniparser_port = 5100
-    omniparser_base_url = f"http://localhost:{omniparser_port}"
-
-    # --- Pre-launch: Kill any process on the OmniParser port ---
-    logger.info(f"Checking for existing process on OmniParser port {omniparser_port}...")
-    if is_process_running_on_port(omniparser_port):
-        logger.warning(f"Port {omniparser_port} is in use. Attempting to terminate the process.")
-        kill_process_on_port(omniparser_port)
-        await asyncio.sleep(1.5) # Give a moment for the port to be released
-        if is_process_running_on_port(omniparser_port):
-            logger.error(f"Failed to free up port {omniparser_port}. OmniParser is critical. Shutting down.")
-            if stop_event: stop_event.set()
-            return
-        else:
-            logger.info(f"Successfully terminated process on port {omniparser_port}.")
-    else:
-        logger.info(f"Port {omniparser_port} is free.")
-    # --- End Pre-launch ---
-
-    # Define omniparser config variables with default values
-    omniparser_conda_env = 'automoy_env'  # Default value since we don't have direct access to this config
-    omniparser_model_path = None  # Default to None since we don't have direct access to this config
-    omniparser_caption_model_dir = None  # Default to None since we don't have direct access to this config
-
-    logger.info(f"main_async_operations: Initializing OmniParser interface for URL: {omniparser_base_url}")
-    omniparser = OmniParserInterface(server_url=omniparser_base_url) 
-
-    logger.info("Checking OmniParser server status...")
-    if not omniparser._check_server_ready(): 
-        logger.info(f"OmniParser server not detected at {omniparser_base_url}. Attempting to launch...")
+        from core.utils.omniparser.omniparser_server_manager import OmniParserServerManager
+        omniparser_manager = OmniParserServerManager()
         
-        launch_args = {
-            "port": omniparser_port,
-            "conda_env": omniparser_conda_env
-        }
-        if omniparser_model_path:
-            launch_args["model_path"] = omniparser_model_path
-        if omniparser_caption_model_dir:
-            launch_args["caption_model_dir"] = omniparser_caption_model_dir
-        
-        # launch_server is synchronous.
-        if omniparser.launch_server(**launch_args):
-            logger.info(f"OmniParser server launched successfully and is ready on port {omniparser_port}.")
+        # Check if server is already running
+        if omniparser_manager.is_server_ready():
+            logger.info("OmniParser server is already running")
+            omniparser = omniparser_manager.get_interface()
         else:
-            logger.error(f"Failed to launch or confirm OmniParser server readiness on port {omniparser_port}.")
-            logger.warning("OmniParser is critical for visual analysis. The system will continue but visual analysis may not work.")
-            # Update GUI state to inform user about OmniParser issue
-            write_state({
-                "operator_status": "warning",
-                "current_step_details": "OmniParser server failed to start. Visual analysis may not work properly.",
-                "operations_log": ["OmniParser startup failed - continuing without visual analysis capability"],
-                "llm_error_message": "OmniParser server is not available. Some features may be limited."
-            })
-            # Continue without making it fatal - the system can still work for non-visual tasks 
+            logger.info("Starting OmniParser server...")
+            server_process = omniparser_manager.start_server()
+            if server_process:
+                if omniparser_manager.wait_for_server(timeout=60):
+                    logger.info("OmniParser server started successfully")
+                    omniparser = omniparser_manager.get_interface()
+                else:
+                    logger.error("OmniParser server failed to become ready within timeout")
+                    omniparser = None
+            else:
+                logger.error("Failed to start OmniParser server")
+                omniparser = None
+    except Exception as e:
+        logger.error(f"Error initializing OmniParser: {e}", exc_info=True)
+        omniparser = None
+    
+    if omniparser:
+        logger.info("OmniParser initialized successfully for visual analysis")
     else:
-        logger.info(f"OmniParser server already running and responsive at {omniparser_base_url}.")    # OmniParser is now confirmed or launched. Hide loading screen and apply zoom.
-    if webview_window_global:
-        try:
-            logger.info("main_async_operations: OmniParser ready. Hiding loading screen and applying zoom (currently skipped)...")
-            # webview_window_global.evaluate_js("hideLoadingScreen(); document.body.style.zoom='80%';") # Temporarily commented out
-            logger.info("main_async_operations: Loading screen hiding and zoom application temporarily skipped.") # Updated log message
-        except Exception as e:
-            logger.error(f"main_async_operations: Error interacting with webview for loading screen/zoom: {e}", exc_info=True)
+        logger.warning("OmniParser initialization failed - visual analysis will be limited")
             
     pause_event = asyncio.Event()
     pause_event.set()  # Start unpaused
@@ -443,32 +401,66 @@ async def main_async_operations(stop_event: asyncio.Event):
 
     # Initialize AutomoyOperator
     try:
+        global operator
         logger.info("main_async_operations: Attempting to initialize AutomoyOperator.")
-        operator = AutomoyOperator(
-            stop_event=stop_event, # Changed from stop_event_async
-            webview_window=webview_window_global,
-            gui_host=gui_host_local, # Changed from gui_host to gui_host_local
-            gui_port=gui_port_local,  # Changed from gui_port to gui_port_local
-            objective="", # Initial objective is empty until set by user
-            pause_event=pause_event # Pass the pause_event
-        )
-        
-        # Set up the required function callbacks and dependencies for the operator
-        operator.manage_gui_window_func = async_manage_gui_window
         
         # Create an async wrapper for the GUI state update function
         async def async_update_gui_state_wrapper(endpoint, payload):
-            await update_gui_state(payload)
+            # Handle endpoint-based updates for different state aspects
+            if endpoint == "/state/thinking":
+                # Update thinking field specifically
+                if isinstance(payload, dict) and "text" in payload:
+                    await update_gui_state({"thinking": payload["text"]})
+                else:
+                    await update_gui_state({"thinking": str(payload)})
+            elif endpoint == "/state/current_operation":
+                # Update current operation
+                if isinstance(payload, dict) and "text" in payload:
+                    await update_gui_state({"operation": payload["text"]})
+                else:
+                    await update_gui_state({"operation": str(payload)})
+            elif endpoint == "/state/past_operation":
+                # Update past operation
+                if isinstance(payload, dict) and "text" in payload:
+                    await update_gui_state({"past_operation": payload["text"]})
+                else:
+                    await update_gui_state({"past_operation": str(payload)})
+            elif endpoint == "/state/operator_status":
+                # Update operator status
+                if isinstance(payload, dict) and "text" in payload:
+                    await update_gui_state({"operator_status": payload["text"]})
+                else:
+                    await update_gui_state({"operator_status": str(payload)})
+            else:
+                # For all other endpoints, use the payload directly
+                await update_gui_state(payload)
         
+        operator = AutomoyOperator(
+            objective="", # Initial objective is empty until set by user
+            manage_gui_window_func=async_manage_gui_window,
+            omniparser=omniparser,  # Restored visual analysis capability
+            pause_event=pause_event,
+            update_gui_state_func=async_update_gui_state_wrapper
+        )
+        
+        # Set additional attributes after initialization
         operator._update_gui_state_func = async_update_gui_state_wrapper
-        operator.omniparser = omniparser
+        operator.webview_window = webview_window_global
+        operator.gui_host = gui_host_local
+        operator.gui_port = gui_port_local
+        operator.stop_event = stop_event
         
-        # Initialize desktop utilities
-        from core.utils.operating_system.desktop_utils import DesktopUtils
-        operator.desktop_utils = DesktopUtils()
+        # Initialize desktop utilities for screen interaction
+        try:
+            from core.utils.operating_system.desktop_utils import DesktopUtils
+            operator.desktop_utils = DesktopUtils()
+            logger.info("Desktop utilities initialized successfully")
+        except Exception as e:
+            logger.error(f"Error initializing desktop utilities: {e}", exc_info=True)
+            operator.desktop_utils = None
         
-        # Verify all dependencies are properly set
-        logger.info(f"Operator dependencies set - omniparser: {operator.omniparser is not None}, "
+        # Verify dependencies are properly set
+        logger.info(f"Operator dependencies set - omniparser: {omniparser is not None}, "
                    f"manage_gui_window_func: {operator.manage_gui_window_func is not None}, "
                    f"_update_gui_state_func: {operator._update_gui_state_func is not None}, "
                    f"desktop_utils: {operator.desktop_utils is not None}")
@@ -497,6 +489,7 @@ async def main_async_operations(stop_event: asyncio.Event):
         "operator_status": "idle",
         "gui_status": "ready",
         "current_step_details": "System initialized and ready for goals.",
+        "thinking": "System ready - waiting for goal input",
         "goal": ""
     })
     
@@ -572,6 +565,8 @@ async def main_async_operations(stop_event: asyncio.Event):
                     "goal": user_goal,  # Store the original goal in GUI state
                     "objective": "Formulating objective...",
                     "current_step_details": f"Processing goal: {user_goal}",
+                    "current_operation": "Analyzing goal and formulating strategy",
+                    "thinking": "Breaking down the goal into actionable steps...",
                     "operations_log": [],
                     "llm_error_message": None
                 })
@@ -582,11 +577,28 @@ async def main_async_operations(stop_event: asyncio.Event):
                     llm_interface = MainInterface() # Correct class from the import
                     logger.info(f"Successfully instantiated llm_interface. Type: {type(llm_interface)}")
                     logger.info("Calling formulate_objective on llm_interface...")
-                    objective_text, error = await llm_interface.formulate_objective(
-                        goal=user_goal,
-                        session_id=str(uuid.uuid4())
-                    )
-                    logger.info(f"formulate_objective returned: objective_text={objective_text}, error={error}")
+                    
+                    # Add timeout wrapper to prevent infinite hanging
+                    try:
+                        objective_task = asyncio.create_task(
+                            llm_interface.formulate_objective(
+                                goal=user_goal,
+                                session_id=str(uuid.uuid4())
+                            )
+                        )
+                        objective_text, error = await asyncio.wait_for(objective_task, timeout=60.0)
+                        logger.info(f"formulate_objective returned: objective_text={objective_text}, error={error}")
+                    except asyncio.TimeoutError:
+                        logger.error("Objective formulation timed out after 60 seconds")
+                        write_state({
+                            "operator_status": "error",
+                            "goal": user_goal,
+                            "objective": "Failed to formulate objective - timeout.",
+                            "current_step_details": "LLM call timed out after 60 seconds. Check LMStudio connection.",
+                            "thinking": "LLM service timed out - check if LMStudio is running and accessible",
+                            "llm_error_message": "Objective formulation timed out. LLM service may be unavailable."
+                        })
+                        continue
 
                     if error:
                         logger.error(f"Error formulating objective: {error}")
@@ -595,8 +607,10 @@ async def main_async_operations(stop_event: asyncio.Event):
                             "goal": user_goal,  # Keep the goal even on error
                             "objective": "Failed to formulate objective.",
                             "current_step_details": str(error),
+                            "thinking": f"LLM error during objective formulation: {str(error)}",
                             "llm_error_message": str(error)
                         })
+                        continue
                     elif objective_text:
                         # Extract the final objective from the LLM response
                         # The LLM often includes reasoning followed by the actual objective
@@ -609,6 +623,8 @@ async def main_async_operations(stop_event: asyncio.Event):
                             "goal": user_goal,  # Keep the original goal in GUI state
                             "objective": final_objective,
                             "current_step_details": "Objective formulated. Starting dynamic operation loop...",
+                            "current_operation": "Initializing operation sequence",
+                            "thinking": f"Ready to execute: {final_objective}",
                             "llm_error_message": None
                         })
                         if operator:
@@ -642,8 +658,10 @@ async def main_async_operations(stop_event: asyncio.Event):
                             "goal": user_goal,  # Keep the goal even on error
                             "objective": "Failed to formulate objective.",
                             "current_step_details": "LLM returned an empty or invalid response.",
+                            "thinking": "LLM provided empty response - check model configuration and connectivity",
                             "llm_error_message": "LLM returned an empty or invalid response."
                         })
+                        continue
 
                 except AttributeError as ae:
                     logger.error(f"AttributeError during objective formulation: {ae}", exc_info=True)
@@ -654,6 +672,7 @@ async def main_async_operations(stop_event: asyncio.Event):
                         "current_step_details": f"AttributeError: {str(ae)}",
                         "llm_error_message": "An internal attribute error stopped the process."
                     })
+                    continue
                 except Exception as e:
                     logger.error(f"An error occurred during operation in main.py: {e}", exc_info=True)
                     write_state({
@@ -664,6 +683,7 @@ async def main_async_operations(stop_event: asyncio.Event):
                         "operations_log": [],
                         "llm_error_message": "An internal error stopped the process."
                     })
+                    continue
             await asyncio.sleep(MAIN_LOOP_SLEEP_INTERVAL)
 
         except Exception as e:

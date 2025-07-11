@@ -316,7 +316,8 @@ You have access to:
 - Strategic Planning Expert: for high-level approach and reasoning
 - Current objective and previous context
 
-Create clear, numbered steps that bridge strategy to execution.
+CRITICAL: You MUST respond with ONLY valid JSON format. No explanations, no markdown, no code blocks.
+Create clear, numbered steps that bridge strategy to execution in JSON format.
 """
 
 STEP_GENERATION_USER_PROMPT_TEMPLATE = """\
@@ -330,23 +331,85 @@ Visual Analysis Expert Report:
 Strategic Planning Expert Report:
 {thinking_summary}
 
-Based on these expert analyses, create a numbered list of specific, actionable steps.
+RESPONSE FORMAT: You MUST respond with ONLY a valid JSON array. Do not include any explanations, markdown, or text outside the JSON.
+
+REQUIRED JSON FORMAT:
+[
+  {{
+    "step_number": 1,
+    "description": "Open the Windows Start Menu by clicking the Start button or pressing the Windows key",
+    "action_type": "key",
+    "target": "win",
+    "verification": "Confirm Start Menu is visible"
+  }},
+  {{
+    "step_number": 2,
+    "description": "Type 'Calculator' in the search box to find the Calculator app",
+    "action_type": "type",
+    "target": "calculator",
+    "verification": "Calculator appears in search results"
+  }},
+  {{
+    "step_number": 3,
+    "description": "Press Enter to launch the Calculator application",
+    "action_type": "key", 
+    "target": "enter",
+    "verification": "Calculator window opens"
+  }},
+  {{
+    "step_number": 4,
+    "description": "Take a screenshot to see the Calculator interface",
+    "action_type": "screenshot",
+    "target": "calculator_interface", 
+    "verification": "Calculator interface is visible and ready for input"
+  }},
+  {{
+    "step_number": 5,
+    "description": "Click the number 2 button in the Calculator",
+    "action_type": "click",
+    "target": "number_2",
+    "verification": "Number 2 appears in the Calculator display"
+  }},
+  {{
+    "step_number": 6,
+    "description": "Click the plus (+) button in the Calculator",
+    "action_type": "click", 
+    "target": "plus_button",
+    "verification": "Plus symbol appears in the Calculator display"
+  }},
+  {{
+    "step_number": 7,
+    "description": "Click the number 2 button again in the Calculator",
+    "action_type": "click",
+    "target": "number_2", 
+    "verification": "Second number 2 appears in the Calculator display"
+  }},
+  {{
+    "step_number": 8,
+    "description": "Click the equals (=) button to calculate the result",
+    "action_type": "click",
+    "target": "equals_button",
+    "verification": "Result 4 appears in the Calculator display"
+  }}
+]
+
+Each step object MUST contain exactly these fields:
+- step_number: Sequential number starting from 1
+- description: Clear description of what the step does
+- action_type: One of: click, type, key, screenshot, wait, verify
+- target: What to interact with (UI element, text to type, key to press)
+- verification: How to confirm the step succeeded
 
 Guidelines:
+- Generate 5-8 actionable steps for Calculator operations
+- Include screenshot steps after opening applications to get visual context
 - Each step should be executable by an automation system
-- Steps should follow logical sequence from the strategic plan
+- Steps should follow logical sequence from opening app to performing calculation
 - Reference specific UI elements identified by the visual analysis
-- Include verification/checkpoint steps where appropriate
-- If expert reports indicate errors, include recovery steps
+- Include verification steps where appropriate
+- For Calculator goals, include the actual calculation steps (numbers, operators, equals)
 
-Example format:
-1. [Action step based on visual analysis]
-2. [Verification step]
-3. [Next logical action from strategy]
-
-If expert analyses failed or are incomplete, generate basic recovery steps:
-1. Take a new screenshot and perform visual analysis
-2. Retry strategic planning based on updated context
+IMPORTANT: Respond with ONLY the JSON array. No additional text, explanations, or markdown.
 """
 
 ACTION_GENERATION_SYSTEM_PROMPT = """
@@ -362,39 +425,39 @@ CRITICAL: You MUST respond with VALID JSON that matches this exact format:
 
 For keyboard operations:
 {
-  "action_type": "key",
+  "type": "key",
   "key": "win",
-  "description": "Press Windows key to open Start menu",
+  "summary": "Press Windows key to open Start menu",
   "confidence": 80
 }
 
 For typing text:
 {
-  "action_type": "type", 
+  "type": "type", 
   "text": "Calculator",
-  "description": "Type Calculator in search box",
+  "summary": "Type Calculator in search box",
   "confidence": 85
 }
 
 For mouse clicks:
 {
-  "action_type": "click",
+  "type": "click",
   "coordinate": {"x": 300, "y": 200},
-  "description": "Click on Calculator app",
+  "summary": "Click on Calculator app",
   "confidence": 75
 }
 
 For key sequences:
 {
-  "action_type": "key_sequence",
+  "type": "key_sequence",
   "keys": ["win", "s"],
-  "description": "Press Win+S to open search",
+  "summary": "Press Win+S to open search",
   "confidence": 80
 }
 
 REQUIREMENTS:
-1. ALWAYS use "action_type" (not "operation" or "type")
-2. ALWAYS include "description" and "confidence" fields
+1. ALWAYS use "type" (not "action_type" or "operation")
+2. ALWAYS include "summary" and "confidence" fields
 3. For clicks, use exact coordinates from visual analysis when possible
 4. Use realistic confidence values (60-90)
 5. Respond with ONLY the JSON object - no markdown, no explanations
@@ -412,9 +475,9 @@ Visual Analysis Data:
 
 Based on the step description and visual analysis, generate the exact action needed.
 
-If this is a Windows key operation, use: {"action_type": "key", "key": "win"}
-If this is typing, use: {"action_type": "type", "text": "your_text"}  
-If this is clicking, use: {"action_type": "click", "coordinate": {"x": X, "y": Y}}
+If this is a Windows key operation, use: {{"type": "key", "key": "win"}}
+If this is typing, use: {{"type": "type", "text": "your_text"}}  
+If this is clicking, use: {{"type": "click", "coordinate": {{"x": X, "y": Y}}}}
 
 Look for the exact element mentioned in the step within the visual analysis data and use its coordinates.
 """

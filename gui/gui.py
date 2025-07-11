@@ -55,14 +55,38 @@ class GoalData(BaseModel):
 def read_state():
     try:
         with open(STATE_FILE, 'r') as f:
-            return json.load(f)
+            state = json.load(f)
+            # Ensure all required fields exist with proper defaults
+            defaults = {
+                "operator_status": "initializing",
+                "objective": "Waiting for backend...",
+                "current_step_details": "Backend is starting...",
+                "thinking": "System initializing...",  # Replace visual with thinking
+                "operations_log": [],
+                "operation": "No operations yet",  # This maps to Current Operation  
+                "past_operation": "No operations yet",  # This maps to Past Operation
+                "step": "Waiting for goal...",
+                "status": "idle",
+                "goal": ""
+            }
+            # Merge defaults with actual state, giving priority to actual state
+            for key, default_value in defaults.items():
+                if key not in state or not state[key]:
+                    state[key] = default_value
+            return state
     except (FileNotFoundError, json.JSONDecodeError):
-        # Return a default structure if file doesn't exist or is corrupt
+        # Return a complete default structure if file doesn't exist or is corrupt
         return {
             "operator_status": "initializing",
             "objective": "Waiting for backend...",
             "current_step_details": "Backend is starting...",
+            "thinking": "System initializing...",  # Replace visual with thinking
             "operations_log": [],
+            "operation": "No operations yet", 
+            "past_operation": "No operations yet",
+            "step": "Waiting for goal...",
+            "status": "idle",
+            "goal": ""
         }
 
 # --- FastAPI Lifespan ---

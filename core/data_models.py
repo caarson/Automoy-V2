@@ -135,6 +135,7 @@ def get_initial_state():
         "operator_status": "initializing",
         "objective": "System starting up...",
         "current_step_details": "Initializing components...",
+        "thinking": "System initializing...",
         "operations_log": [],
         "llm_error_message": None
     }
