@@ -416,9 +416,9 @@ async def main_async_operations(stop_event: asyncio.Event):
             elif endpoint == "/state/current_operation":
                 # Update current operation
                 if isinstance(payload, dict) and "text" in payload:
-                    await update_gui_state({"operation": payload["text"]})
+                    await update_gui_state({"current_operation": payload["text"]})
                 else:
-                    await update_gui_state({"operation": str(payload)})
+                    await update_gui_state({"current_operation": str(payload)})
             elif endpoint == "/state/past_operation":
                 # Update past operation
                 if isinstance(payload, dict) and "text" in payload:

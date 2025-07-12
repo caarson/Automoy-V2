@@ -1,33 +1,7 @@
 {
-  "operator_status": "Error: Failed to get action for step 1",
-  "goal": "Open the Calculator app using the Windows start menu.",
-  "objective": "Open the Windows Start Menu, use the search bar to look for \"Calculator\", click on the Calculator application result to launch it.",
-  "current_step_details": "Objective formulated. Starting dynamic operation loop...",
-  "current_operation": "Initializing operation sequence",
-  "thinking": "Operation stopped at step 1 of 3 due to errors",
-  "llm_error_message": null,
-  "operation": "Operation stopped - 0 of 3 steps completed",
-  "steps": [
-    {
-      "description": "Press Windows key to open Start menu"
-    },
-    {
-      "description": "Type application name to search"
-    },
-    {
-      "description": "Press Enter to launch application"
-    }
-  ],
-  "step_index": 0,
-  "description": "Press Windows key to open Start menu",
-  "total_steps": 3,
-  "operations": [
-    {
-      "type": "error",
-      "summary": "LLM action response has incorrect format."
-    }
-  ],
-  "thinking_process": "automoy-op-1752268737",
-  "summary": "Failed to generate action for step: Press Windows key to open Start menu",
-  "status": "error"
+  "operator_status": "idle",
+  "gui_status": "ready",
+  "current_step_details": "System initialized and ready for goals.",
+  "thinking": "System ready - waiting for goal input",
+  "goal": ""
 }

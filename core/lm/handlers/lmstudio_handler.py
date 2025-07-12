@@ -212,23 +212,39 @@ async def call_lmstudio_model(messages, objective, model, thinking_callback=None
                 if json_str:
                     try:
                         parsed_json = json.loads(json_str)
-                        # Check if it's a list of actions (as per DEFAULT_PROMPT)
-                        if isinstance(parsed_json, list) and len(parsed_json) > 0:
-                            # Return the first action object as a JSON string
-                            # This makes it consistent with how openai_handler might return a string to be parsed later
-                            action_to_return = parsed_json[0]
-                            print(f"[DEBUG] Extracted JSON action from LMStudio: {action_to_return}")
-                            return json.dumps([action_to_return]) # Return as a JSON string list
-                        # Check if it's a single action object (less ideal but possible)
-                        elif isinstance(parsed_json, dict) and "operation" in parsed_json:
-                            print(f"[DEBUG] Extracted single JSON action object from LMStudio: {parsed_json}")
-                            return json.dumps([parsed_json]) # Return as a JSON string list
-                        # Check if it's a list of steps (for step generation)
+                        print(f"[DEBUG] LMStudio parsed JSON type: {type(parsed_json)}")
+                        if isinstance(parsed_json, list):
+                            print(f"[DEBUG] LMStudio parsed list with {len(parsed_json)} items")
+                            if len(parsed_json) > 0:
+                                print(f"[DEBUG] First item type: {type(parsed_json[0])}")
+                                if isinstance(parsed_json[0], dict):
+                                    print(f"[DEBUG] First item keys: {list(parsed_json[0].keys())}")
+                                    print(f"[DEBUG] Has step_number: {'step_number' in parsed_json[0]}")
+                        elif isinstance(parsed_json, dict):
+                            print(f"[DEBUG] LMStudio parsed dict with keys: {list(parsed_json.keys())}")
+                        
+                        # Check if it's a single action object (direct action format)
+                        if isinstance(parsed_json, dict) and ("type" in parsed_json or "action_type" in parsed_json):
+                            print(f"[DEBUG] Extracted single JSON action from LMStudio: {parsed_json}")
+                            return json.dumps(parsed_json) # Return single action as JSON string
+                        # Check if it's a list of steps (for step generation) - MOVED BEFORE general list check
                         elif isinstance(parsed_json, list) and len(parsed_json) > 0 and "step_number" in parsed_json[0]:
                             print(f"[DEBUG] Extracted JSON steps from LMStudio: {len(parsed_json)} steps")
                             return json.dumps(parsed_json) # Return the full steps array
+                        # Check if it's a list of actions (as per DEFAULT_PROMPT)
+                        elif isinstance(parsed_json, list) and len(parsed_json) > 0:
+                            # For action generation, return the first action
+                            action_to_return = parsed_json[0]
+                            print(f"[DEBUG] Extracted JSON action from LMStudio list: {action_to_return}")
+                            return json.dumps(action_to_return) # Return single action as JSON string
+                        # Check if it's a single action object with "operation" field
+                        elif isinstance(parsed_json, dict) and "operation" in parsed_json:
+                            print(f"[DEBUG] Extracted single JSON action object from LMStudio: {parsed_json}")
+                            return json.dumps(parsed_json) # Return as single action
                         else:
-                            print("[DEBUG] Parsed JSON from LMStudio is not in the expected format. Returning full response.")
+                            print(f"[DEBUG] Parsed JSON from LMStudio is not in expected format: {type(parsed_json)}, keys: {list(parsed_json.keys()) if isinstance(parsed_json, dict) else 'Not a dict'}")
+                            print(f"[DEBUG] Returning extracted JSON anyway: {parsed_json}")
+                            return json.dumps(parsed_json)
                     except json.JSONDecodeError as e:
                         print(f"[ERROR] Failed to decode JSON from LMStudio response: {e}. Raw JSON string: {json_str}")
                 else:

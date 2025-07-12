@@ -199,48 +199,50 @@ def handle_llm_response(
     # The raw_response_text itself might contain tags around the JSON block.
     text_to_search_json_in = strip_tags(str(raw_response_text))  # Clean before searching for JSON block
 
-    # 2. If is_json is True, try to extract and parse JSON.
-    # The raw_response_text itself might contain tags around the JSON block.
-    text_to_search_json_in = strip_tags(str(raw_response_text))  # Clean before searching for JSON block
-
     # Try multiple JSON extraction methods
     json_str_to_parse = None
     
-    # Method 1: Look for ```json code blocks
-    json_match = re.search(r"```json\s*(.*?)\s*```", text_to_search_json_in, re.DOTALL)
-    if json_match:
-        json_str_to_parse = json_match.group(1).strip()
-        logger.debug(f"Found JSON in markdown code block for '{context_description}'")
-    else:
-        # Method 2: Look for any code blocks that might contain JSON
-        code_match = re.search(r"```\s*(.*?)\s*```", text_to_search_json_in, re.DOTALL)
-        if code_match:
-            potential_json = code_match.group(1).strip()
-            if (potential_json.startswith("{") and potential_json.endswith("}")) or \
-               (potential_json.startswith("[") and potential_json.endswith("]")):
-                json_str_to_parse = potential_json
-                logger.debug(f"Found JSON in generic code block for '{context_description}'")
-        
-        # Method 3: Look for JSON objects/arrays in the text
-        if not json_str_to_parse:
-            # Find JSON objects { ... }
-            json_obj_match = re.search(r'\{.*\}', text_to_search_json_in, re.DOTALL)
-            if json_obj_match:
-                json_str_to_parse = json_obj_match.group(0).strip()
-                logger.debug(f"Found JSON object pattern for '{context_description}'")
-            else:
-                # Find JSON arrays [ ... ]
-                json_arr_match = re.search(r'\[.*\]', text_to_search_json_in, re.DOTALL)
-                if json_arr_match:
-                    json_str_to_parse = json_arr_match.group(0).strip()
-                    logger.debug(f"Found JSON array pattern for '{context_description}'")
-        
-        # Method 4: Check if the entire cleaned text looks like JSON
-        if not json_str_to_parse:
-            if (text_to_search_json_in.startswith("{") and text_to_search_json_in.endswith("}")) or \
-               (text_to_search_json_in.startswith("[") and text_to_search_json_in.endswith("]")):
-                json_str_to_parse = text_to_search_json_in
-                logger.debug(f"Using entire cleaned text as JSON for '{context_description}'")
+    # Check if the response is already valid JSON (from LMStudio handler that pre-extracts JSON)
+    try:
+        # First check if it's already valid JSON by trying to parse it directly
+        stripped_text = text_to_search_json_in.strip()
+        test_parse = json.loads(stripped_text)
+        json_str_to_parse = stripped_text
+        logger.debug(f"Using pre-extracted JSON for '{context_description}' - detected valid JSON directly")
+    except json.JSONDecodeError:
+        # If direct parsing fails, continue with extraction methods
+        logger.debug(f"Text is not directly parseable JSON, trying extraction methods for '{context_description}'")
+    
+    # If not already valid JSON, try extraction methods
+    if not json_str_to_parse:
+        # Method 1: Look for ```json code blocks
+        json_match = re.search(r"```json\s*(.*?)\s*```", text_to_search_json_in, re.DOTALL)
+        if json_match:
+            json_str_to_parse = json_match.group(1).strip()
+            logger.debug(f"Found JSON in markdown code block for '{context_description}'")
+        else:
+            # Method 2: Look for any code blocks that might contain JSON
+            code_match = re.search(r"```\s*(.*?)\s*```", text_to_search_json_in, re.DOTALL)
+            if code_match:
+                potential_json = code_match.group(1).strip()
+                if (potential_json.startswith("{") and potential_json.endswith("}")) or \
+                   (potential_json.startswith("[") and potential_json.endswith("]")):
+                    json_str_to_parse = potential_json
+                    logger.debug(f"Found JSON in generic code block for '{context_description}'")
+            
+            # Method 3: Look for JSON objects/arrays in the text
+            if not json_str_to_parse:
+                # Find JSON objects { ... }
+                json_obj_match = re.search(r'\{.*\}', text_to_search_json_in, re.DOTALL)
+                if json_obj_match:
+                    json_str_to_parse = json_obj_match.group(0).strip()
+                    logger.debug(f"Found JSON object pattern for '{context_description}'")
+                else:
+                    # Find JSON arrays [ ... ]
+                    json_arr_match = re.search(r'\[.*\]', text_to_search_json_in, re.DOTALL)
+                    if json_arr_match:
+                        json_str_to_parse = json_arr_match.group(0).strip()
+                        logger.debug(f"Found JSON array pattern for '{context_description}'")
         
         # If still no JSON found, provide more detailed error info
         if not json_str_to_parse:
