@@ -92,9 +92,9 @@ def standardize_action_fields(action_dict: Dict[str, Any]) -> Dict[str, Any]:
     
     # Map common field name variations to standard names
     field_mappings = {
-        "operation": "action_type",
-        "action": "action_type", 
-        "type": "action_type",
+        "operation": "type",
+        "action": "type", 
+        "action_type": "type",  # Convert action_type TO type (reverse of before)
         "coordinates": "coordinate",
         "coords": "coordinate",
         "position": "coordinate",
@@ -130,7 +130,7 @@ def standardize_action_fields(action_dict: Dict[str, Any]) -> Dict[str, Any]:
         }
     
     # Ensure click actions have coordinates
-    if standardized.get("action_type") == "click" and "coordinate" not in standardized:
+    if standardized.get("type") == "click" and "coordinate" not in standardized:
         # Use fallback coordinates if none provided
         standardized["coordinate"] = {"x": 300, "y": 200}
         logger.warning(f"Click action missing coordinates, using fallback: {standardized['coordinate']}")
@@ -138,6 +138,20 @@ def standardize_action_fields(action_dict: Dict[str, Any]) -> Dict[str, Any]:
     # Add confidence if missing
     if "confidence" not in standardized:
         standardized["confidence"] = 70  # Default confidence
+    
+    # Add summary if missing
+    if "summary" not in standardized:
+        action_type = standardized.get("type", "unknown")
+        if action_type == "key":
+            key_name = standardized.get("key", "unknown")
+            standardized["summary"] = f"Press {key_name} key"
+        elif action_type == "click":
+            standardized["summary"] = "Click on target element"
+        elif action_type == "type":
+            text = standardized.get("text", "text")
+            standardized["summary"] = f"Type '{text}'"
+        else:
+            standardized["summary"] = f"Execute {action_type} action"
     
     return standardized
 
@@ -236,13 +250,18 @@ def handle_llm_response(
                 json_obj_match = re.search(r'\{.*\}', text_to_search_json_in, re.DOTALL)
                 if json_obj_match:
                     json_str_to_parse = json_obj_match.group(0).strip()
-                    logger.debug(f"Found JSON object pattern for '{context_description}'")
+                    logger.debug(f"Found JSON object pattern for '{context_description}': {json_str_to_parse[:100]}...")
                 else:
+                    logger.warning(f"JSON object regex failed for '{context_description}'. Text: {text_to_search_json_in[:200]}...")
                     # Find JSON arrays [ ... ]
                     json_arr_match = re.search(r'\[.*\]', text_to_search_json_in, re.DOTALL)
                     if json_arr_match:
                         json_str_to_parse = json_arr_match.group(0).strip()
                         logger.debug(f"Found JSON array pattern for '{context_description}'")
+                    else:
+                        logger.warning(f"JSON array regex also failed for '{context_description}'")
+        
+        logger.debug(f"Final json_str_to_parse for '{context_description}': {json_str_to_parse}")
         
         # If still no JSON found, provide more detailed error info
         if not json_str_to_parse:
@@ -610,22 +629,26 @@ def handle_llm_response(
             json_str_to_parse = re.sub(r',(\s*[}\]])', r'\1', json_str_to_parse)
             
             # Fix malformed JSON from LLM - handle quote escaping issues
-            # Fix invalid escape sequences like "action_type": "click\"
-            json_str_to_parse = re.sub(r'": "([^"]*)\\"', r'": "\1"', json_str_to_parse)
+            # Specific fix for the problematic pattern: \"field\": value}" -> "field": value}"
+            json_str_to_parse = re.sub(r'\\"\s*,\s*\\"([^"]+)":', r'", "\1":', json_str_to_parse)
+            # Fix trailing backslash-quote at end of field values
+            json_str_to_parse = re.sub(r'([^\\])\\"\s*,', r'\1",', json_str_to_parse)
+            json_str_to_parse = re.sub(r'([^\\])\\"\s*}', r'\1"}', json_str_to_parse)
             
-            # Fix unescaped quotes in description strings like "Click the "Start" button"
-            def fix_unescaped_quotes_in_field(match):
+            # Fix common JSON structure issues
+            # Fix cases where quotes are escaped inside field values incorrectly
+            def fix_field_quotes(match):
                 field_name = match.group(1)
-                content = match.group(2)
-                # Count quotes to see if they are properly escaped
-                if content.count('"') > 0 and content.count('\\"') == 0:
-                    # There are unescaped quotes, fix them
-                    escaped_content = content.replace('"', '\\"')
-                    return f'"{field_name}": "{escaped_content}"'
-                return match.group(0)  # Return original if already escaped
+                field_value = match.group(2)
+                # Only escape quotes that aren't already properly escaped
+                if '"' in field_value and '\\"' not in field_value:
+                    # Simple case: unescaped quotes in value
+                    fixed_value = field_value.replace('"', '\\"')
+                    return f'"{field_name}": "{fixed_value}"'
+                return match.group(0)
             
-            # Apply quote fixing to common string fields
-            json_str_to_parse = re.sub(r'"(description|summary|text|target|input_text)": "([^"]*(?:"[^"]*)*)"', fix_unescaped_quotes_in_field, json_str_to_parse)
+            # Apply safer quote fixing only to specific fields and with better boundaries
+            json_str_to_parse = re.sub(r'"(description|summary|text|target|input_text)": "([^"\\]*(?:\\.[^"\\]*)*(?:"[^"\\]*(?:\\.[^"\\]*)*)*)"(?=\s*[,}])', fix_field_quotes, json_str_to_parse)
             
             # Log the cleaned JSON string for debugging
             logger.debug(f"Cleaned JSON string for '{context_description}': {json_str_to_parse}")

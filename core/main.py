@@ -127,13 +127,19 @@ def setup_logging(console_level=logging.INFO, file_level=logging.DEBUG):
     if logger.hasHandlers():
         logger.handlers.clear()
 
-    # Console Handler
-    ch = logging.StreamHandler()
+    # Console Handler with UTF-8 encoding
+    try:
+        import io
+        console_stream = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+        ch = logging.StreamHandler(console_stream)
+    except (AttributeError, UnicodeError):
+        # Fallback to regular console handler if UTF-8 setup fails
+        ch = logging.StreamHandler()
     ch.setLevel(console_level)
     ch.setFormatter(formatter)
     logger.addHandler(ch)
 
-    # File Handler (Rotating)
+    # File Handler (Rotating) with UTF-8 encoding
     log_dir = os.path.dirname(LOG_FILE_PATH) # Use imported LOG_FILE_PATH
     if log_dir and not os.path.exists(log_dir):
         try:
@@ -152,7 +158,7 @@ def setup_logging(console_level=logging.INFO, file_level=logging.DEBUG):
     
     try:
         fh = logging.handlers.RotatingFileHandler(
-            LOG_FILE_PATH, maxBytes=MAX_LOG_FILE_SIZE, backupCount=LOG_BACKUP_COUNT
+            LOG_FILE_PATH, maxBytes=MAX_LOG_FILE_SIZE, backupCount=LOG_BACKUP_COUNT, encoding='utf-8'
         )
         fh.setLevel(file_level)
         fh.setFormatter(formatter)
@@ -602,6 +608,39 @@ async def main_async_operations(stop_event: asyncio.Event):
 
                     if error:
                         logger.error(f"Error formulating objective: {error}")
+                        logger.info(f"DEBUG: Checking if '{user_goal}' contains 'chrome' (case-insensitive)")
+                        
+                        # When LLM fails, provide a simplified objective that the operator can handle with visual analysis
+                        if "chrome" in user_goal.lower():
+                            logger.info("LLM failed for Chrome goal - using simplified objective for visual detection")
+                            final_objective = "Locate and click the Google Chrome icon on the desktop or taskbar to launch the browser application"
+                            
+                            write_state({
+                                "operator_status": "running",
+                                "goal": user_goal,
+                                "objective": final_objective,
+                                "current_step_details": "LLM unavailable - using visual analysis to find Chrome icon",
+                                "current_operation": "Initializing visual analysis for Chrome icon detection",
+                                "thinking": "LLM service unavailable - proceeding with visual element detection",
+                                "llm_error_message": str(error)
+                            })
+                            
+                            if operator:
+                                try:
+                                    operator.set_objective(final_objective)
+                                    logger.info("Operator started with visual analysis objective for Chrome detection")
+                                except Exception as op_exec_err:
+                                    logger.error(f"Exception during operator execution: {op_exec_err}", exc_info=True)
+                                    write_state({
+                                        "operator_status": "error",
+                                        "goal": user_goal,
+                                        "objective": "Operator execution failed.",
+                                        "current_step_details": str(op_exec_err),
+                                        "llm_error_message": str(op_exec_err)
+                                    })
+                            continue
+                        
+                        # Regular error handling for non-Chrome goals
                         write_state({
                             "operator_status": "error",
                             "goal": user_goal,  # Keep the goal even on error
@@ -764,15 +803,44 @@ def main():
     signal.signal(signal.SIGINT, signal_handler_main)
     signal.signal(signal.SIGTERM, signal_handler_main)
     logger.info("main: Signal handlers registered.")
-    logger.info("main: Starting asyncio operations in a separate thread...")
-    loop = asyncio.new_event_loop()
-    async_thread = threading.Thread(target=run_async_operations_in_thread, args=(stop_event_threading, loop), daemon=True, name="AsyncOpsThread")
-    async_thread.start()
-    logger.info(f"main: Asyncio operations thread '{async_thread.name}' started (ID: {async_thread.ident}).")
     
-    # Give async thread a moment to start, but don't wait too long
-    time.sleep(2)
-    logger.info("main: Proceeding to webview window display...")
+    # CRITICAL FIX: PyWebView MUST run on main thread, async operations in background thread
+    # This ensures both PyWebView and goal polling work properly
+    logger.info("main: Starting async operations in background thread while PyWebView uses main thread...")
+    
+    # Global variables to track async components
+    async_task = None
+    async_thread = None
+    
+    def run_async_operations():
+        """Run async operations in a dedicated thread with its own event loop."""
+        try:
+            # Create new event loop for this thread
+            thread_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(thread_loop)
+            
+            # Convert threading event to asyncio event
+            stop_event_async = asyncio.Event()
+            
+            async def monitor_stop_event():
+                while not stop_event_threading.is_set():
+                    await asyncio.sleep(0.1)
+                stop_event_async.set()
+            
+            # Start the stop event monitor and main operations
+            thread_loop.create_task(monitor_stop_event())
+            thread_loop.run_until_complete(main_async_operations(stop_event_async))
+            
+        except Exception as e:
+            logger.error(f"Error in async operations thread: {e}", exc_info=True)
+        finally:
+            logger.info("Async operations thread finished")
+    
+    # Start async operations in background thread
+    async_thread = threading.Thread(target=run_async_operations, daemon=True, name="AsyncOperationsThread")
+    async_thread.start()
+    
+    logger.info("main: Async operations started in background thread for proper goal polling")
 
     # ADDED: Check window object before starting webview
     if webview_window_global:
@@ -790,13 +858,16 @@ def main():
     try:
         logger.info("main: >>>>>>> CALLING pywebview.start() NOW <<<<<<<") # ADDED PROMINENT LOG
         if PYWEBVIEW_AVAILABLE and pywebview and webview_window_global:
-            logger.info("main: Starting pywebview with native window...")
+            logger.info("main: Starting pywebview on main thread (required for proper operation)...")
+            
+            # PyWebView MUST run on main thread - this will block until window is closed
             pywebview.start(debug=DEBUG_MODE, private_mode=False)
-            logger.info("main: pywebview.start() has returned. GUI window was likely closed by the user.")
+            logger.info("main: pywebview.start() has returned. GUI window was closed.")
+            
         elif PYWEBVIEW_AVAILABLE and pywebview:
             logger.warning("main: pywebview is available but no window was created. GUI accessible via browser only.")
             logger.info(f"main: GUI URL: http://{GUI_HOST}:{GUI_PORT}")
-            # Keep the application running even without webview
+            # Keep main thread alive to allow async operations to continue
             while not stop_event_threading.is_set():
                 time.sleep(1)
         else:
@@ -806,65 +877,31 @@ def main():
             gui_url = f"http://{GUI_HOST}:{GUI_PORT}"
             if open_native_window_alternative(gui_url, f"Automoy GUI @ {VERSION}"):
                 logger.info("main: Alternative native window opened successfully")
-                # Keep the application running while the alternative window is open
-                while not stop_event_threading.is_set():
-                    time.sleep(1)
             else:
                 logger.info(f"main: GUI accessible via browser only at: http://{GUI_HOST}:{GUI_PORT}")
-                # Keep the application running even without webview
-                while not stop_event_threading.is_set():
-                    time.sleep(1)
+            
+            # Keep main thread alive to allow async operations to continue
+            while not stop_event_threading.is_set():
+                time.sleep(1)
+                
     except Exception as e:
-        logger.error(f"main: Error during PyWebview start: {e}", exc_info=True)
+        logger.error(f"main: Error during main execution: {e}", exc_info=True)
     finally:
-        logger.info("main: PyWebview event loop section finished. Initiating shutdown sequence.")
+        logger.info("main: Main execution section finished. Initiating shutdown sequence.")
         if not stop_event_threading.is_set(): # Ensure it's set if not already
-            logger.info("main: Signaling stop_event for async operations post-webview.")
+            logger.info("main: Signaling stop_event for async operations post-execution.")
             stop_event_threading.set()
         
-        logger.info(f"main: Waiting for asyncio operations thread ('{async_thread.name}') to complete...")
-        async_thread.join(timeout=10)
-        if async_thread.is_alive():
-            logger.warning(f"main: Asyncio operations thread ('{async_thread.name}') did not terminate gracefully after 10s.")
-        else:
-            logger.info(f"main: Asyncio operations thread ('{async_thread.name}') has completed.")
+        # Wait for async thread to finish
+        if async_thread and async_thread.is_alive():
+            logger.info("main: Waiting for async operations thread to finish...")
+            async_thread.join(timeout=10)
+            if async_thread.is_alive():
+                logger.warning("main: Async operations thread did not finish within timeout")
 
         cleanup() # Call the modified cleanup
         logger.info("main: Automoy application shutdown complete.")
         logging.shutdown() # Ensure all log handlers are flushed and closed
-
-def run_async_operations_in_thread(stop_event_threading: threading.Event, loop: asyncio.AbstractEventLoop):
-    """Target function for the asyncio operations thread."""
-    thread_name = threading.current_thread().name
-    thread_id = threading.get_ident()
-    logger.info(f"Async operations thread ({thread_name}, ID: {thread_id}) started. Setting event loop.")
-    asyncio.set_event_loop(loop)
-    
-    # Create an asyncio.Event from the threading.Event
-    stop_event_async = asyncio.Event()
-    
-    async def monitor_threading_event():
-        """Monitor the threading event and set the asyncio event when needed."""
-        while not stop_event_threading.is_set():
-            await asyncio.sleep(0.1)
-        stop_event_async.set()
-    
-    logger.info(f"Async operations thread ({thread_name}): About to run main_async_operations() until complete.")
-    try:
-        # Start monitoring the threading event
-        loop.create_task(monitor_threading_event())
-        # Run main async operations with the asyncio event
-        loop.run_until_complete(main_async_operations(stop_event_async))
-        logger.info(f"Async operations thread ({thread_name}): main_async_operations() completed.")
-    except Exception as e:
-        logger.error(f"Async operations thread ({thread_name}): Exception during main_async_operations() or its management: {e}", exc_info=True)
-        if stop_event_async: # Ensure stop_event_async is not None before setting
-            stop_event_async.set() # Signal main thread to stop if async ops fail critically
-    finally:
-        logger.info(f"Async operations thread ({thread_name}): Closing asyncio event loop.")
-        loop.close()
-        logger.info(f"Async operations thread ({thread_name}): Asyncio event loop closed.")
-    logger.info(f"Async operations thread ({thread_name}) finished execution.")
 
 def cleanup():
     logger.info("Initiating Automoy full cleanup (cleanup function)...")

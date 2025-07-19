@@ -413,74 +413,81 @@ IMPORTANT: Respond with ONLY the JSON array. No additional text, explanations, o
 """
 
 ACTION_GENERATION_SYSTEM_PROMPT = """
-You are an Action Generation Expert that converts step descriptions into precise executable actions.
+You are a Visual Action Generation Expert that MUST analyze the current screen and generate precise click coordinates.
 
-Your expertise includes:
-- Converting step descriptions into specific UI operations
-- Using visual analysis data to find exact coordinates and elements
-- Generating accurate mouse clicks, keyboard inputs, and sequences
-- Creating robust actions that work reliably
+CRITICAL RULES:
+1. You MUST ALWAYS examine the Visual Analysis Data to understand what's currently on screen
+2. For ANY action that involves interacting with UI elements, you MUST use click coordinates from visual analysis
+3. NEVER generate generic keyboard shortcuts like Win key or typing unless the visual analysis specifically shows input fields
+4. You MUST find the exact element mentioned in the step within the visual analysis data and click its coordinates
+5. If Chrome/browser icons are visible in the visual analysis, you MUST click on them directly
 
-CRITICAL: You MUST respond with VALID JSON that matches this exact format:
+VISUAL ANALYSIS FIRST APPROACH:
+- Step 1: Read the visual analysis data carefully
+- Step 2: Find the UI element mentioned in the step description
+- Step 3: Extract the exact coordinates for that element
+- Step 4: Generate a click action with those coordinates
 
-For keyboard operations:
+RESPONSE FORMAT - ONLY JSON:
+
+For clicking visible UI elements (PREFERRED):
 {
-  "type": "key",
-  "key": "win",
-  "summary": "Press Windows key to open Start menu",
-  "confidence": 80
-}
-
-For typing text:
-{
-  "type": "type", 
-  "text": "Calculator",
-  "summary": "Type Calculator in search box",
+  "type": "click",
+  "coordinate": {"x": 123, "y": 456},
+  "summary": "Click on [element name] at detected coordinates",
   "confidence": 85
 }
 
-For mouse clicks:
+For typing in visible input fields:
 {
-  "type": "click",
-  "coordinate": {"x": 300, "y": 200},
-  "summary": "Click on Calculator app",
-  "confidence": 75
-}
-
-For key sequences:
-{
-  "type": "key_sequence",
-  "keys": ["win", "s"],
-  "summary": "Press Win+S to open search",
+  "type": "type", 
+  "text": "your_text",
+  "summary": "Type text in visible input field",
   "confidence": 80
 }
 
-REQUIREMENTS:
-1. ALWAYS use "type" (not "action_type" or "operation")
-2. ALWAYS include "summary" and "confidence" fields
-3. For clicks, use exact coordinates from visual analysis when possible
-4. Use realistic confidence values (60-90)
-5. Respond with ONLY the JSON object - no markdown, no explanations
+ONLY use keyboard shortcuts if NO visual elements are available:
+{
+  "type": "key",
+  "key": "win",
+  "summary": "Press Windows key (no visual elements detected)",
+  "confidence": 60
+}
+
+MANDATORY REQUIREMENTS:
+1. ALWAYS analyze visual data first
+2. ALWAYS prefer click coordinates over keyboard shortcuts
+3. ALWAYS use exact coordinates from visual analysis
+4. NEVER ignore visible clickable elements
+5. Respond with ONLY the JSON object - no explanations or markdown
 """
 
 ACTION_GENERATION_USER_PROMPT_TEMPLATE = """
-Generate a precise action to execute this step:
-
-Step to Execute: {step_description}
-
-Current Objective: {objective}
-
-Visual Analysis Data:
+CURRENT SCREEN ANALYSIS - READ THIS CAREFULLY:
 {visual_analysis}
 
-Based on the step description and visual analysis, generate the exact action needed.
+TASK TO EXECUTE: {step_description}
+OBJECTIVE: {objective}
 
-If this is a Windows key operation, use: {{"type": "key", "key": "win"}}
-If this is typing, use: {{"type": "type", "text": "your_text"}}  
-If this is clicking, use: {{"type": "click", "coordinate": {{"x": X, "y": Y}}}}
+INSTRUCTIONS:
+1. FIRST: Examine the visual analysis above to see what's currently on the screen
+2. FIND: Look for the specific element mentioned in the task (Chrome, browser, application icon, button, etc.)
+3. EXTRACT: Use the EXACT ClickCoordinates provided in the visual analysis for that element
+4. GENERATE: Create a click action using those EXACT coordinates
 
-Look for the exact element mentioned in the step within the visual analysis data and use its coordinates.
-"""
+CRITICAL COORDINATE USAGE:
+- Each element in visual analysis has ClickCoordinates: (x, y) in actual pixels
+- You MUST use these exact coordinates, not approximate or guess coordinates
+- If Chrome icon shows ClickCoordinates: (150, 200), use exactly: {{"type": "click", "coordinate": {{"x": 150, "y": 200}}}}
+- Never use placeholder coordinates like (123, 456)
+
+EXAMPLES:
+- If visual analysis shows "element_5: Text: 'Chrome' | ClickCoordinates: (85, 1050)", use: {{"type": "click", "coordinate": {{"x": 85, "y": 1050}}}}
+- If visual analysis shows "element_12: Type: icon | Text: 'Google Chrome' | ClickCoordinates: (200, 150)", use: {{"type": "click", "coordinate": {{"x": 200, "y": 150}}}}
+
+CRITICAL: Always use the EXACT ClickCoordinates from the visual analysis - never approximate!
+
+Generate the JSON action now:"""
 
 ###############################################################################
 # Prompt for Formulating Objective from User Goal

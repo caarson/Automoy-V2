@@ -201,10 +201,25 @@ async def call_lmstudio_model(messages, objective, model, thinking_callback=None
                         json_str = array_match.group(0).strip()
                         print(f"[DEBUG] Found raw JSON array: {json_str[:100]}...")
                     else:
-                        # Look for single JSON object pattern
-                        object_match = re.search(r'\{\s*"[\s\S]*?\}', full_response)
-                        if object_match:
-                            json_str = object_match.group(0).strip()
+                        # Look for single JSON object pattern with better brace matching
+                        # This regex will properly match opening and closing braces
+                        brace_count = 0
+                        start_idx = -1
+                        end_idx = -1
+                        
+                        for i, char in enumerate(full_response):
+                            if char == '{':
+                                if start_idx == -1:
+                                    start_idx = i
+                                brace_count += 1
+                            elif char == '}':
+                                brace_count -= 1
+                                if brace_count == 0 and start_idx != -1:
+                                    end_idx = i + 1
+                                    break
+                        
+                        if start_idx != -1 and end_idx != -1:
+                            json_str = full_response[start_idx:end_idx].strip()
                             print(f"[DEBUG] Found raw JSON object: {json_str[:100]}...")
                         else:
                             json_str = None

@@ -1,0 +1,8 @@
+{
+    "objective": "Launch Chrome browser by clicking on the Chrome icon",
+    "steps": [
+        "Take a screenshot to see the desktop",
+        "Find the Chrome icon on the desktop or taskbar", 
+        "Click on the Chrome icon to launch the browser"
+    ]
+}
