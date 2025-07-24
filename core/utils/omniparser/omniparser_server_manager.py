@@ -15,7 +15,24 @@ class OmniParserServerManager:
         self.server_process = None
 
     def is_server_ready(self):
-        return self._interface._check_server_ready()
+        # Check both the interface and direct HTTP request
+        try:
+            # First check the interface
+            if self._interface._check_server_ready():
+                print("[OmniParserServerManager] Server ready via interface check")
+                return True
+            
+            # Also try direct check to the running server
+            import requests
+            resp = requests.get("http://127.0.0.1:8111/probe/", timeout=3)
+            if resp.status_code == 200:
+                print("[OmniParserServerManager] Server ready via direct check")
+                return True
+                
+        except Exception as e:
+            print(f"[OmniParserServerManager] Server check failed: {e}")
+        
+        return False
 
     def start_server(self, conda_env_name="automoy_env"): # Added conda_env_name parameter
         if self.is_server_ready():

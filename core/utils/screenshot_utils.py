@@ -23,6 +23,8 @@ try:
 except ImportError:
     logger.warning("Pillow library not available, some screenshot functionality will be limited")
     PILLOW_AVAILABLE = False
+    # Create a dummy class for type hints when PIL is not available
+    Image = type('DummyImage', (), {})
 
 
 def get_screen_size() -> Tuple[int, int]:
@@ -45,7 +47,7 @@ def get_screen_size() -> Tuple[int, int]:
         return (1920, 1080)  # Default fallback
 
 
-def capture_screen_pil(output_path: Optional[str] = None) -> Optional[Image.Image]:
+def capture_screen_pil(output_path: Optional[str] = None) -> Any:
     """
     Capture the screen using PIL.
     

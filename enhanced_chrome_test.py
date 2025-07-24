@@ -56,6 +56,18 @@ def test_omniparser_chrome_detection():
         if not parsed_result:
             logger.error("✗ OmniParser returned None")
             return False
+        
+        # Print the complete structure of OmniParser results
+        logger.info("=== RAW OMNIPARSER RESULTS ===")
+        logger.info(f"Result type: {type(parsed_result)}")
+        logger.info(f"Result keys: {list(parsed_result.keys()) if isinstance(parsed_result, dict) else 'Not a dict'}")
+        
+        if isinstance(parsed_result, dict):
+            for key, value in parsed_result.items():
+                if key == "parsed_content_list":
+                    logger.info(f"  {key}: List with {len(value) if isinstance(value, list) else 'Unknown'} items")
+                else:
+                    logger.info(f"  {key}: {type(value)} = {str(value)[:200]}")
             
         if "parsed_content_list" not in parsed_result:
             logger.error("✗ OmniParser result missing 'parsed_content_list'")
@@ -71,6 +83,8 @@ def test_omniparser_chrome_detection():
         
         # Search for Chrome and log ALL elements for debugging
         logger.info("5. Analyzing all detected elements...")
+        logger.info(f"=== COMPLETE ELEMENT DUMP (Total: {len(elements)}) ===")
+        
         chrome_elements = []
         
         for i, element in enumerate(elements):
@@ -79,19 +93,29 @@ def test_omniparser_chrome_detection():
             bbox = element.get("bbox_normalized", [])
             interactivity = element.get("interactivity", False)
             
+            # Print EVERY single element with all available information
+            print(f"ELEMENT {i:3d}: '{element.get('content', '')}' | Type: '{element_type}' | Interactive: {interactivity}")
+            if bbox and len(bbox) >= 4:
+                print(f"         Bbox: [{bbox[0]:.3f}, {bbox[1]:.3f}, {bbox[2]:.3f}, {bbox[3]:.3f}]")
+            
             # Log every element for comprehensive debugging
             logger.info(f"   Element {i}: text='{element_text}', type='{element_type}', interactive={interactivity}")
             if bbox:
                 logger.info(f"      bbox_normalized: {bbox}")
             
-            # Check for Chrome indicators with broader criteria
+            # Check for Chrome indicators with VERY broad criteria
             is_chrome_candidate = (
                 "chrome" in element_text or
                 "google chrome" in element_text or
                 "google" in element_text or
-                ("browser" in element_text) or
+                "browser" in element_text or
+                "internet explorer" in element_text or
+                "explorer" in element_text or
+                "edge" in element_text or
+                "firefox" in element_text or
+                "opera" in element_text or
                 (element_type == "icon" and interactivity) or
-                (element_type == "button" and "chrome" in element_text)
+                (element_type == "button" and any(term in element_text for term in ["chrome", "browser", "internet"]))
             )
             
             if is_chrome_candidate:

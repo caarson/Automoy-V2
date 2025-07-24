@@ -40,14 +40,40 @@ import shutil  # for copying processed screenshot
 
 # ───────────────────────── helper: locate conda ────────────────────────────
 def _auto_find_conda() -> Optional[str]:
-    conda = os.environ.get("CONDA_EXE")
-    if conda and os.path.isfile(conda):
-        return conda
+    # Try multiple common conda locations in order of preference
+    conda_candidates = [
+        os.environ.get("CONDA_EXE"),  # Environment variable
+        r"C:\Users\imitr\anaconda3\Scripts\conda.exe",  # User-specific anaconda
+        r"C:\Users\imitr\miniconda3\Scripts\conda.exe",  # User-specific miniconda  
+        r"C:\anaconda3\Scripts\conda.exe",  # System-wide anaconda
+        r"C:\miniconda3\Scripts\conda.exe",  # System-wide miniconda
+        r"C:\ProgramData\Anaconda3\Scripts\conda.exe",  # Program data location
+    ]
+    
+    # Check each candidate
+    for conda_path in conda_candidates:
+        if conda_path and os.path.isfile(conda_path):
+            return conda_path
+    
+    # Fallback: try system path
     try:
         out = subprocess.check_output(["where", "conda"], shell=True, text=True)
-        return next(line for line in out.splitlines() if line.strip())
+        conda_from_where = next(line.strip() for line in out.splitlines() if line.strip())
+        if conda_from_where and os.path.isfile(conda_from_where):
+            return conda_from_where
     except Exception:
-        return None
+        pass
+    
+    # Final fallback: try conda.bat
+    try:
+        out = subprocess.check_output(["where", "conda.bat"], shell=True, text=True)  
+        conda_from_where = next(line.strip() for line in out.splitlines() if line.strip())
+        if conda_from_where and os.path.isfile(conda_from_where):
+            return conda_from_where
+    except Exception:
+        pass
+        
+    return None
 
 
 # ───────────────────────────── paths / constants ────────────────────────────

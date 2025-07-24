@@ -1,41 +1,33 @@
 {
-  "operator_status": "Completed: All steps executed successfully",
+  "operator_status": "Error: Failed to get action for step 1",
   "goal": "Open Google Chrome by clicking the icon.",
-  "objective": "Locate the Google Chrome application icon on the desktop or taskbar, then perform a left-click to launch the browser.",
+  "objective": "Locate and click the Google Chrome application icon on the desktop or taskbar to initiate the browser launch process.",
   "current_step_details": "Objective formulated. Starting dynamic operation loop...",
-  "current_operation": "Operation complete - 5 steps executed",
-  "thinking": "All steps completed successfully! Operation finished.",
+  "current_operation": "Operation stopped - 0 of 3 steps completed",
+  "thinking": "Operation stopped at step 1 of 3 due to errors",
   "llm_error_message": null,
+  "path": "c:\\Users\\imitr\\OneDrive\\Documentos\\GitHub\\Automoy-V2\\core\\utils\\omniparser\\processed_screenshot.png",
   "steps": [
     {
-      "description": "Take screenshot to analyze current desktop state"
+      "description": "Press Windows key to open Start menu"
     },
     {
-      "description": "Show desktop by minimizing all windows to reveal desktop icons"
+      "description": "Type search term for desired application"
     },
     {
-      "description": "Take desktop screenshot for Chrome icon detection"
-    },
-    {
-      "description": "Locate Google Chrome icon using visual analysis"
-    },
-    {
-      "description": "Click on the Chrome icon to launch browser"
+      "description": "Press Enter to launch application"
     }
   ],
-  "step_index": 4,
-  "description": "Click on the Chrome icon to launch browser",
-  "total_steps": 5,
+  "step_index": 0,
+  "description": "Press Windows key to open Start menu",
+  "total_steps": 3,
   "operations": [
     {
-      "type": "key",
-      "key": "win",
-      "summary": "Press Windows key (no visual elements detected)",
-      "confidence": 60
+      "type": "error",
+      "summary": "Max retries reached. Could not generate action for: Press Windows key to open Start menu"
     }
   ],
-  "thinking_process": "automoy-op-1752902810",
-  "summary": "Pressed key: win",
-  "status": "success",
-  "past_operation": "Completed: Step 5: Click on the Chrome icon to launch browser"
+  "thinking_process": "automoy-op-1753243099",
+  "summary": "Failed to generate action for step: Press Windows key to open Start menu",
+  "status": "error"
 }

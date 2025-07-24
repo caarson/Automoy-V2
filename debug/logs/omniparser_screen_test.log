@@ -1,0 +1,7 @@
+[22:07:29] === OMNIPARSER SCREEN ANALYSIS TEST STARTED ===
+[22:07:29] Testing direct OmniParser API call for screen analysis...
+[22:07:29] ✓ All required modules imported successfully
+[22:07:29] 1. Testing OmniParser server connection...
+[22:07:31] ❌ Cannot connect to OmniParser server: HTTPConnectionPool(host='127.0.0.1', port=8111): Max retries exceeded with url: /health (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x00000194FF0BC5C0>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+[22:07:31] === OMNIPARSER SCREEN ANALYSIS TEST COMPLETED ===
+[22:07:31] Results written to: C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\debug\logs\omniparser_screen_test.log

@@ -1,0 +1,53 @@
+[22:10:03] Starting manual OmniParser server launch and test...
+[22:10:03] 1. Checking if OmniParser server is already running...
+[22:10:07] ❌ Server not running - need to start it manually
+[22:10:07] 2. Verifying required paths...
+[22:10:07] ✅ Conda found: C:\Users\imitr\anaconda3\Scripts\conda.exe
+[22:10:07] ✅ Server path found: C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\dependencies\OmniParser-master\omnitool\omniparserserver
+[22:10:07] ✅ Model found: C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\dependencies\OmniParser-master\weights\icon_detect\model.pt
+[22:10:07] ✅ Caption model found: C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\dependencies\OmniParser-master\weights\icon_caption_florence
+[22:10:07] 3. Building OmniParser server command...
+[22:10:07] Command: C:\Users\imitr\anaconda3\Scripts\conda.exe run -n automoy_env C:\Users\imitr\anaconda3\envs\automoy_env\python.exe omniparserserver.py --som_model_path C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\dependencies\OmniParser-master\weights\icon_detect\model.pt --caption_model_name florence2 --caption_model_path C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\dependencies\OmniParser-master\weights\icon_caption_florence --device cpu --BOX_TRESHOLD 0.15 --port 8111
+[22:10:07] Working directory: C:\Users\imitr\OneDrive\Documentos\GitHub\Automoy-V2\dependencies\OmniParser-master\omnitool\omniparserserver
+[22:10:07] 4. Starting OmniParser server...
+[22:10:07] ✅ Server process started with PID: 38072
+[22:10:07] 5. Monitoring server startup...
+[22:10:12]    Server starting... (checking again in 3 seconds)
+[22:10:19]    Server starting... (checking again in 3 seconds)
+[22:10:26]    Server starting... (checking again in 3 seconds)
+[22:10:31] ✅ OmniParser server is ready!
+[22:10:31] 6. Testing server functionality...
+[22:10:31] Testing server with screenshot analysis...
+[22:10:31] ✅ Screenshot taken: 1920x1080
+[22:10:31] ✅ Image converted to base64: 508884 chars
+[22:10:51] ✅ Server analysis successful!
+[22:10:51] 📊 Found 391 screen elements
+[22:10:51] 🎯 CHROME FOUND in item 40: {'type': 'text', 'bbox': [0.3609375059604645, 0.17407406866550446, 0.4906249940395355, 0.19166666269302368], 'interactivity': False, 'content': 'info("LLM failed for Chrome goal', 'source': 'box_ocr_content_ocr'}
+[22:10:51] 🎯 CHROME FOUND in item 48: {'type': 'text', 'bbox': [0.4453125, 0.192592591047287, 0.4906249940395355, 0.2101851850748062], 'interactivity': False, 'content': 'Chrome goal', 'source': 'box_ocr_content_ocr'}
+[22:10:51] 🎯 CHROME FOUND in item 49: {'type': 'text', 'bbox': [0.5015624761581421, 0.1935185194015503, 0.582812488079071, 0.2083333283662796], 'interactivity': False, 'content': 'trying direct Chrome', 'source': 'box_ocr_content_ocr'}
+[22:10:51] 🎯 CHROME FOUND in item 57: {'type': 'text', 'bbox': [0.38489583134651184, 0.22870370745658875, 0.41093748807907104, 0.24166665971279144], 'interactivity': False, 'content': 'Chrome', 'source': 'box_ocr_content_ocr'}
+[22:10:51] 🎯 CHROME FOUND in item 71: {'type': 'text', 'bbox': [0.47343748807907104, 0.2638888955116272, 0.49947917461395264, 0.2768518626689911], 'interactivity': False, 'content': 'Chrome', 'source': 'box_ocr_content_ocr'}
+[22:10:51] 🎯 CHROME FOUND in item 79: {'type': 'text', 'bbox': [0.4088541567325592, 0.29907408356666565, 0.4348958432674408, 0.31203705072402954], 'interactivity': False, 'content': 'Chrome', 'source': 'box_ocr_content_ocr'}
+[22:10:51] 🎯 CHROME FOUND in item 93: {'type': 'text', 'bbox': [0.34843748807907104, 0.36944442987442017, 0.3984375, 0.38425925374031067], 'interactivity': False, 'content': 'chrome_paths', 'source': 'box_ocr_content_ocr'}
+[22:10:51] 🎯 CHROME FOUND in item 96: {'type': 'text', 'bbox': [0.36406248807907104, 0.385185182094574, 0.5713541507720947, 0.4037036895751953], 'interactivity': False, 'content': 'r"C: Program Files |GooglelChrome ( ApplicationIchrone', 'source': 'box_ocr_content_ocr'}
+[22:10:51] 🎯 CHROME FOUND in item 102: {'type': 'text', 'bbox': [0.41718751192092896, 0.4046296179294586, 0.5953124761581421, 0.4194444417953491], 'interactivity': False, 'content': 'Files (*86) IGooglelChrone [Applicationlchrome', 'source': 'box_ocr_content_ocr'}
+[22:10:51] 🎯 CHROME FOUND in item 116: {'type': 'text', 'bbox': [0.36510416865348816, 0.4583333432674408, 0.39010417461395264, 0.4712963104248047], 'interactivity': False, 'content': 'chrome_', 'source': 'box_ocr_content_ocr'}
+[22:10:51] 🎯 CHROME FOUND in item 117: {'type': 'text', 'bbox': [0.39114582538604736, 0.4546296298503876, 0.47864583134651184, 0.4731481373310089], 'interactivity': False, 'content': 'path in chrome_paths:', 'source': 'box_ocr_content_ocr'}
+[22:10:51] 🎯 CHROME FOUND in item 120: {'type': 'text', 'bbox': [0.3765625059604645, 0.4749999940395355, 0.4869791567325592, 0.489814817905426], 'interactivity': False, 'content': '05.path.exists(chrome_path)', 'source': 'box_ocr_content_ocr'}
+[22:10:51] 🎯 CHROME FOUND in item 123: {'type': 'text', 'bbox': [0.4609375, 0.49351853132247925, 0.4869791567325592, 0.5064814686775208], 'interactivity': False, 'content': 'Chrome', 'source': 'box_ocr_content_ocr'}
+[22:10:51] 🎯 CHROME FOUND in item 125: {'type': 'text', 'bbox': [0.5057291388511658, 0.49351853132247925, 0.5588541626930237, 0.5083333253860474], 'interactivity': False, 'content': '{chrome_path}', 'source': 'box_ocr_content_ocr'}
+[22:10:51] 🎯 CHROME FOUND in item 129: {'type': 'text', 'bbox': [0.45260417461395264, 0.510185182094574, 0.5057291388511658, 0.5249999761581421], 'interactivity': False, 'content': 'chrome_path],', 'source': 'box_ocr_content_ocr'}
+[22:10:51] 🎯 CHROME FOUND in item 136: {'type': 'text', 'bbox': [0.38072916865348816, 0.5268518328666687, 0.44322916865348816, 0.5416666865348816], 'interactivity': False, 'content': 'chrome_launched', 'source': 'box_ocr_content_ocr'}
+[22:10:51] 🎯 CHROME FOUND in item 158: {'type': 'text', 'bbox': [0.3765625059604645, 0.5972222089767456, 0.44218748807907104, 0.6120370626449585], 'interactivity': False, 'content': 'chrome_launched:', 'source': 'box_ocr_content_ocr'}
+[22:10:51] 🎯 CHROME FOUND in item 165: {'type': 'text', 'bbox': [0.46927082538604736, 0.6342592835426331, 0.49531251192092896, 0.6472222208976746], 'interactivity': False, 'content': 'chrome', 'source': 'box_ocr_content_ocr'}
+[22:10:51] 🎯 CHROME FOUND in item 171: {'type': 'text', 'bbox': [0.38072916865348816, 0.6509259343147278, 0.44322916865348816, 0.6657407283782959], 'interactivity': False, 'content': 'chrome_launched', 'source': 'box_ocr_content_ocr'}
+[22:10:51] 🎯 CHROME FOUND in item 176: {'type': 'text', 'bbox': [0.3802083432674408, 0.6666666865348816, 0.5703125, 0.6851851940155029], 'interactivity': False, 'content': 'logger.info("Chrome launched via shell command"', 'source': 'box_ocr_content_ocr'}
+[22:10:51] 🎯 CHROME FOUND in item 271: {'type': 'icon', 'bbox': [0.026564836502075195, 0.49100738763809204, 0.18546095490455627, 0.5131497979164124], 'interactivity': True, 'content': 'chrome_ goaljson debug ', 'source': 'box_yolo_content_ocr'}
+[22:10:51] 🎯 CHROME FOUND in item 278: {'type': 'icon', 'bbox': [0.8527020812034607, 0.7510141730308533, 0.9915544986724854, 0.7716640830039978], 'interactivity': True, 'content': 'direct_chrome_testjson ', 'source': 'box_yolo_content_ocr'}
+[22:10:51] 🎯 CHROME FOUND in item 307: {'type': 'icon', 'bbox': [0.027061868458986282, 0.5108577609062195, 0.18286804854869843, 0.5463470816612244], 'interactivity': True, 'content': 'chrome_test_2025_07_14json ', 'source': 'box_yolo_content_ocr'}
+[22:10:51] 🎯 CHROME FOUND in item 311: {'type': 'icon', 'bbox': [0.3483254015445709, 0.3138245940208435, 0.4102303087711334, 0.3308364450931549], 'interactivity': True, 'content': 'chrome_launched ', 'source': 'box_yolo_content_ocr'}
+[22:10:51] ✅ Chrome detection successful!
+[22:10:51] 7. Server test complete - keeping server alive for manual testing...
+[22:10:51]    You can now test Chrome detection manually
+[22:10:51]    Server PID: 38072
+[22:10:51]    Press Ctrl+C in this terminal to stop the server

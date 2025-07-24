@@ -164,9 +164,76 @@ async def _update_gui_state(endpoint: str, payload: dict):
         logger.error(f"Unexpected error in _update_gui_state for endpoint {endpoint}: {e}", exc_info=True)
 
 class ActionExecutor:
-    """Executes actions on Windows using pyautogui."""
+    """Executes actions on Windows using multiple methods with fallbacks."""
     def __init__(self):
         pyautogui.FAILSAFE = False
+        
+    def _press_key_with_fallbacks(self, key: str) -> str:
+        """Press a key using multiple methods with fallbacks."""
+        import ctypes
+        import time
+        
+        # Method 1: Try PyAutoGUI first (works for Windows key)
+        try:
+            pyautogui.press(key)
+            return f"Pressed key via PyAutoGUI: {key}"
+        except Exception as e1:
+            logger.info(f"PyAutoGUI failed for key '{key}': {e1}")
+        
+        # Method 2: Try keyboard library
+        try:
+            import keyboard
+            keyboard.press_and_release(key)
+            return f"Pressed key via keyboard library: {key}"
+        except Exception as e2:
+            logger.info(f"Keyboard library failed for key '{key}': {e2}")
+        
+        # Method 3: Try Windows API directly
+        try:
+            # Map common keys to virtual key codes
+            vk_map = {
+                'a': 0x41, 'b': 0x42, 'c': 0x43, 'd': 0x44, 'e': 0x45, 'f': 0x46, 'g': 0x47,
+                'h': 0x48, 'i': 0x49, 'j': 0x4A, 'k': 0x4B, 'l': 0x4C, 'm': 0x4D, 'n': 0x4E,
+                'o': 0x4F, 'p': 0x50, 'q': 0x51, 'r': 0x52, 's': 0x53, 't': 0x54, 'u': 0x55,
+                'v': 0x56, 'w': 0x57, 'x': 0x58, 'y': 0x59, 'z': 0x5A,
+                '0': 0x30, '1': 0x31, '2': 0x32, '3': 0x33, '4': 0x34, '5': 0x35,
+                '6': 0x36, '7': 0x37, '8': 0x38, '9': 0x39,
+                'space': 0x20, 'enter': 0x0D, 'escape': 0x1B, 'esc': 0x1B, 'tab': 0x09,
+                'shift': 0x10, 'ctrl': 0x11, 'alt': 0x12, 'win': 0x5B, 'winleft': 0x5B,
+                'backspace': 0x08, 'delete': 0x2E, 'home': 0x24, 'end': 0x23,
+                'pageup': 0x21, 'pagedown': 0x22, 'up': 0x26, 'down': 0x28,
+                'left': 0x25, 'right': 0x27, 'f1': 0x70, 'f2': 0x71, 'f3': 0x72,
+                'f4': 0x73, 'f5': 0x74, 'f6': 0x75, 'f7': 0x76, 'f8': 0x77,
+                'f9': 0x78, 'f10': 0x79, 'f11': 0x7A, 'f12': 0x7B
+            }
+            
+            # Convert key name to virtual key code
+            vk_code = vk_map.get(key.lower())
+            if vk_code:
+                user32 = ctypes.windll.user32
+                # Key down
+                user32.keybd_event(vk_code, 0, 0, 0)
+                time.sleep(0.01)  # Brief pause
+                # Key up
+                user32.keybd_event(vk_code, 0, 2, 0)
+                return f"Pressed key via Windows API: {key}"
+            else:
+                return f"Key '{key}' not found in virtual key mapping"
+                
+        except Exception as e3:
+            logger.info(f"Windows API failed for key '{key}': {e3}")
+        
+        # Method 4: As last resort, try OSInterface
+        try:
+            from core.utils.operating_system.os_interface import OSInterface
+            os_interface = OSInterface()
+            os_interface.press(key)
+            return f"Pressed key via OSInterface: {key}"
+        except Exception as e4:
+            logger.info(f"OSInterface failed for key '{key}': {e4}")
+        
+        # If all methods failed
+        return f"ERROR: All keyboard methods failed for key '{key}'"
 
     def execute(self, action: dict) -> str:
         try:
@@ -174,23 +241,89 @@ class ActionExecutor:
             if action_type == "key":
                 key = action.get("key")
                 if key:
-                    pyautogui.press(key)
-                    return f"Pressed key: {key}"
+                    return self._press_key_with_fallbacks(key)
             elif action_type == "key_sequence":
                 keys = action.get("keys")
                 if isinstance(keys, list):
-                    pyautogui.hotkey(*keys)
-                    return f"Pressed key sequence: {keys}"
+                    # Try multiple methods for key sequences
+                    try:
+                        pyautogui.hotkey(*keys)
+                        return f"Pressed key sequence via PyAutoGUI: {keys}"
+                    except Exception as e1:
+                        logger.info(f"PyAutoGUI hotkey failed for {keys}: {e1}")
+                        try:
+                            import keyboard
+                            combo = "+".join(keys)
+                            keyboard.press_and_release(combo)
+                            return f"Pressed key sequence via keyboard library: {keys}"
+                        except Exception as e2:
+                            logger.info(f"Keyboard library hotkey failed for {keys}: {e2}")
+                            return f"ERROR: Key sequence failed for {keys}"
                 elif isinstance(keys, str):
                     # Handle string format like "win+s"
                     key_list = [k.strip() for k in keys.replace('+', ',').split(',')]
-                    pyautogui.hotkey(*key_list)
-                    return f"Pressed key sequence: {key_list}"
+                    try:
+                        pyautogui.hotkey(*key_list)
+                        return f"Pressed key sequence via PyAutoGUI: {key_list}"
+                    except Exception as e1:
+                        logger.info(f"PyAutoGUI hotkey failed for {key_list}: {e1}")
+                        try:
+                            import keyboard
+                            combo = "+".join(key_list)
+                            keyboard.press_and_release(combo)
+                            return f"Pressed key sequence via keyboard library: {key_list}"
+                        except Exception as e2:
+                            logger.info(f"Keyboard library hotkey failed for {key_list}: {e2}")
+                            return f"ERROR: Key sequence failed for {key_list}"
             elif action_type == "type":
                 text = action.get("text")
                 if text:
-                    pyautogui.typewrite(text)
-                    return f"Typed text: {text}"
+                    # Try multiple methods for typing
+                    try:
+                        pyautogui.typewrite(text)
+                        return f"Typed text via PyAutoGUI: {text}"
+                    except Exception as e1:
+                        logger.info(f"PyAutoGUI typewrite failed: {e1}")
+                        try:
+                            import keyboard
+                            keyboard.write(text)
+                            return f"Typed text via keyboard library: {text}"
+                        except Exception as e2:
+                            logger.info(f"Keyboard library write failed: {e2}")
+                            try:
+                                # Enhanced character-by-character typing via Windows API
+                                import ctypes
+                                import time
+                                user32 = ctypes.windll.user32
+                                
+                                # Extended virtual key mapping for better compatibility
+                                char_map = {
+                                    'a': 0x41, 'b': 0x42, 'c': 0x43, 'd': 0x44, 'e': 0x45, 'f': 0x46,
+                                    'g': 0x47, 'h': 0x48, 'i': 0x49, 'j': 0x4A, 'k': 0x4B, 'l': 0x4C,
+                                    'm': 0x4D, 'n': 0x4E, 'o': 0x4F, 'p': 0x50, 'q': 0x51, 'r': 0x52,
+                                    's': 0x53, 't': 0x54, 'u': 0x55, 'v': 0x56, 'w': 0x57, 'x': 0x58,
+                                    'y': 0x59, 'z': 0x5A, ' ': 0x20, '0': 0x30, '1': 0x31, '2': 0x32,
+                                    '3': 0x33, '4': 0x34, '5': 0x35, '6': 0x36, '7': 0x37, '8': 0x38, '9': 0x39
+                                }
+                                
+                                typed_chars = []
+                                for char in text.lower():
+                                    if char in char_map:
+                                        vk_code = char_map[char]
+                                        # Key down
+                                        user32.keybd_event(vk_code, 0, 0, 0)
+                                        time.sleep(0.02)  # Slightly longer delay for reliability
+                                        # Key up
+                                        user32.keybd_event(vk_code, 0, 2, 0)
+                                        time.sleep(0.02)
+                                        typed_chars.append(char)
+                                    else:
+                                        logger.warning(f"Character '{char}' not in Windows API mapping, skipping")
+                                
+                                return f"Typed text via Windows API: {''.join(typed_chars)} (original: {text})"
+                            except Exception as e3:
+                                logger.info(f"Windows API typing failed: {e3}")
+                                return f"ERROR: All typing methods failed for text: {text}"
             elif action_type == "click":
                 coord = action.get("coordinate") or action
                 x = coord.get("x")
@@ -217,6 +350,37 @@ class ActionExecutor:
                 # Visual search actions will be handled by the step executor
                 target = action.get("target", "unknown")
                 return f"Visual search initiated for: {target}"
+            elif action_type == "check_process":
+                # Check if a specific process is running
+                process_name = action.get("process_name", "")
+                if process_name:
+                    try:
+                        import psutil
+                        running_processes = []
+                        for proc in psutil.process_iter(['pid', 'name']):
+                            try:
+                                if process_name.lower() in proc.info['name'].lower():
+                                    running_processes.append(f"{proc.info['name']} (PID: {proc.info['pid']})")
+                            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                                continue
+                        
+                        if running_processes:
+                            return f"Process '{process_name}' found: {', '.join(running_processes)}"
+                        else:
+                            return f"Process '{process_name}' not found"
+                    except Exception as e:
+                        return f"Error checking process '{process_name}': {e}"
+                else:
+                    return "ERROR: No process_name specified for check_process action"
+            elif action_type == "wait":
+                # Wait for a specified duration
+                duration = action.get("duration", 1.0)
+                try:
+                    import time
+                    time.sleep(float(duration))
+                    return f"Waited for {duration} seconds"
+                except Exception as e:
+                    return f"Error waiting: {e}"
             
             # If we get here, the action format wasn't recognized
             # Try to extract a reasonable summary from the action
@@ -364,6 +528,37 @@ class AutomoyOperator:
             logger.error(f"Error extracting visual summary: {e}", exc_info=True)
             return f"Visual analysis completed but summary extraction failed: {str(e)}"
 
+    async def _take_screenshot(self, context: str) -> Optional[Path]:
+        """Take a screenshot and save it to the debug/screenshots directory."""
+        try:
+            logger.info(f"Taking screenshot for: {context}")
+            await self._update_gui_state_func("/state/current_operation", {"text": f"Taking screenshot for: {context}"})
+            
+            # Capture screenshot
+            screenshot_pil = await asyncio.to_thread(capture_screen_pil)
+            if not screenshot_pil:
+                logger.error("Failed to capture screenshot")
+                return None
+            
+            # Generate unique filename
+            screenshot_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            screenshot_filename = f"automoy_screenshot_{screenshot_timestamp}.png"
+            screenshot_path = Path("debug/screenshots") / screenshot_filename
+            screenshot_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Save screenshot
+            await asyncio.to_thread(screenshot_pil.save, str(screenshot_path))
+            logger.info(f"Screenshot saved: {screenshot_path}")
+            
+            # Update GUI with screenshot path
+            await self._update_gui_state_func("/state/screenshot", {"path": str(screenshot_path)})
+            
+            return screenshot_path
+            
+        except Exception as e:
+            logger.error(f"Failed to take screenshot for {context}: {e}", exc_info=True)
+            return None
+
     async def _perform_visual_analysis(self, screenshot_path: Path, task_context: str) -> Tuple[Optional[Path], Optional[str]]:
         """Perform visual analysis using OmniParser and redirect analysis to thinking display."""
         logger.info(f"Starting visual analysis for task: {task_context}")
@@ -384,12 +579,44 @@ class AutomoyOperator:
             await self._update_gui_state_func("/state/current_operation", {"text": "Analyzing screenshot with OmniParser to identify UI elements..."})
             
             # Perform the visual analysis
+            logger.info(f"🔍 Calling OmniParser.parse_screenshot with: {screenshot_path}")
             parsed_result = self.omniparser.parse_screenshot(str(screenshot_path))
+            logger.info(f"🔍 OmniParser returned result type: {type(parsed_result)}")
+            logger.info(f"🔍 OmniParser result is None: {parsed_result is None}")
+            logger.info(f"🔍 OmniParser result is truthy: {bool(parsed_result)}")
             
-            if parsed_result and "parsed_content_list" in parsed_result:
+            if parsed_result:
+                logger.info(f"🔍 OmniParser result keys: {list(parsed_result.keys()) if isinstance(parsed_result, dict) else 'Not a dict'}")
+            
+            if parsed_result and isinstance(parsed_result, dict) and "parsed_content_list" in parsed_result:
+                # Store parsed result for later use in action generation
+                self.parsed_content_list = parsed_result["parsed_content_list"]
+                
+                # Check if parsed_content_list is actually populated
+                elements_found = len(parsed_result["parsed_content_list"]) if parsed_result["parsed_content_list"] else 0
+                logger.info(f"🔍 parsed_content_list contains {elements_found} elements")
+                
+                if elements_found == 0:
+                    logger.error("❌ CRITICAL: No visual elements detected by OmniParser - HALTING OPERATION")
+                    await self._update_gui_state_func("/state/thinking", {"text": "❌ CRITICAL ERROR: Visual analysis detected NO UI elements. This indicates a serious issue with OmniParser or screen content. Operation HALTED for safety."})
+                    await self._update_gui_state_func("/state/current_operation", {"text": "❌ HALTED: No visual elements detected - bad component"})
+                    await self._update_gui_state_func("/state/operator_status", {"text": "error"})
+                    
+                    # Raise an exception to halt the operation completely
+                    raise RuntimeError("Visual analysis detected zero elements - indicating bad component. Operation halted for safety.")
+                
+                if elements_found < 5:
+                    logger.warning(f"⚠️ WARNING: Only {elements_found} visual elements detected - unusually low count")
+                    await self._update_gui_state_func("/state/thinking", {"text": f"⚠️ WARNING: Only {elements_found} visual elements detected. This is unusually low and may indicate screen or analysis issues."})
+                
+                
                 # Process the visual analysis results
-                elements_found = len(parsed_result["parsed_content_list"])
                 await self._update_gui_state_func("/state/current_operation", {"text": f"Visual analysis complete: Found {elements_found} UI elements. Processing results for action planning."})
+                
+                # Log first few elements for debugging
+                for i, element in enumerate(parsed_result["parsed_content_list"][:3]):
+                    logger.info(f"🔍 Element {i+1}: {element.get('content', '')} | {element.get('type', '')} | {element.get('bbox_normalized', [])}")
+                
                 
                 # Send the visual analysis results to thinking display
                 formatted_analysis = self._format_visual_analysis_for_thinking(parsed_result)
@@ -419,9 +646,21 @@ class AutomoyOperator:
                 
                 return processed_screenshot_path, visual_output
             else:
-                logger.warning("Visual analysis returned no results")
-                await self._update_gui_state_func("/state/thinking", {"text": "Visual analysis completed but no UI elements were detected. Continuing with available information."})
-                return None, "No visual elements detected in the current screen."
+                logger.error("❌ CRITICAL: Visual analysis returned invalid results - HALTING OPERATION")
+                if parsed_result:
+                    if isinstance(parsed_result, dict):
+                        logger.error(f"❌ Missing 'parsed_content_list' key. Available keys: {list(parsed_result.keys())}")
+                    else:
+                        logger.error(f"❌ Result is not a dict, got: {type(parsed_result)}")
+                else:
+                    logger.error("❌ OmniParser returned None or empty result")
+                    
+                await self._update_gui_state_func("/state/thinking", {"text": "❌ CRITICAL ERROR: Visual analysis failed completely - OmniParser returned invalid or empty results. This indicates a serious component failure. Operation HALTED for safety."})
+                await self._update_gui_state_func("/state/current_operation", {"text": "❌ HALTED: Visual analysis component failure"})
+                await self._update_gui_state_func("/state/operator_status", {"text": "error"})
+                
+                # Raise an exception to halt the operation completely
+                raise RuntimeError("Visual analysis returned invalid results - indicating bad component. Operation halted for safety.")
                 
         except Exception as e:
             logger.error(f"Error during visual analysis: {e}", exc_info=True)
@@ -429,27 +668,87 @@ class AutomoyOperator:
             return None, None
 
     def _format_visual_analysis_result(self, parsed_result: dict) -> str:
-        """Format the visual analysis result for LLM consumption."""
+        """Format the visual analysis result for LLM consumption with ClickCoordinates."""
         if not parsed_result or "parsed_content_list" not in parsed_result:
             return "No visual elements detected."
         
         elements = parsed_result["parsed_content_list"]
-        formatted_output = ["Visual Analysis Results:"]
+        formatted_output = []
         
         for i, element in enumerate(elements):
-            element_info = []
-            if element.get("content"):
-                element_info.append(f"Text: '{element['content']}'")
-            if element.get("type"):
-                element_info.append(f"Type: {element['type']}")
+            element_text = element.get("content", "")
+            element_type = element.get("type", "unknown")
+            
+            # Convert normalized bbox to pixel coordinates for ClickCoordinates
             if element.get("bbox_normalized"):
                 bbox = element["bbox_normalized"]
-                element_info.append(f"Position: ({bbox[0]:.2f}, {bbox[1]:.2f}, {bbox[2]:.2f}, {bbox[3]:.2f})")
-            if element.get("interactivity"):
-                element_info.append("Interactive: Yes")
-            
-            if element_info:
-                formatted_output.append(f"{i+1}. {' | '.join(element_info)}")
+                logger.debug(f"📍 Element {i+1} bbox_normalized: {bbox} (type: {type(bbox)})")
+                
+                # Handle multiple possible bbox formats flexibly
+                valid_coords = False
+                pixel_x, pixel_y = 0, 0
+                
+                try:
+                    # Get actual screen dimensions
+                    import pyautogui
+                    screen_width, screen_height = pyautogui.size()
+                    logger.debug(f"📏 Screen dimensions: {screen_width}x{screen_height}")
+                    
+                    # Handle various bbox formats that OmniParser might return
+                    if isinstance(bbox, (list, tuple)) and len(bbox) >= 4:
+                        # Standard format: [x1, y1, x2, y2] in normalized coordinates (0.0-1.0)
+                        coords = [float(coord) for coord in bbox[:4]]  # Take first 4 elements
+                        x1, y1, x2, y2 = coords
+                        
+                        # Ensure coordinates are within valid range (0.0-1.0)
+                        if all(0.0 <= coord <= 1.0 for coord in coords):
+                            # Calculate center point in pixels
+                            pixel_x = int((x1 + x2) / 2 * screen_width)
+                            pixel_y = int((y1 + y2) / 2 * screen_height)
+                            
+                            # Ensure pixel coordinates are within screen bounds
+                            pixel_x = max(0, min(pixel_x, screen_width - 1))
+                            pixel_y = max(0, min(pixel_y, screen_height - 1))
+                            
+                            logger.debug(f"📍 Normalized coords: x1={x1:.3f}, y1={y1:.3f}, x2={x2:.3f}, y2={y2:.3f}")
+                            logger.debug(f"📍 Converted to pixels: ({pixel_x}, {pixel_y})")
+                            valid_coords = True
+                        else:
+                            logger.warning(f"⚠️ Normalized coordinates out of range (0-1): {coords}")
+                    else:
+                        logger.warning(f"❌ Invalid bbox format for element {i+1}: expected list/tuple with 4+ elements, got {type(bbox)} with length {len(bbox) if hasattr(bbox, '__len__') else 'unknown'}")
+                        
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"❌ Failed to convert bbox {bbox} for element {i+1}: {e}")
+                except ImportError:
+                    logger.warning("⚠️ pyautogui not available, using fallback screen size")
+                    # Use fallback screen size
+                    screen_width, screen_height = 1920, 1080
+                    if isinstance(bbox, (list, tuple)) and len(bbox) >= 4:
+                        try:
+                            coords = [float(coord) for coord in bbox[:4]]
+                            x1, y1, x2, y2 = coords
+                            if all(0.0 <= coord <= 1.0 for coord in coords):
+                                pixel_x = int((x1 + x2) / 2 * screen_width)
+                                pixel_y = int((y1 + y2) / 2 * screen_height)
+                                pixel_x = max(0, min(pixel_x, screen_width - 1))
+                                pixel_y = max(0, min(pixel_y, screen_height - 1))
+                                valid_coords = True
+                        except (ValueError, TypeError):
+                            pass
+                except Exception as e:
+                    logger.error(f"❌ Unexpected error in coordinate conversion for element {i+1}: {e}")
+                
+                # Format based on whether coordinates were successfully converted
+                if valid_coords:
+                    formatted_output.append(f"element_{i+1}: Text: '{element_text}' | Type: {element_type} | ClickCoordinates: ({pixel_x}, {pixel_y})")
+                else:
+                    logger.warning(f"⚠️ Could not extract valid coordinates for element {i+1}, marking as unavailable")
+                    formatted_output.append(f"element_{i+1}: Text: '{element_text}' | Type: {element_type} | ClickCoordinates: (unavailable)")
+            else:
+                # If no coordinates available, still list the element
+                logger.debug(f"⚠️ Element {i+1} has no bbox_normalized field")
+                formatted_output.append(f"element_{i+1}: Text: '{element_text}' | Type: {element_type} | ClickCoordinates: (unavailable)")
         
         return "\n".join(formatted_output)
 
@@ -465,15 +764,44 @@ class AutomoyOperator:
         # Create a formatted display of the visual analysis
         analysis_text = f"Visual Analysis Results ({len(elements)} elements found):\n\n"
         
-        for i, element in enumerate(elements[:10], 1):  # Limit to first 10 elements
+        # Look for Chrome specifically
+        chrome_elements = []
+        for i, element in enumerate(elements):
+            content = str(element.get("content", "")).lower()
+            if "chrome" in content or "google" in content:
+                chrome_elements.append((i, element))
+        
+        if chrome_elements:
+            analysis_text += "🎯 CHROME ELEMENTS DETECTED:\n"
+            for i, element in chrome_elements[:5]:  # Show first 5 Chrome elements
+                element_info = []
+                if element.get("content"):
+                    element_info.append(f"Text: '{element['content']}'")
+                if element.get("type"):
+                    element_info.append(f"Type: {element['type']}")
+                if element.get("bbox_normalized"):
+                    bbox = element["bbox_normalized"]
+                    element_info.append(f"Position: ({bbox[0]:.3f}, {bbox[1]:.3f}, {bbox[2]:.3f}, {bbox[3]:.3f})")
+                if element.get("interactivity"):
+                    element_info.append("Interactive: Yes")
+                
+                analysis_text += f"  Chrome-{len(chrome_elements)}: {' | '.join(element_info)}\n"
+            
+            analysis_text += f"\n"
+        else:
+            analysis_text += "⚠️ No Chrome elements found.\n\n"
+        
+        # Show first 10 elements for context
+        analysis_text += "All Elements (first 10):\n"
+        for i, element in enumerate(elements[:10], 1):
             element_info = []
-            if element.get("text"):
-                element_info.append(f"Text: '{element['text']}'")
+            if element.get("content"):
+                element_info.append(f"Text: '{element['content']}'")
             if element.get("type"):
                 element_info.append(f"Type: {element['type']}")
-            if element.get("coordinates"):
-                coords = element["coordinates"]
-                element_info.append(f"Position: ({coords.get('x', 'N/A')}, {coords.get('y', 'N/A')})")
+            if element.get("bbox_normalized"):
+                bbox = element["bbox_normalized"]
+                element_info.append(f"Position: ({bbox[0]:.3f}, {bbox[1]:.3f}, {bbox[2]:.3f}, {bbox[3]:.3f})")
             
             analysis_text += f"{i}. {'|'.join(element_info) if element_info else 'Unknown element'}\n"
         
@@ -491,30 +819,7 @@ class AutomoyOperator:
         # Add thinking process to the thinking tab
         await self._update_gui_state_func("/state/thinking", {"text": f"Breaking down objective into actionable steps: {self.objective}"})
         
-        # Check if this is a Chrome-related goal - only use hardcoded steps if NOT requesting visual clicking
-        original_goal = getattr(self, 'original_goal', '').lower()
-        objective_text = self.objective.lower()
-        
-        # Debug logging
-        logger.info(f"DEBUG: objective_text = '{objective_text}'")
-        logger.info(f"DEBUG: original_goal = '{original_goal}'")
-        
-        if ("chrome" in objective_text or "chrome" in original_goal):
-            # Check for visual keywords in either objective or original goal
-            visual_keywords = ['click', 'mouse', 'visual', 'icon', 'desktop', 'screenshot', 'analyze', 'image']
-            has_visual_keywords = any(keyword in original_goal for keyword in visual_keywords) or \
-                                  any(keyword in objective_text for keyword in visual_keywords)
-            
-            logger.info(f"DEBUG: has_visual_keywords = {has_visual_keywords}")
-            logger.info(f"DEBUG: visual keywords found in original_goal: {[kw for kw in visual_keywords if kw in original_goal]}")
-            logger.info(f"DEBUG: visual keywords found in objective: {[kw for kw in visual_keywords if kw in objective_text]}")
-            
-            if not has_visual_keywords:
-                logger.info("Detected Chrome goal without visual requirements - using simple hardcoded steps")
-                return await self._generate_steps_simple_chrome()
-            else:
-                logger.info("Detected Chrome goal WITH visual clicking requirements - using proper visual analysis")
-                return await self._generate_steps_chrome_visual()
+        # Generate steps using LLM reasoning only - no hardcoded application logic
         
         # Skip automatic screenshot capture - only take screenshots when explicitly requested by LLM
         visual_analysis_output = "No visual context - screenshot will be taken when needed during execution"
@@ -642,24 +947,6 @@ class AutomoyOperator:
         self.thinking_process_output = self.thinking_process_output if hasattr(self, 'thinking_process_output') else None # Ensure initialized
 
         try:
-            # Check if this is a Chrome icon click step with stored coordinates
-            current_step = self.steps[current_step_index] if current_step_index < len(self.steps) else {}
-            if (current_step.get("action_type") == "click" and 
-                current_step.get("target") == "chrome_icon_coordinates" and 
-                hasattr(self, 'chrome_icon_coordinates') and 
-                self.chrome_icon_coordinates):
-                
-                x, y = self.chrome_icon_coordinates
-                logger.info(f"Using stored Chrome coordinates for click: ({x}, {y})")
-                await self._update_gui_state_func("/state/thinking", {"text": f"Using previously detected Chrome coordinates: ({x}, {y})"})
-                
-                return {
-                    "type": "click",
-                    "coordinate": {"x": x, "y": y},
-                    "summary": f"Click Chrome icon at detected coordinates ({x}, {y})",
-                    "confidence": 90
-                }
-            
             # Skip automatic screenshot capture - only take screenshots when explicitly requested
             await self._update_gui_state_func("/state/current_operation", {"text": f"Generating action for step: {current_step_description}"})
             
@@ -690,185 +977,92 @@ class AutomoyOperator:
             await self._update_gui_state_func("/state/operator_status", {"text": f"Formulating action for step {current_step_index + 1} (Attempt {step_retry_count + 1})"}) # MODIFIED (payload key)
 
             try:
-                # === ENHANCED CHROME DETECTION USING OMNIPARSER ===
-                # Check if this is a Chrome-related goal
-                if ("chrome" in self.objective.lower() and 
-                    ("click" in current_step_description.lower() or "launch" in current_step_description.lower() or 
-                     "screenshot" in current_step_description.lower() or "icon" in current_step_description.lower())):
-                    
-                    logger.info("Chrome goal detected - attempting direct coordinate detection with OmniParser")
-                    await self._update_gui_state_func("/state/thinking", {"text": "Chrome goal detected - attempting to find Chrome icon using OmniParser..."})
-                    
-                    try:
-                        if self.omniparser:
-                            # Capture screenshot for OmniParser analysis
-                            from core.utils.screenshot_utils import capture_screen_pil
-                            import tempfile
-                            import os
-                            
-                            screenshot = capture_screen_pil()
-                            if screenshot:
-                                # Save to temporary file (OmniParser expects file path, not PIL Image)
-                                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
-                                    temp_path = temp_file.name
-                                    screenshot.save(temp_path)
-                                    logger.info(f"Screenshot saved to temporary file for OmniParser: {temp_path}")
-                                
-                                try:
-                                    # Parse screenshot with OmniParser
-                                    parsed_result = self.omniparser.parse_screenshot(temp_path)
-                                    
-                                    if parsed_result and "parsed_content_list" in parsed_result:
-                                        elements = parsed_result.get("parsed_content_list", [])
-                                        logger.info(f"OmniParser found {len(elements)} UI elements")
-                                        await self._update_gui_state_func("/state/thinking", 
-                                            {"text": f"OmniParser analysis complete - found {len(elements)} elements, searching for Chrome..."})
-                                        
-                                        # Get screen dimensions for coordinate conversion
-                                        import pyautogui
-                                        screen_width, screen_height = pyautogui.size()
-                                        
-                                        # Search for Chrome icon with comprehensive criteria
-                                        chrome_coords = None
-                                        chrome_candidates = []
-                                        
-                                        for i, element in enumerate(elements):
-                                            element_text = element.get("content", "").lower()
-                                            element_type = element.get("type", "").lower()
-                                            bbox = element.get("bbox_normalized", [])
-                                            interactive = element.get("interactivity", False)
-                                            
-                                            # Log elements for debugging
-                                            if element_text or element_type == "icon" or interactive:
-                                                logger.info(f"  Element {i}: '{element_text}' type='{element_type}' interactive={interactive}")
-                                            
-                                            # Enhanced Chrome detection criteria
-                                            is_chrome_candidate = (
-                                                "chrome" in element_text or
-                                                "google chrome" in element_text or
-                                                "google" in element_text or
-                                                ("browser" in element_text) or
-                                                (element_type == "icon" and interactive) or
-                                                (element_type == "button" and any(term in element_text for term in ["chrome", "browser", "google"]))
-                                            )
-                                            
-                                            if is_chrome_candidate:
-                                                chrome_candidates.append((i, element))
-                                                logger.info(f"  ★ Chrome candidate found: '{element_text}' (type: {element_type})")
-                                                
-                                                if bbox and not all(x == 0 for x in bbox):
-                                                    # Convert normalized coordinates to pixels
-                                                    x1 = int(bbox[0] * screen_width)
-                                                    y1 = int(bbox[1] * screen_height)
-                                                    x2 = int(bbox[2] * screen_width)
-                                                    y2 = int(bbox[3] * screen_height)
-                                                    center_x = int((x1 + x2) / 2)
-                                                    center_y = int((y1 + y2) / 2)
-                                                    chrome_coords = (center_x, center_y)
-                                                    
-                                                    logger.info(f"  ✓ Valid Chrome coordinates found: ({center_x}, {center_y})")
-                                                    await self._update_gui_state_func("/state/thinking", 
-                                                        {"text": f"Chrome icon found at ({center_x}, {center_y}) - creating click action"})
-                                                    break
-                                        
-                                        # If we found valid Chrome coordinates, create click action
-                                        if chrome_coords:
-                                            action_to_execute = {
-                                                "type": "click",
-                                                "coordinate": chrome_coords,
-                                                "x": chrome_coords[0],
-                                                "y": chrome_coords[1],
-                                                "summary": f"Click Chrome icon at ({chrome_coords[0]}, {chrome_coords[1]}) using OmniParser coordinates",
-                                                "confidence": 95,
-                                                "source": "omniparser_chrome_detection"
-                                            }
-                                            
-                                            logger.info(f"✅ Created Chrome click action: {action_to_execute}")
-                                            await self._update_gui_state_func("/state/thinking", 
-                                                {"text": f"✅ Chrome click action created using OmniParser coordinates!"})
-                                            await self._update_gui_state_func("/state/operations_generated", {
-                                                "operations": [action_to_execute],
-                                                "thinking_process": f"Chrome icon detected at coordinates {chrome_coords} using OmniParser"
-                                            })
-                                            
-                                            self.last_proposed_action = action_to_execute
-                                            return action_to_execute
-                                        else:
-                                            logger.warning(f"Chrome candidates found ({len(chrome_candidates)}) but no valid coordinates")
-                                            await self._update_gui_state_func("/state/thinking", 
-                                                {"text": f"Found {len(chrome_candidates)} Chrome candidates but no valid coordinates"})
-                                    else:
-                                        logger.warning("OmniParser returned no results or missing parsed_content_list")
-                                        
-                                        # Try coordinate fallback for Chrome before keyboard approach
-                                        if any(keyword in current_step_description.lower() for keyword in ['chrome', 'browser']):
-                                            logger.info("Attempting Chrome coordinate fallback testing")
-                                            await self._update_gui_state_func("/state/thinking", 
-                                                {"text": "OmniParser found no elements - trying Chrome coordinate fallback"})
-                                            
-                                            # Define test coordinates for common Chrome locations
-                                            test_coordinates = [
-                                                (250, 100), (300, 100), (350, 100), (400, 100),
-                                                (100, 200), (150, 200), (200, 200), (250, 200)
-                                            ]
-                                            
-                                            # Use the current step index to determine which coordinate to try
-                                            coord_index = getattr(self, 'chrome_coord_index', 0)
-                                            if coord_index < len(test_coordinates):
-                                                x, y = test_coordinates[coord_index]
-                                                
-                                                action_to_execute = {
-                                                    "type": "click",
-                                                    "coordinate": {"x": x, "y": y},
-                                                    "x": x,
-                                                    "y": y,
-                                                    "summary": f"Testing Chrome coordinate fallback at ({x}, {y})",
-                                                    "confidence": 70,
-                                                    "source": "coordinate_fallback"
-                                                }
-                                                
-                                                # Increment for next attempt
-                                                self.chrome_coord_index = coord_index + 1
-                                                
-                                                logger.info(f"✅ Created Chrome coordinate fallback: {action_to_execute}")
-                                                await self._update_gui_state_func("/state/thinking", 
-                                                    {"text": f"Testing Chrome at fallback coordinates ({x}, {y})"})
-                                                
-                                                self.last_proposed_action = action_to_execute
-                                                return action_to_execute
-                                            else:
-                                                # Reset coordinate index and fall back to keyboard
-                                                self.chrome_coord_index = 0
-                                                await self._update_gui_state_func("/state/thinking", 
-                                                    {"text": "All coordinate fallbacks tried - using keyboard approach"})
-                                        else:
-                                            await self._update_gui_state_func("/state/thinking", 
-                                                {"text": "OmniParser found no UI elements - falling back to keyboard approach"})
-                                
-                                finally:
-                                    # Cleanup temporary file
-                                    try:
-                                        if os.path.exists(temp_path):
-                                            os.unlink(temp_path)
-                                    except Exception:
-                                        pass
-                            else:
-                                logger.error("Failed to capture screenshot for Chrome detection")
-                        else:
-                            logger.warning("OmniParser not available for Chrome detection")
-                            
-                    except Exception as chrome_error:
-                        logger.error(f"Chrome detection failed: {chrome_error}", exc_info=True)
-                        await self._update_gui_state_func("/state/thinking", 
-                            {"text": f"Chrome detection error: {chrome_error} - continuing with normal action generation"})
-                    
-                    # Chrome detection completed - continue with normal flow if no action was created
-                    logger.info("Chrome detection completed - continuing with LLM-based action generation")
+                # === FRESH VISUAL ANALYSIS FOR ACTION GENERATION ===
+                # Always take fresh screenshot and analyze before asking LLM for action
+                logger.info("Taking fresh screenshot and performing visual analysis for action generation")
+                await self._update_gui_state_func("/state/thinking", {"text": "Taking fresh screenshot and analyzing current screen for action generation..."})
                 
-                # === END CHROME DETECTION ===
+                try:
+                    # Take screenshot for current visual state  
+                    screenshot_path = await self._take_screenshot(f"Action generation step {current_step_index + 1}")
+                    
+                    if screenshot_path and self.omniparser:
+                        logger.info("Performing visual analysis for action generation")
+                        
+                        # Perform visual analysis on current screen
+                        logger.info(f"[DEBUG VISUAL ANALYSIS] Calling _perform_visual_analysis with screenshot: {screenshot_path}")
+                        _, visual_analysis_result = await self._perform_visual_analysis(
+                            screenshot_path, f"Action generation for: {current_step_description}")
+                        
+                        logger.info(f"[DEBUG VISUAL ANALYSIS] Visual analysis returned: {visual_analysis_result}")
+                        logger.info(f"[DEBUG VISUAL ANALYSIS] Has parsed_content_list attr: {hasattr(self, 'parsed_content_list')}")
+                        if hasattr(self, 'parsed_content_list'):
+                            logger.info(f"[DEBUG VISUAL ANALYSIS] parsed_content_list length: {len(self.parsed_content_list) if self.parsed_content_list else 0}")
+                            logger.info(f"[DEBUG VISUAL ANALYSIS] parsed_content_list content: {self.parsed_content_list[:2] if self.parsed_content_list else None}")
+                        
+                        # Update visual analysis output if we got results
+                        if hasattr(self, 'parsed_content_list') and self.parsed_content_list:
+                            logger.info(f"Visual analysis found {len(self.parsed_content_list)} elements for action generation")
+                            await self._update_gui_state_func("/state/thinking", 
+                                {"text": f"Visual analysis found {len(self.parsed_content_list)} UI elements on screen - ready for LLM analysis"})
+                            
+                            # Format elements for LLM consumption  
+                            formatted_elements = []
+                            text_snippets = []
+                            visual_analysis_text = []
+                            
+                            for i, element in enumerate(self.parsed_content_list):
+                                element_dict = {}
+                                if element.get("content"):
+                                    element_dict["text"] = element["content"]
+                                    text_snippets.append(element["content"])
+                                if element.get("type"):
+                                    element_dict["type"] = element["type"]
+                                if element.get("bbox_normalized"):
+                                    bbox = element["bbox_normalized"]
+                                    # Convert normalized bbox to pixel coordinates
+                                    screen_width, screen_height = 1920, 1080  # Default assumption
+                                    x1, y1, x2, y2 = bbox
+                                    pixel_x = int((x1 + x2) / 2 * screen_width)
+                                    pixel_y = int((y1 + y2) / 2 * screen_height)
+                                    element_dict["coordinates"] = [pixel_x, pixel_y]
+                                    
+                                    # Format for LLM as expected in prompt template
+                                    element_text = element.get("content", "")
+                                    element_type = element.get("type", "unknown")
+                                    visual_analysis_text.append(f"element_{i+1}: Text: '{element_text}' | Type: {element_type} | ClickCoordinates: ({pixel_x}, {pixel_y})")
+                                
+                                formatted_elements.append(element_dict)
+                            
+                            # Store formatted analysis for LLM
+                            self.visual_analysis_output = {
+                                "elements": formatted_elements,
+                                "text_snippets": text_snippets,
+                                "formatted_text": "\n".join(visual_analysis_text)
+                            }
+                            
+                            logger.info(f"Updated visual analysis with {len(formatted_elements)} elements for LLM action generation")
+                        else:
+                            logger.warning("No elements found in visual analysis")
+                            self.visual_analysis_output = {"elements": [], "text_snippets": [], "formatted_text": "No visual elements detected on current screen."}
+                            await self._update_gui_state_func("/state/thinking", 
+                                {"text": "Visual analysis completed but no UI elements detected on current screen"})
+                    else:
+                        logger.warning("Failed to capture screenshot or OmniParser not available")
+                        self.visual_analysis_output = {"elements": [], "text_snippets": [], "formatted_text": "Screenshot capture failed - no visual analysis available."}
+                        await self._update_gui_state_func("/state/thinking", 
+                            {"text": "Failed to capture screenshot - proceeding without visual analysis"})
+                        
+                except Exception as visual_error:
+                    logger.error(f"Error during visual analysis for action generation: {visual_error}", exc_info=True)
+                    self.visual_analysis_output = {"elements": [], "text_snippets": [], "formatted_text": "Visual analysis failed due to error."}
+                    await self._update_gui_state_func("/state/thinking", 
+                        {"text": f"Visual analysis error: {visual_error} - proceeding without visual context"})
+                
+                # === END FRESH VISUAL ANALYSIS ===
                 
                 system_prompt_action = ACTION_GENERATION_SYSTEM_PROMPT
-                previous_action = self.executed_steps[-1]["summary"] if self.executed_steps else "N/A" # CORRECTED
+                previous_action = self.executed_steps[-1]["summary"] if self.executed_steps else "N/A"
                 
                 user_prompt_action = self.llm_interface.construct_action_prompt(
                     objective=self.objective,
@@ -908,12 +1102,15 @@ class AutomoyOperator:
                 self._current_thinking_stream = ""
                 await self._update_gui_state_func("/state/thinking", {"text": ""})
                 
+                # Take fresh screenshot for LLM action generation
+                screenshot_path = await self._take_screenshot(f"Action generation for step {current_step_index + 1}")
+                
                 raw_llm_response, thinking_output, llm_error = await self.llm_interface.get_next_action(
                     model=self.config.get_model(),
                     messages=messages_action,
                     objective=self.objective,
                     session_id=self.session_id,
-                    screenshot_path=None,  # Visual analysis disabled
+                    screenshot_path=screenshot_path,  # Enable visual analysis
                     thinking_callback=thinking_stream_callback  # Add streaming callback
                 )
                 
@@ -1062,6 +1259,12 @@ class AutomoyOperator:
     async def operate_loop(self):
         logger.info("AutomoyOperator.operate_loop started.")
         await self._update_gui_state_func("/state/operator_status", {"text": "Starting Operator..."}) # MODIFIED (payload key)
+        
+        # Initialize operator for standard goal execution
+        logger.info("🖥️ Initializing operator for goal execution")
+        await self._update_gui_state_func("/state/thinking", {"text": "Starting operator - ready to execute goal through proper reasoning and visual analysis"})
+        
+        await self._update_gui_state_func("/state/thinking", {"text": "Operator initialization complete - ready to proceed with objective through LLM reasoning"})
         # Ensure step_retry_count is defined if used directly in this loop for step execution retries,
         # but it seems action generation retries are self-contained in _get_action_for_current_step.
         # action_to_execute will be defined before use in the loop.
@@ -1075,9 +1278,65 @@ class AutomoyOperator:
                 # Clear thinking display for LLM output
                 await self._update_gui_state_func("/state/thinking", {"text": ""})
                 
-                # Skip visual analysis - go directly to step generation
+                # Take screenshot and perform visual analysis for better step generation
+                await self._update_gui_state_func("/state/current_operation", {"text": "Taking screenshot for visual analysis to generate better steps"})
+                
+                try:
+                    # Take screenshot for visual analysis
+                    screenshot_path = await self._take_screenshot("Initial visual analysis for step generation")
+                    if screenshot_path:
+                        # Perform visual analysis
+                        _, visual_analysis_result = await self._perform_visual_analysis(screenshot_path, "Initial step generation")
+                        
+                        # Use the stored parsed content from visual analysis
+                        if hasattr(self, 'parsed_content_list') and self.parsed_content_list:
+                            # Format elements for LLM consumption using the stored parsed data
+                            formatted_elements = []
+                            text_snippets = []
+                            visual_analysis_text = []
+                            
+                            for i, element in enumerate(self.parsed_content_list):
+                                element_dict = {}
+                                if element.get("content"):
+                                    element_dict["text"] = element["content"]
+                                    text_snippets.append(element["content"])
+                                if element.get("type"):
+                                    element_dict["type"] = element["type"]
+                                if element.get("bbox_normalized"):
+                                    bbox = element["bbox_normalized"]
+                                    # Convert normalized bbox to pixel coordinates
+                                    # Assuming standard screen size - this should be improved
+                                    screen_width, screen_height = 1920, 1080  # Default assumption
+                                    x1, y1, x2, y2 = bbox
+                                    pixel_x = int((x1 + x2) / 2 * screen_width)
+                                    pixel_y = int((y1 + y2) / 2 * screen_height)
+                                    element_dict["coordinates"] = [pixel_x, pixel_y]
+                                    
+                                    # Format for LLM as expected in prompt template
+                                    element_text = element.get("content", "")
+                                    element_type = element.get("type", "unknown")
+                                    visual_analysis_text.append(f"element_{i+1}: Text: '{element_text}' | Type: {element_type} | ClickCoordinates: ({pixel_x}, {pixel_y})")
+                                
+                                formatted_elements.append(element_dict)
+                            
+                            # Store both formats - dictionary for internal use, formatted text for LLM
+                            self.visual_analysis_output = {
+                                "elements": formatted_elements,
+                                "text_snippets": text_snippets,
+                                "formatted_text": "\n".join(visual_analysis_text)
+                            }
+                            logger.info(f"Visual analysis complete: {len(formatted_elements)} elements found for step generation")
+                        else:
+                            logger.warning("No parsed content available from visual analysis")
+                            self.visual_analysis_output = {"elements": [], "text_snippets": []}
+                    else:
+                        logger.warning("Failed to take screenshot for visual analysis")
+                        self.visual_analysis_output = {"elements": [], "text_snippets": []}
+                except Exception as visual_error:
+                    logger.error(f"Error during visual analysis: {visual_error}", exc_info=True)
+                    self.visual_analysis_output = {"elements": [], "text_snippets": []}
+                
                 await self._update_gui_state_func("/state/current_operation", {"text": "Requesting LLM to generate step-by-step plan for objective"})
-                self.visual_analysis_output = {"elements": [], "text_snippets": []}  # Empty visual analysis
                 
                 # Generate initial thinking process
                 await self._update_gui_state_func("/state/thinking", {"text": "Generating initial thinking process for objective"})
@@ -1214,24 +1473,14 @@ class AutomoyOperator:
                     self.current_step_index += 1
                     continue
                 elif action_type == "visual_search":
-                    # Handle visual search actions - specifically look for Chrome
+                    # Handle visual search actions generically - no hardcoded Chrome logic
                     target = action_to_execute.get("target", "")
                     logger.info(f"Visual search action for: {target}")
                     await self._update_gui_state_func("/state/thinking", {"text": f"Visual search initiated for {target}"})
                     
-                    if target == "chrome_icon":
-                        # Perform Chrome icon detection
-                        chrome_coords = await self._find_chrome_icon_coordinates()
-                        if chrome_coords:
-                            # Store coordinates for next step to use
-                            self.chrome_icon_coordinates = chrome_coords
-                            await self._update_gui_state_func("/state/thinking", {"text": f"Chrome icon found at coordinates: {chrome_coords}"})
-                            execution_details = f"Chrome icon located at {chrome_coords}"
-                        else:
-                            await self._update_gui_state_func("/state/thinking", {"text": "Chrome icon not found on current screen"})
-                            execution_details = "Chrome icon not detected - may need to show desktop first"
-                    else:
-                        execution_details = f"Visual search completed for: {target}"
+                    # Let LLM handle visual search through normal action generation
+                    # No hardcoded Chrome detection - everything should go through proper visual analysis
+                    execution_details = f"Visual search action processed for: {target}"
                     
                     self.current_step_index += 1
                     continue
@@ -1240,8 +1489,54 @@ class AutomoyOperator:
                     await self._update_gui_state_func("/state/thinking", {"text": f"Executing action: {action_to_execute.get('type', 'unknown')} - {action_to_execute.get('summary', 'No description')}"})
                     execution_details = self.action_executor.execute(action_to_execute)
                     
-                    # Return to desktop anchor after real UI actions (but not after screenshots)
-                    if action_type in ["key", "key_sequence", "type", "click"]:
+                    # Special handling for Windows key press - wait and take follow-up screenshot
+                    if (action_to_execute.get("type") == "key" and 
+                        action_to_execute.get("key") == "win"):
+                        
+                        logger.info("🔍 Windows key pressed - waiting for Start menu and taking follow-up screenshot")
+                        await self._update_gui_state_func("/state/thinking", {"text": "Windows key pressed - waiting for Start menu to appear and taking follow-up screenshot"})
+                        
+                        # Wait for Start menu to appear
+                        await asyncio.sleep(2)
+                        
+                        # Take immediate follow-up screenshot to see Start menu
+                        followup_screenshot_path = await self._take_screenshot("After Windows key press")
+                        if followup_screenshot_path and followup_screenshot_path.exists():
+                            logger.info(f"✅ Follow-up screenshot after Windows key: {followup_screenshot_path}")
+                            
+                            # Analyze the Start menu screen
+                            if self.omniparser:
+                                try:
+                                    parsed_result = self.omniparser.parse_screenshot(str(followup_screenshot_path))
+                                    if parsed_result and "parsed_content_list" in parsed_result:
+                                        elements = parsed_result["parsed_content_list"]
+                                        logger.info(f"🔍 Start menu analysis: found {len(elements)} elements")
+                                        
+                                        # Look for Chrome in Start menu
+                                        chrome_found = False
+                                        for element in elements:
+                                            content = str(element.get("content", "")).lower()
+                                            if "chrome" in content:
+                                                logger.info(f"🎯 Found Chrome in Start menu: {element}")
+                                                chrome_found = True
+                                        
+                                        if chrome_found:
+                                            await self._update_gui_state_func("/state/thinking", {"text": f"✅ Start menu opened successfully! Found Chrome in menu among {len(elements)} elements"})
+                                        else:
+                                            await self._update_gui_state_func("/state/thinking", {"text": f"Start menu opened with {len(elements)} elements, but Chrome not immediately visible. May need to type or scroll."})
+                                    else:
+                                        await self._update_gui_state_func("/state/thinking", {"text": "Start menu screenshot taken but analysis returned empty - visual analysis may have issues"})
+                                except Exception as analysis_error:
+                                    logger.error(f"Start menu analysis error: {analysis_error}")
+                                    await self._update_gui_state_func("/state/thinking", {"text": f"Start menu analysis error: {analysis_error}"})
+                            else:
+                                await self._update_gui_state_func("/state/thinking", {"text": "Start menu should be open but cannot analyze - OmniParser not available"})
+                        else:
+                            logger.warning("⚠️ Could not capture follow-up screenshot after Windows key")
+                            await self._update_gui_state_func("/state/thinking", {"text": "Windows key executed but follow-up screenshot failed"})
+                    
+                    # Return to desktop anchor after real UI actions (but not after screenshots or special Windows key handling)
+                    elif action_type in ["key_sequence", "type", "click"]:
                         await asyncio.sleep(0.5)  # Allow action to complete
                         await self._ensure_desktop_anchor()
                 
@@ -1322,99 +1617,9 @@ class AutomoyOperator:
             await self._update_gui_state_func("/state/thinking", {"text": f"Operation stopped at step {self.current_step_index + 1} of {len(self.steps)} due to errors"})
             await self._update_gui_state_func("/state/current_operation", {"text": f"Operation stopped - {self.current_step_index} of {len(self.steps)} steps completed"})
     
-    async def _generate_steps_simple_chrome(self):
-        """Generate simple hardcoded steps for opening Chrome via Start menu - fallback only"""
-        logger.info("Using simple hardcoded Chrome steps for keyboard shortcut method...")
-        
-        # Create simple, well-formed steps
-        self.steps = [
-            {
-                "step_number": 1,
-                "description": "Press Windows key to open Start menu",
-                "action_type": "key",
-                "target": "win",
-                "verification": "Start menu is visible"
-            },
-            {
-                "step_number": 2,
-                "description": "Type 'chrome' to search for Chrome browser",
-                "action_type": "type",
-                "target": "chrome",
-                "verification": "Chrome appears in search results"
-            },
-            {
-                "step_number": 3,
-                "description": "Press Enter to launch Chrome",
-                "action_type": "key",
-                "target": "enter",
-                "verification": "Chrome browser window opens"
-            }
-        ]
-        
-        # Prepare steps for GUI display
-        self.steps_for_gui = [{"description": step["description"]} for step in self.steps]
-        
-        # Update GUI with generated steps
-        await self._update_gui_state_func("/state/steps_generated", {"steps": self.steps_for_gui})
-        await self._update_gui_state_func("/state/current_operation", {"text": f"Generated {len(self.steps)} simple steps for Chrome"})
-        await self._update_gui_state_func("/state/thinking", {"text": "Using hardcoded Chrome steps: Win key -> type 'chrome' -> Enter"})
-        
-        logger.info(f"Generated {len(self.steps)} hardcoded steps for Chrome testing")
-        return True
+    # Removed hardcoded Chrome step generation - all steps now generated by LLM reasoning
     
-    async def _generate_steps_chrome_visual(self):
-        """Generate steps for Chrome using visual analysis and clicking"""
-        logger.info("Generating Chrome steps with visual analysis and clicking...")
-        
-        # Create steps focused on visual detection and clicking
-        self.steps = [
-            {
-                "step_number": 1,
-                "description": "Take screenshot to analyze current desktop state",
-                "action_type": "screenshot",
-                "target": "desktop_analysis",
-                "verification": "Screenshot captured and analyzed"
-            },
-            {
-                "step_number": 2,
-                "description": "Show desktop by minimizing all windows to reveal desktop icons",
-                "action_type": "special",
-                "target": "show_desktop",
-                "verification": "Desktop is visible"
-            },
-            {
-                "step_number": 3,
-                "description": "Take desktop screenshot for Chrome icon detection",
-                "action_type": "screenshot",
-                "target": "chrome_detection",
-                "verification": "Desktop screenshot captured"
-            },
-            {
-                "step_number": 4,
-                "description": "Locate Google Chrome icon using visual analysis",
-                "action_type": "visual_search",
-                "target": "chrome_icon",
-                "verification": "Chrome icon located on screen"
-            },
-            {
-                "step_number": 5,
-                "description": "Click on the Chrome icon to launch browser",
-                "action_type": "click",
-                "target": "chrome_icon_coordinates",
-                "verification": "Chrome browser launches"
-            }
-        ]
-        
-        # Prepare steps for GUI display
-        self.steps_for_gui = [{"description": step["description"]} for step in self.steps]
-        
-        # Update GUI with generated steps
-        await self._update_gui_state_func("/state/steps_generated", {"steps": self.steps_for_gui})
-        await self._update_gui_state_func("/state/current_operation", {"text": f"Generated {len(self.steps)} visual steps for Chrome clicking"})
-        await self._update_gui_state_func("/state/thinking", {"text": "Using visual analysis steps: Show desktop -> Screenshot -> Find Chrome icon -> Click"})
-        
-        logger.info(f"Generated {len(self.steps)} visual analysis steps for Chrome clicking")
-        return True
+    # Removed hardcoded Chrome visual step generation - all steps now generated by LLM reasoning
     
     async def _verify_process_running(self, process_name):
         """Verify if a process is running by name"""
@@ -1436,89 +1641,9 @@ class AutomoyOperator:
             return False
     
     async def _find_chrome_icon_coordinates(self) -> Optional[Tuple[int, int]]:
-        """Find Chrome icon on the screen using visual analysis and return click coordinates."""
-        logger.info("Searching for Chrome icon using visual analysis...")
-        
-        try:
-            # Capture current screen
-            screenshot_pil = await asyncio.to_thread(capture_screen_pil)
-            if not screenshot_pil:
-                logger.error("Failed to capture screenshot for Chrome detection")
-                return None
-            
-            # Save screenshot for analysis
-            screenshot_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-            screenshot_filename = f"chrome_detection_{screenshot_timestamp}.png"
-            screenshot_path = Path("debug/screenshots") / screenshot_filename
-            screenshot_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            await asyncio.to_thread(screenshot_pil.save, str(screenshot_path))
-            logger.info(f"Screenshot saved for Chrome detection: {screenshot_path}")
-            
-            # Perform visual analysis
-            if not self.omniparser:
-                logger.error("OmniParser not available for Chrome detection")
-                return None
-            
-            await self._update_gui_state_func("/state/thinking", {"text": "Analyzing screenshot to locate Chrome icon..."})
-            
-            # Use OmniParser to analyze the screenshot
-            parsed_result = self.omniparser.parse_screenshot(str(screenshot_path))
-            
-            if not parsed_result or "parsed_content_list" not in parsed_result:
-                logger.warning("No visual elements detected in Chrome icon search")
-                return None
-            
-            elements = parsed_result["parsed_content_list"]
-            logger.info(f"Found {len(elements)} elements in Chrome detection analysis")
-            
-            # Search for Chrome-related elements
-            chrome_candidates = []
-            for i, element in enumerate(elements):
-                text = element.get("content", "").lower()
-                element_type = element.get("type", "").lower()
-                
-                # Look for Chrome-related text or icon types
-                chrome_keywords = ["chrome", "google chrome", "google", "browser"]
-                if any(keyword in text for keyword in chrome_keywords):
-                    chrome_candidates.append((element, i, f"text_match: '{text}'"))
-                elif element_type in ["icon", "application", "app"] and "chrome" in str(element).lower():
-                    chrome_candidates.append((element, i, f"type_match: {element_type}"))
-            
-            if not chrome_candidates:
-                logger.info("No Chrome icon found in visual analysis")
-                await self._update_gui_state_func("/state/thinking", {"text": "No Chrome icon detected in current view - may need to check desktop or taskbar"})
-                return None
-            
-            # Select the best Chrome candidate
-            best_candidate = chrome_candidates[0]  # Take the first match for now
-            element, element_index, match_reason = best_candidate
-            
-            logger.info(f"Found Chrome candidate: Element {element_index} - {match_reason}")
-            
-            # Extract coordinates
-            bbox = element.get("bbox_normalized") 
-            if bbox and len(bbox) >= 4:
-                # Convert normalized coordinates to pixel coordinates
-                # Use actual screen dimensions, not screenshot dimensions
-                import pyautogui
-                screen_width, screen_height = pyautogui.size()
-                
-                # bbox_normalized is typically [x1, y1, x2, y2] in normalized form (0-1)
-                x1, y1, x2, y2 = bbox
-                center_x = int((x1 + x2) / 2 * screen_width)
-                center_y = int((y1 + y2) / 2 * screen_height)
-                
-                logger.info(f"Chrome icon coordinates calculated: ({center_x}, {center_y}) [Screen: {screen_width}x{screen_height}]")
-                await self._update_gui_state_func("/state/thinking", {"text": f"Chrome icon found at pixel coordinates: ({center_x}, {center_y})"})
-                
-                return (center_x, center_y)
-            else:
-                logger.warning("Chrome element found but no valid coordinates available")
-               
-                return None
-                
-        except Exception as e:
-            logger.error(f"Error during Chrome icon detection: {e}", exc_info=True)
-            await self._update_gui_state_func("/state/thinking", {"text": f"Chrome detection error: {str(e)}"})
-            return None
+        """
+        Removed hardcoded Chrome detection logic.
+        All icon detection should now use LLM reasoning with visual analysis.
+        """
+        logger.info("Chrome icon detection called - this should not happen with proper LLM reasoning")
+        return None

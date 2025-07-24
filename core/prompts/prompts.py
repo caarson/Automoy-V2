@@ -463,31 +463,37 @@ MANDATORY REQUIREMENTS:
 """
 
 ACTION_GENERATION_USER_PROMPT_TEMPLATE = """
-CURRENT SCREEN ANALYSIS - READ THIS CAREFULLY:
+CURRENT SCREEN ANALYSIS:
 {visual_analysis}
 
-TASK TO EXECUTE: {step_description}
-OBJECTIVE: {objective}
+CURRENT TASK: {step_description}
+OVERALL OBJECTIVE: {objective}
 
-INSTRUCTIONS:
-1. FIRST: Examine the visual analysis above to see what's currently on the screen
-2. FIND: Look for the specific element mentioned in the task (Chrome, browser, application icon, button, etc.)
-3. EXTRACT: Use the EXACT ClickCoordinates provided in the visual analysis for that element
-4. GENERATE: Create a click action using those EXACT coordinates
+ANALYSIS AND REASONING:
+1. ANALYZE THE CURRENT SITUATION: What do you see on the screen based on the visual analysis?
+2. UNDERSTAND THE GOAL: What does the current task require you to accomplish?
+3. IDENTIFY THE TARGET: What specific element or area should you interact with?
+4. CHOOSE THE ACTION: What type of action (click, key, type, etc.) is most appropriate?
+5. EXTRACT COORDINATES: If clicking, use the EXACT ClickCoordinates from the visual analysis
 
-CRITICAL COORDINATE USAGE:
-- Each element in visual analysis has ClickCoordinates: (x, y) in actual pixels
-- You MUST use these exact coordinates, not approximate or guess coordinates
-- If Chrome icon shows ClickCoordinates: (150, 200), use exactly: {{"type": "click", "coordinate": {{"x": 150, "y": 200}}}}
-- Never use placeholder coordinates like (123, 456)
+REASONING PROCESS:
+- First, scan all available elements in the visual analysis
+- Determine which element best matches what you need to accomplish the current task
+- Consider the context: if you need to launch Chrome, look for Chrome icons, taskbar items, or Start Menu options
+- If no relevant element is found, consider alternative approaches like keyboard shortcuts
+- Only use the Windows key as a last resort if absolutely no other option exists
 
-EXAMPLES:
-- If visual analysis shows "element_5: Text: 'Chrome' | ClickCoordinates: (85, 1050)", use: {{"type": "click", "coordinate": {{"x": 85, "y": 1050}}}}
-- If visual analysis shows "element_12: Type: icon | Text: 'Google Chrome' | ClickCoordinates: (200, 150)", use: {{"type": "click", "coordinate": {{"x": 200, "y": 150}}}}
+COORDINATE PRECISION:
+- Each element has ClickCoordinates: (x, y) in pixel coordinates
+- Use EXACT coordinates from the visual analysis, never approximate
+- Example: "element_3: Text: 'Google Chrome' | ClickCoordinates: (150, 300)" → use {{"x": 150, "y": 300}}
 
-CRITICAL: Always use the EXACT ClickCoordinates from the visual analysis - never approximate!
+ACTION TYPES:
+- "click": Click on a specific coordinate {{"type": "click", "coordinate": {{"x": X, "y": Y}}}}
+- "key": Press a keyboard key {{"type": "key", "key": "KEY_NAME"}}
+- "type": Type text {{"type": "type", "text": "TEXT_TO_TYPE"}}
 
-Generate the JSON action now:"""
+Think through your reasoning step by step, then provide the JSON action that best accomplishes the current task:"""
 
 ###############################################################################
 # Prompt for Formulating Objective from User Goal

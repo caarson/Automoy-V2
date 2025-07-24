@@ -290,7 +290,9 @@ async def async_manage_automoy_gui_visibility(target_visibility: bool):
         try:
             if target_visibility:
                 logger.info("Showing PyWebview window via Python API.")
-                webview_window_global.show()
+                # FIXED: Skip the problematic show() call that blocks indefinitely
+                logger.info("Skipping webview_window_global.show() - causes blocking issues")
+                # webview_window_global.show()
             else:
                 logger.info("Hiding PyWebview window via Python API.")
                 webview_window_global.hide()
@@ -373,15 +375,28 @@ async def main_async_operations(stop_event: asyncio.Event):
         from core.utils.omniparser.omniparser_server_manager import OmniParserServerManager
         omniparser_manager = OmniParserServerManager()
         
-        # Check if server is already running
-        if omniparser_manager.is_server_ready():
-            logger.info("OmniParser server is already running")
+        # Check if server is already running by testing both ways
+        logger.info("Checking if OmniParser server is running...")
+        server_running = False
+        
+        # Direct check first
+        try:
+            import requests
+            response = requests.get("http://127.0.0.1:8111/probe/", timeout=5)
+            if response.status_code == 200:
+                logger.info("✅ Found existing OmniParser server running on port 8111")
+                server_running = True
+        except Exception as e:
+            logger.info(f"Direct server check failed: {e}")
+        
+        if server_running:
+            logger.info("Using existing OmniParser server")
             omniparser = omniparser_manager.get_interface()
         else:
-            logger.info("Starting OmniParser server...")
+            logger.info("Starting new OmniParser server...")
             server_process = omniparser_manager.start_server()
             if server_process:
-                if omniparser_manager.wait_for_server(timeout=60):
+                if omniparser_manager.wait_for_server(timeout=120):  # Increased timeout
                     logger.info("OmniParser server started successfully")
                     omniparser = omniparser_manager.get_interface()
                 else:
@@ -395,9 +410,19 @@ async def main_async_operations(stop_event: asyncio.Event):
         omniparser = None
     
     if omniparser:
-        logger.info("OmniParser initialized successfully for visual analysis")
+        logger.info("✅ OmniParser initialized successfully for visual analysis")
+        # Test the connection immediately
+        try:
+            import requests
+            test_response = requests.get("http://127.0.0.1:8111/probe/", timeout=3)
+            if test_response.status_code == 200:
+                logger.info("✅ OmniParser server connection verified")
+            else:
+                logger.warning(f"⚠️ OmniParser server test failed with status: {test_response.status_code}")
+        except Exception as test_error:
+            logger.error(f"❌ OmniParser server connection test failed: {test_error}")
     else:
-        logger.warning("OmniParser initialization failed - visual analysis will be limited")
+        logger.warning("❌ OmniParser initialization failed - visual analysis will be limited")
             
     pause_event = asyncio.Event()
     pause_event.set()  # Start unpaused
@@ -608,47 +633,52 @@ async def main_async_operations(stop_event: asyncio.Event):
 
                     if error:
                         logger.error(f"Error formulating objective: {error}")
-                        logger.info(f"DEBUG: Checking if '{user_goal}' contains 'chrome' (case-insensitive)")
                         
-                        # When LLM fails, provide a simplified objective that the operator can handle with visual analysis
-                        if "chrome" in user_goal.lower():
-                            logger.info("LLM failed for Chrome goal - using simplified objective for visual detection")
-                            final_objective = "Locate and click the Google Chrome icon on the desktop or taskbar to launch the browser application"
-                            
-                            write_state({
-                                "operator_status": "running",
-                                "goal": user_goal,
-                                "objective": final_objective,
-                                "current_step_details": "LLM unavailable - using visual analysis to find Chrome icon",
-                                "current_operation": "Initializing visual analysis for Chrome icon detection",
-                                "thinking": "LLM service unavailable - proceeding with visual element detection",
-                                "llm_error_message": str(error)
-                            })
-                            
-                            if operator:
-                                try:
-                                    operator.set_objective(final_objective)
-                                    logger.info("Operator started with visual analysis objective for Chrome detection")
-                                except Exception as op_exec_err:
-                                    logger.error(f"Exception during operator execution: {op_exec_err}", exc_info=True)
+                        # When LLM fails, just pass the goal as-is to the operator
+                        # The operator should handle all goals through proper reasoning, not hardcoded logic
+                        logger.info("LLM failed to formulate objective - passing user goal directly to operator for reasoning")
+                        final_objective = user_goal  # Use the original goal directly
+                        
+                        write_state({
+                            "operator_status": "running",
+                            "goal": user_goal,
+                            "objective": final_objective,
+                            "current_step_details": "LLM unavailable - operator will reason through goal directly",
+                            "current_operation": "Initializing operator with direct goal reasoning",
+                            "thinking": "LLM service unavailable - operator will handle goal through visual analysis and reasoning",
+                            "llm_error_message": str(error)
+                        })
+                        
+                        if operator:
+                            try:
+                                operator.original_goal = user_goal
+                                operator.set_objective(final_objective)
+                                logger.info("Operator started with direct goal for natural reasoning")
+                            except RuntimeError as e:
+                                error_msg = str(e)
+                                if "Visual analysis detected zero elements" in error_msg or "bad component" in error_msg:
+                                    logger.error(f"❌ CRITICAL COMPONENT FAILURE: {error_msg}")
                                     write_state({
                                         "operator_status": "error",
                                         "goal": user_goal,
-                                        "objective": "Operator execution failed.",
-                                        "current_step_details": str(op_exec_err),
-                                        "llm_error_message": str(op_exec_err)
+                                        "objective": "❌ CRITICAL ERROR: Visual analysis component failure",
+                                        "current_step_details": "No visual elements detected - indicates bad OmniParser component",
+                                        "thinking": "❌ SYSTEM HALTED: Visual analysis detected zero elements, indicating a critical component failure. This prevents safe operation.",
+                                        "llm_error_message": f"Critical component failure: {error_msg}"
                                     })
-                            continue
-                        
-                        # Regular error handling for non-Chrome goals
-                        write_state({
-                            "operator_status": "error",
-                            "goal": user_goal,  # Keep the goal even on error
-                            "objective": "Failed to formulate objective.",
-                            "current_step_details": str(error),
-                            "thinking": f"LLM error during objective formulation: {str(error)}",
-                            "llm_error_message": str(error)
-                        })
+                                    logger.info("Operation halted due to critical visual analysis component failure")
+                                    continue
+                                else:
+                                    raise  # Re-raise other runtime errors
+                            except Exception as op_exec_err:
+                                logger.error(f"Exception during operator execution: {op_exec_err}", exc_info=True)
+                                write_state({
+                                    "operator_status": "error",
+                                    "goal": user_goal,
+                                    "objective": "Operator execution failed.",
+                                    "current_step_details": str(op_exec_err),
+                                    "llm_error_message": str(op_exec_err)
+                                })
                         continue
                     elif objective_text:
                         # Extract the final objective from the LLM response
@@ -673,6 +703,22 @@ async def main_async_operations(stop_event: asyncio.Event):
                                 operator.original_goal = user_goal
                                 operator.set_objective(final_objective)
                                 logger.info("operator.set_objective() called successfully with dynamic loop.")
+                            except RuntimeError as e:
+                                error_msg = str(e)
+                                if "Visual analysis detected zero elements" in error_msg or "bad component" in error_msg:
+                                    logger.error(f"❌ CRITICAL COMPONENT FAILURE: {error_msg}")
+                                    write_state({
+                                        "operator_status": "error",
+                                        "goal": user_goal,
+                                        "objective": "❌ CRITICAL ERROR: Visual analysis component failure",
+                                        "current_step_details": "No visual elements detected - indicates bad OmniParser component",
+                                        "thinking": "❌ SYSTEM HALTED: Visual analysis detected zero elements, indicating a critical component failure. This prevents safe operation.",
+                                        "llm_error_message": f"Critical component failure: {error_msg}"
+                                    })
+                                    logger.info("Operation halted due to critical visual analysis component failure")
+                                    continue
+                                else:
+                                    raise  # Re-raise other runtime errors
                             except Exception as op_exec_err:
                                 logger.error(f"Exception during operator.set_objective: {op_exec_err}", exc_info=True)
                                 write_state({

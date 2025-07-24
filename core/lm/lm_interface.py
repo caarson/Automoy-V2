@@ -625,6 +625,17 @@ def handle_llm_response(
             quote_pattern = r'("[\w_]+"\s*:\s*)"([^"]*"[^"]*)"'
             json_str_to_parse = re.sub(quote_pattern, escape_inner_quotes, json_str_to_parse)
             
+            # Specific fix for the exact error pattern we're seeing: "Type \"word" -> "Type \\"word\\""
+            # This handles the case where a quote is escaped but not properly terminated
+            json_str_to_parse = re.sub(r'(["\s:])"([^"]*\\")([^"]*)"', r'\1"\2\3"', json_str_to_parse)
+            
+            # Fix the specific problematic pattern: \"Chrome" -> \\"Chrome\\"
+            # Look for escaped quotes that should be double-escaped within string values
+            json_str_to_parse = re.sub(r'(:\s*")([^"]*)\\"([^"]*)"([^"]*")', r'\1\2\\\\\3\4', json_str_to_parse)
+            
+            # More direct fix: replace \"Chrome with \\"Chrome\\"
+            json_str_to_parse = re.sub(r'([": ])\\(["])', r'\1\\\\"\2', json_str_to_parse)
+            
             # Remove trailing commas
             json_str_to_parse = re.sub(r',(\s*[}\]])', r'\1', json_str_to_parse)
             
@@ -909,11 +920,23 @@ class MainInterface:
         """
         from core.prompts.prompts import ACTION_GENERATION_USER_PROMPT_TEMPLATE
         
+        # Format visual analysis for LLM consumption
+        visual_analysis_text = "No visual analysis available"
+        if visual_analysis_output:
+            if isinstance(visual_analysis_output, dict) and "formatted_text" in visual_analysis_output:
+                # Use the properly formatted text for LLM
+                visual_analysis_text = visual_analysis_output["formatted_text"]
+            elif isinstance(visual_analysis_output, str):
+                visual_analysis_text = visual_analysis_output
+            else:
+                # Fallback to string representation
+                visual_analysis_text = str(visual_analysis_output)
+        
         # Use the proper template and format it with the required variables
         return ACTION_GENERATION_USER_PROMPT_TEMPLATE.format(
             step_description=current_step_description,
             objective=objective,
-            visual_analysis=visual_analysis_output or "No visual analysis available"
+            visual_analysis=visual_analysis_text
         )
 
     async def llm_request(self, messages, max_tokens=1000, temperature=0.3):
@@ -952,6 +975,22 @@ class MainInterface:
             tuple[str, str, None]: (response_text, session_id, None)
         """
         print(f"[MainInterface] Using model: {model} via API source: {self.api_source}")  # Updated log
+        
+        # Safety check: If a screenshot path is provided, validate that visual analysis will work
+        if screenshot_path:
+            try:
+                # Basic validation - check if screenshot exists and has reasonable size
+                import os
+                if not os.path.exists(screenshot_path):
+                    print(f"[WARNING] Screenshot path does not exist: {screenshot_path}")
+                else:
+                    file_size = os.path.getsize(screenshot_path)
+                    if file_size < 1000:  # Less than 1KB is suspicious for a screenshot
+                        print(f"[WARNING] Screenshot file size suspiciously small: {file_size} bytes")
+                    else:
+                        print(f"[INFO] Screenshot validation passed: {file_size} bytes")
+            except Exception as e:
+                print(f"[WARNING] Screenshot validation error: {e}")
 
         if self.api_source == "openai":
             # call_openai_model now returns a string (either JSON string for actions, or plain text for other stages)

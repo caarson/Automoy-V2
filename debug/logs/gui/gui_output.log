@@ -1,3 +1,3 @@
-2025-07-18 22:26:41,547 - GUI - INFO - [gui.<module>:48] - GUI Logging initialized.
-2025-07-18 22:26:41,555 - GUI - INFO - [gui.<module>:178] - Starting GUI script directly with args: Namespace(host='127.0.0.1', port=8001)
-2025-07-18 22:26:41,555 - GUI - INFO - [gui.run_gui:161] - Attempting to start Uvicorn on 127.0.0.1:8001 with 1 worker
+2025-07-22 20:57:48,600 - GUI - INFO - [gui.<module>:48] - GUI Logging initialized.
+2025-07-22 20:57:48,603 - GUI - INFO - [gui.<module>:178] - Starting GUI script directly with args: Namespace(host='127.0.0.1', port=8001)
+2025-07-22 20:57:48,603 - GUI - INFO - [gui.run_gui:161] - Attempting to start Uvicorn on 127.0.0.1:8001 with 1 worker

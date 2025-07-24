@@ -1,0 +1,6 @@
+{
+  "goal": "Go to desktop and take a screenshot to detect Google Chrome icon coordinates",
+  "objective": "Navigate to the desktop view, capture a screenshot, use visual analysis to identify Google Chrome application icon, and report the exact coordinates where the icon can be clicked. This is for testing OmniParser's ability to detect desktop icons after fresh installation.",
+  "max_steps": 5,
+  "expected_outcome": "Desktop screenshot captured with Google Chrome icon detected and clickable coordinates identified"
+}

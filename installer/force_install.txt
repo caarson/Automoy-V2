@@ -10,4 +10,3 @@ fastapi
 pywebview
 httpx
 sse-starlette
-pywebview
